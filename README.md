@@ -2,80 +2,103 @@
 
 ## Descripción del Proyecto
 
-**Comercio Fácil México** es una plataforma digital de comercio electrónico desarrollada como proyecto académico, cuyo objetivo es **facilitar la conexión entre proveedores y pequeños comerciantes en México**, simplificando el proceso de compra, venta y seguimiento de pedidos.
+**Comercio Fácil México** es una plataforma digital de comercio electrónico desarrollada como proyecto académico, enfocada en **facilitar la intermediación entre proveedores y pequeños comerciantes en México**.
 
-La plataforma está pensada para pequeños negocios como tienditas, puestos de tianguis, comerciantes ambulantes y emprendedores, quienes suelen enfrentar dificultades al adquirir productos al por mayor o tratar con intermediarios. Comercio Fácil México busca reducir estas barreras mediante una solución tecnológica sencilla, accesible y centralizada.
+El sistema busca simplificar la gestión de productos, pedidos, inventarios y envíos mediante una **API REST**, permitiendo a los usuarios realizar operaciones comerciales de forma clara, organizada y accesible.
 
 ---
 
 ## Objetivo General
 
-Desarrollar una plataforma digital que permita la intermediación comercial entre proveedores y pequeños comerciantes en México, facilitando la gestión de productos, pedidos y seguimiento de compras de manera clara y eficiente.
+Desarrollar una plataforma digital que facilite el comercio entre proveedores y pequeños comerciantes en México, optimizando el proceso de gestión de productos, pedidos, pagos y envíos mediante una solución tecnológica centralizada.
 
 ---
 
 ## Objetivos Específicos
 
-- Permitir a los comerciantes consultar productos disponibles de distintos proveedores.
-- Facilitar la realización de pedidos al por mayor desde una sola plataforma.
-- Ofrecer seguimiento del estado de los pedidos en tiempo real.
-- Centralizar la información de compras y pedidos de los usuarios.
-- Proporcionar una interfaz intuitiva y fácil de usar.
+- Gestionar usuarios con distintos roles (administrador, proveedor y comerciante).
+- Permitir el registro y administración de productos y categorías.
+- Controlar inventarios asociados a los productos.
+- Gestionar pedidos y su seguimiento.
+- Administrar direcciones de envío y estados de entrega.
+- Centralizar la lógica de negocio a través de una API REST segura.
 
 ---
 
 ## Alcance del Proyecto
 
-El proyecto contempla:
+Incluye:
+- Backend desarrollado con Node.js y Express.
+- API REST para operaciones CRUD.
+- Autenticación y autorización con middleware.
+- Conexión a base de datos MySQL.
+- Gestión de productos, pedidos, pagos, envíos e inventarios.
 
-- Plataforma web accesible desde navegador.
-- Gestión de usuarios (proveedores y comerciantes).
-- Catálogo de productos.
-- Registro y seguimiento de pedidos.
-- Comunicación básica entre proveedor y cliente.
-- Base de datos para almacenamiento de información.
-
-Quedan fuera del alcance, en esta etapa:
-- Procesamiento de pagos en línea.
-- Integraciones con servicios de paquetería externos.
-- Aplicación móvil nativa.
+No incluye (por ahora):
+- Pagos reales en línea.
+- Integración con servicios externos de paquetería.
+- Aplicación móvil o frontend productivo.
 
 ---
 
 ## Tecnologías Utilizadas
 
-- **Backend:** Node.js con Express  
-- **Base de Datos:** MySQL  
-- **Frontend:** Aplicación web (HTML, CSS, JavaScript / framework en desarrollo)  
-
+- **Node.js**
+- **Express.js**
+- **MySQL**
+- **JWT (JSON Web Tokens)** para autenticación
+- **dotenv** para variables de entorno
+- **Git y GitHub** para control de versiones
 
 ---
 
-## Estructura del Proyecto
+## Estructura del Backend
+
+La estructura del backend está organizada bajo el patrón **MVC (Model–View–Controller)** y separación por responsabilidades:
 
 ```bash
-comercio-facil-mexico/
+backend/
 │
-├── backend/
-│   ├── src/
-│   │   ├── controllers/
-│   │   ├── routes/
-│   │   ├── models/
-│   │   ├── middlewares/
-│   │   └── config/
-│   ├── app.js
-│   └── package.json
+├── src/
+│   ├── config/
+│   │   └── db.js                # Configuración de la base de datos
+│   │
+│   ├── controllers/             # Lógica de negocio
+│   │   ├── auth.controller.js
+│   │   ├── categoria.controller.js
+│   │   ├── direccion.controller.js
+│   │   ├── envio.controller.js
+│   │   ├── inventario.controller.js
+│   │   ├── pago.controller.js
+│   │   ├── pedido.controller.js
+│   │   ├── producto.controller.js
+│   │   ├── proveedor.controller.js
+│   │   └── usuario.controller.js
+│   │
+│   ├── middlewares/             # Middlewares de seguridad
+│   │   ├── auth.js
+│   │   └── admin.js
+│   │
+│   ├── routes/                  # Definición de rutas de la API
+│   │   ├── auth.routes.js
+│   │   ├── categorias.routes.js
+│   │   ├── direccion.routes.js
+│   │   ├── envio.routes.js
+│   │   ├── inventario.routes.js
+│   │   ├── pago.routes.js
+│   │   ├── pedido.routes.js
+│   │   ├── producto.routes.js
+│   │   ├── proveedor.routes.js
+│   │   └── usuario.routes.js
+│   │
+│   ├── utils/                   # Funciones auxiliares
+│   │   └── validators.js
+│   │
+│   ├── app.js                   # Configuración principal de Express
+│   └── server.js                # Punto de arranque del servidor
 │
-├── frontend/
-│   ├── public/
-│   └── src/
-│
-├── database/
-│   └── scripts.sql
-│
-├── docs/
-│   └── projectlibre/
-│
-├── .env.example
-├── .gitignore
+├── node_modules/
+├── .env                         # Variables de entorno
+├── package.json
+├── package-lock.json
 └── README.md
