@@ -118,9 +118,9 @@ exports.getProducto = async (req, res) => {
 //   "activo": 1,
 //   "stock_inicial": 100
 // }
-// POST /api/productos (admin)
+// POST /api/productos (admin o vendedor)
 exports.createProducto = async (req, res) => {
-  const {
+  let {
     proveedor_id,
     categoria_id,
     nombre,
@@ -129,6 +129,18 @@ exports.createProducto = async (req, res) => {
     activo,
     stock_inicial
   } = req.body;
+
+  // Si es vendedor, obtener su proveedor_id automáticamente
+  if (req.user.rol === 'vendedor') {
+    const [provRows] = await pool.query(
+      'SELECT id FROM proveedor WHERE usuario_id = ?',
+      [req.user.id]
+    );
+    if (!provRows.length) {
+      return res.status(403).json({ message: 'El vendedor no tiene un proveedor asociado' });
+    }
+    proveedor_id = provRows[0].id;
+  }
 
   // 1) Campos obligatorios
   if (!proveedor_id || !categoria_id || !nombre || precio == null) {
@@ -237,9 +249,7 @@ exports.createProducto = async (req, res) => {
 };
 
 
-// PUT /api/productos/:id (admin)
-// Permite actualizar datos básicos, no stock
-// PUT /api/productos/:id (admin)
+// PUT /api/productos/:id (admin o vendedor)
 exports.updateProducto = async (req, res) => {
   const id = req.params.id;
   const {
@@ -312,6 +322,15 @@ exports.updateProducto = async (req, res) => {
 
     const actual = existentes[0];
 
+    // Vendedor solo puede editar sus propios productos
+    if (req.user.rol === 'vendedor') {
+      const [provRows] = await conn.query('SELECT id FROM proveedor WHERE usuario_id = ?', [req.user.id]);
+      if (!provRows.length || actual.proveedor_id !== provRows[0].id) {
+        await conn.rollback();
+        return res.status(403).json({ message: 'No puedes editar un producto que no es tuyo' });
+      }
+    }
+
     // Si cambian proveedor/categoría, validar que existan
     if (proveedor_id != null) {
       const [prov] = await conn.query(
@@ -379,19 +398,25 @@ exports.updateProducto = async (req, res) => {
 };
 
 
-// DELETE /api/productos/:id (admin)
-// No borramos físico para no romper FKs en pedido_item.
-// Solo lo marcamos como inactivo (activo = 0).
+// DELETE /api/productos/:id (admin o vendedor)
 exports.deleteProducto = async (req, res) => {
   const id = req.params.id;
 
   try {
     const [existentes] = await pool.query(
-      'SELECT id FROM producto WHERE id = ?',
+      'SELECT id, proveedor_id FROM producto WHERE id = ?',
       [id]
     );
     if (!existentes.length) {
       return res.status(404).json({ message: 'Producto no encontrado' });
+    }
+
+    // Vendedor solo puede desactivar sus propios productos
+    if (req.user.rol === 'vendedor') {
+      const [provRows] = await pool.query('SELECT id FROM proveedor WHERE usuario_id = ?', [req.user.id]);
+      if (!provRows.length || existentes[0].proveedor_id !== provRows[0].id) {
+        return res.status(403).json({ message: 'No puedes desactivar un producto que no es tuyo' });
+      }
     }
 
     await pool.query(

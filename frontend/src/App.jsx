@@ -312,7 +312,7 @@ const PageHeader = ({ title, subtitle, actions }) => (
 
 // ─── TOPBAR (mobile/tablet) ───────────────────────────────────────────────────
 const TopBar = ({ user, onMenuOpen, cartCount, onCartOpen, page }) => {
-  const pageLabels = { catalogo: "Catálogo", "mis-pedidos": "Mis Pedidos", "mis-direcciones": "Mis Direcciones", "mi-perfil": "Mi Perfil", dashboard: "Dashboard", productos: "Productos", "pedidos-admin": "Pedidos", usuarios: "Usuarios", categorias: "Categorías", proveedores: "Proveedores", inventario: "Inventario" };
+  const pageLabels = { catalogo: "Catálogo", "mis-pedidos": "Mis Pedidos", "mis-direcciones": "Mis Direcciones", "mi-perfil": "Mi Perfil", dashboard: "Dashboard", productos: "Productos", "pedidos-admin": "Pedidos", usuarios: "Usuarios", categorias: "Categorías", proveedores: "Proveedores", inventario: "Inventario", "vendedor-dashboard": "Mi Panel", "vendedor-productos": "Mis Productos", "vendedor-pedidos": "Pedidos", "vendedor-perfil": "Mi Perfil" };
   return (
     <div style={{ position: "fixed", top: 0, left: 0, right: 0, height: "var(--topbar-h)", background: "var(--white)", borderBottom: "1px solid var(--gray-200)", display: "flex", alignItems: "center", padding: "0 16px", gap: 12, zIndex: 150, boxShadow: "var(--shadow-sm)" }}>
       <button className="btn-ghost" onClick={onMenuOpen} style={{ padding: 8, flexShrink: 0 }}>
@@ -324,7 +324,7 @@ const TopBar = ({ user, onMenuOpen, cartCount, onCartOpen, page }) => {
         </div>
         <span style={{ fontWeight: 800, fontSize: 15, color: "var(--gray-900)" }}>{pageLabels[page] || "Comercio Fácil"}</span>
       </div>
-      {user?.rol !== "admin" && (
+      {user?.rol === "cliente" && (
         <button onClick={onCartOpen} style={{ position: "relative", background: cartCount > 0 ? "var(--red)" : "var(--gray-100)", border: "none", borderRadius: 10, padding: "8px 10px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, color: cartCount > 0 ? "#fff" : "var(--gray-600)", fontFamily: "'Outfit',sans-serif", fontWeight: 600, fontSize: 13, transition: "all .2s" }}>
           <Icon name="cart" size={18} />
           {cartCount > 0 && <span style={{ fontSize: 13, fontWeight: 700 }}>{cartCount}</span>}
@@ -337,6 +337,7 @@ const TopBar = ({ user, onMenuOpen, cartCount, onCartOpen, page }) => {
 // ─── SIDEBAR ──────────────────────────────────────────────────────────────────
 const Sidebar = ({ user, active, onNav, onLogout, isOpen, onClose, isMobile }) => {
   const isAdmin = user?.rol === "admin";
+  const isVendedor = user?.rol === "vendedor";
   const navItems = isAdmin ? [
     { id: "dashboard", icon: "dashboard", label: "Dashboard" },
     { id: "productos", icon: "package", label: "Productos" },
@@ -345,6 +346,11 @@ const Sidebar = ({ user, active, onNav, onLogout, isOpen, onClose, isMobile }) =
     { id: "categorias", icon: "tag", label: "Categorías" },
     { id: "proveedores", icon: "truck", label: "Proveedores" },
     { id: "inventario", icon: "box", label: "Inventario" },
+  ] : isVendedor ? [
+    { id: "vendedor-dashboard", icon: "dashboard", label: "Mi Panel" },
+    { id: "vendedor-productos", icon: "package", label: "Mis Productos" },
+    { id: "vendedor-pedidos", icon: "shoppingBag", label: "Pedidos" },
+    { id: "vendedor-perfil", icon: "user", label: "Mi Perfil" },
   ] : [
     { id: "catalogo", icon: "store", label: "Catálogo" },
     { id: "mis-pedidos", icon: "shoppingBag", label: "Mis Pedidos" },
@@ -438,10 +444,187 @@ const Sidebar = ({ user, active, onNav, onLogout, isOpen, onClose, isMobile }) =
   );
 };
 
+// ─── VENDEDOR: DASHBOARD ──────────────────────────────────────────────────────
+const VendedorDashboard = ({ token, user }) => {
+  const [stats, setStats] = useState({ productos: 0, pedidos: 0, ingresos: 0 });
+  const [recent, setRecent] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const { isMobile } = useBreakpoint();
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [prods, peds] = await Promise.all([
+          http(`/productos?activo=&proveedor_id=${user.proveedor_id}`, {}, token),
+          http("/pedidos/admin", {}, token),
+        ]);
+        const ingresos = peds.reduce((s, p) => s + parseFloat(p.total || 0), 0);
+        setStats({ productos: prods.length, pedidos: peds.length, ingresos });
+        setRecent(peds.slice(0, 5));
+      } catch (e) { toast(e.message, "error"); }
+      finally { setLoading(false); }
+    })();
+  }, [token, user.proveedor_id]);
+
+  const statCards = [
+    { label: "Productos", value: stats.productos, icon: "package", bg: "var(--red-pale)", color: "var(--red)" },
+    { label: "Pedidos", value: stats.pedidos, icon: "shoppingBag", bg: "#eff6ff", color: "#2563eb" },
+    { label: "Ingresos", value: `$${stats.ingresos.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`, icon: "zap", bg: "#f0fdf4", color: "#16a34a" },
+  ];
+
+  if (loading) return <Spinner />;
+  return (
+    <div className="fade-up">
+      <PageHeader title="Mi Panel" subtitle={`Bienvenido, ${user.nombre}`} />
+      <div style={{ display: "grid", gridTemplateColumns: `repeat(${isMobile ? 1 : 3}, 1fr)`, gap: isMobile ? 10 : 16, marginBottom: 24 }}>
+        {statCards.map(({ label, value, icon, bg, color }) => (
+          <div key={label} className="card" style={{ padding: isMobile ? 14 : 20 }}>
+            <div style={{ width: 38, height: 38, borderRadius: 10, background: bg, display: "flex", alignItems: "center", justifyContent: "center", color, marginBottom: 12 }}>
+              <Icon name={icon} size={19} />
+            </div>
+            <div style={{ fontSize: isMobile ? 22 : 26, fontWeight: 900, color: "var(--gray-900)", letterSpacing: "-.02em" }}>{value}</div>
+            <div style={{ fontSize: 12, color: "var(--gray-500)", marginTop: 2 }}>{label}</div>
+          </div>
+        ))}
+      </div>
+      <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+        <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--gray-100)" }}>
+          <h3 style={{ fontSize: 15, fontWeight: 700 }}>Pedidos recientes</h3>
+        </div>
+        {recent.length === 0 ? <EmptyState icon="cart" title="Sin pedidos aún" sub="" /> : (
+          <div className="table-scroll">
+            <table>
+              <thead><tr><th>#</th><th>Cliente</th><th>Total</th><th>Estado</th><th>Fecha</th></tr></thead>
+              <tbody>{recent.map(p => (
+                <tr key={p.id}>
+                  <td style={{ fontWeight: 700, color: "var(--red)" }}>#{p.id}</td>
+                  <td>{p.usuario_nombre}</td>
+                  <td style={{ fontWeight: 700 }}>${parseFloat(p.total).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</td>
+                  <td>{statusBadge(p.estado)}</td>
+                  <td style={{ color: "var(--gray-500)", fontSize: 13 }}>{new Date(p.fecha).toLocaleDateString("es-MX")}</td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ─── VENDEDOR: PRODUCTOS ──────────────────────────────────────────────────────
+const VendedorProductos = ({ token, user }) => {
+  const [productos, setProductos] = useState([]);
+  const [categorias, setCategorias] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [modal, setModal] = useState(null);
+  const [form, setForm] = useState({ categoria_id: "", nombre: "", descripcion: "", precio: "", activo: 1, stock_inicial: "" });
+  const [search, setSearch] = useState("");
+  const [saving, setSaving] = useState(false);
+  const { isMobile } = useBreakpoint();
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [p, c] = await Promise.all([
+        http(`/productos?activo=&proveedor_id=${user.proveedor_id}`, {}, token),
+        http("/categorias", {}, token),
+      ]);
+      setProductos(p); setCategorias(c);
+    } catch (e) { toast(e.message, "error"); }
+    finally { setLoading(false); }
+  }, [token, user.proveedor_id]);
+
+  useEffect(() => { load(); }, [load]);
+  const set = k => e => setForm(p => ({ ...p, [k]: e.target.value }));
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const body = { ...form, precio: parseFloat(form.precio), categoria_id: parseInt(form.categoria_id) };
+      if (modal === "create") {
+        if (form.stock_inicial !== "") body.stock_inicial = parseInt(form.stock_inicial);
+        await http("/productos", { method: "POST", body: JSON.stringify(body) }, token);
+        toast("Producto creado");
+      } else {
+        await http(`/productos/${modal.id}`, { method: "PUT", body: JSON.stringify(body) }, token);
+        toast("Producto actualizado");
+      }
+      setModal(null); load();
+    } catch (e) { toast(e.message, "error"); }
+    finally { setSaving(false); }
+  };
+
+  const deactivate = async (id) => {
+    if (!confirm("¿Desactivar este producto?")) return;
+    try { await http(`/productos/${id}`, { method: "DELETE" }, token); toast("Producto desactivado"); load(); }
+    catch (e) { toast(e.message, "error"); }
+  };
+
+  const filtered = productos.filter(p => p.nombre.toLowerCase().includes(search.toLowerCase()));
+
+  return (
+    <div className="fade-up">
+      <PageHeader title="Mis Productos" subtitle={`${productos.length} productos`}
+        actions={<Btn onClick={() => { setForm({ categoria_id: "", nombre: "", descripcion: "", precio: "", activo: 1, stock_inicial: "" }); setModal("create"); }}><Icon name="plus" size={16} />{!isMobile && "Nuevo"}</Btn>}
+      />
+      <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+        <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--gray-100)" }}>
+          <div className="search-wrap"><Icon name="search" size={16} /><input placeholder="Buscar..." value={search} onChange={e => setSearch(e.target.value)} /></div>
+        </div>
+        {loading ? <Spinner /> : filtered.length === 0 ? <EmptyState icon="package" title="Sin productos" sub="Agrega tu primer producto" /> : (
+          <div className="table-scroll">
+            <table>
+              <thead><tr><th>Nombre</th>{!isMobile && <th>Categoría</th>}<th>Precio</th><th>Stock</th>{!isMobile && <th>Estado</th>}<th></th></tr></thead>
+              <tbody>{filtered.map(p => (
+                <tr key={p.id}>
+                  <td data-label="Nombre">
+                    <div style={{ fontWeight: 600, color: "var(--gray-900)" }}>{p.nombre}</div>
+                    {isMobile && <div style={{ display: "flex", gap: 6, marginTop: 4, flexWrap: "wrap" }}><span className="badge badge-blue" style={{ fontSize: 11 }}>{p.categoria_nombre}</span>{p.activo ? <span className="badge badge-green" style={{ fontSize: 11 }}>Activo</span> : <span className="badge badge-red" style={{ fontSize: 11 }}>Inactivo</span>}</div>}
+                  </td>
+                  {!isMobile && <td data-label="Categoría"><span className="badge badge-blue">{p.categoria_nombre}</span></td>}
+                  <td data-label="Precio" style={{ fontWeight: 700 }}>${parseFloat(p.precio).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</td>
+                  <td data-label="Stock"><span className={`badge ${p.stock > 10 ? "badge-green" : p.stock > 0 ? "badge-amber" : "badge-red"}`}>{p.stock}</span></td>
+                  {!isMobile && <td data-label="Estado">{p.activo ? <span className="badge badge-green">Activo</span> : <span className="badge badge-red">Inactivo</span>}</td>}
+                  <td data-label="Acciones">
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button className="btn-ghost btn-sm" onClick={() => { setForm({ categoria_id: p.categoria_id, nombre: p.nombre, descripcion: p.descripcion || "", precio: p.precio, activo: p.activo }); setModal(p); }}><Icon name="edit" size={14} /></button>
+                      <button className="btn-danger btn-sm" onClick={() => deactivate(p.id)}><Icon name="trash" size={14} /></button>
+                    </div>
+                  </td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+        )}
+      </div>
+      <Modal open={!!modal} onClose={() => setModal(null)} title={modal === "create" ? "Nuevo Producto" : "Editar Producto"}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <InputField label="Nombre" value={form.nombre} onChange={set("nombre")} placeholder="Nombre del producto" />
+          <SelectField label="Categoría" value={form.categoria_id} onChange={set("categoria_id")}>
+            <option value="">Selecciona...</option>
+            {categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+          </SelectField>
+          <div style={{ display: "grid", gridTemplateColumns: modal === "create" ? "1fr 1fr" : "1fr", gap: 12 }}>
+            <InputField label="Precio (MXN)" type="number" min="0" step="0.01" value={form.precio} onChange={set("precio")} placeholder="0.00" />
+            {modal === "create" && <InputField label="Stock inicial" type="number" min="0" value={form.stock_inicial} onChange={set("stock_inicial")} placeholder="0" />}
+          </div>
+          <div className="input-group"><label className="input-label">Descripción</label><textarea value={form.descripcion} onChange={set("descripcion")} rows={3} style={{ resize: "vertical" }} /></div>
+          <SelectField label="Estado" value={form.activo} onChange={set("activo")}><option value={1}>Activo</option><option value={0}>Inactivo</option></SelectField>
+          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", paddingTop: 14, borderTop: "1px solid var(--gray-100)" }}>
+            <Btn variant="secondary" onClick={() => setModal(null)}>Cancelar</Btn>
+            <Btn onClick={save} disabled={saving}>{saving ? "Guardando..." : "Guardar"}</Btn>
+          </div>
+        </div>
+      </Modal>
+    </div>
+  );
+};
+
 // ─── AUTH ─────────────────────────────────────────────────────────────────────
 const AuthScreen = ({ onLogin }) => {
   const [mode, setMode] = useState("login");
-  const [form, setForm] = useState({ nombre: "", email: "", password: "", telefono: "" });
+  const [form, setForm] = useState({ nombre: "", email: "", password: "", telefono: "", rol: "cliente" });
   const [loading, setLoading] = useState(false);
   const { isMobile } = useBreakpoint();
   const set = (k) => (e) => setForm(p => ({ ...p, [k]: e.target.value }));
@@ -454,7 +637,7 @@ const AuthScreen = ({ onLogin }) => {
         localStorage.setItem("token", data.token); localStorage.setItem("user", JSON.stringify(data.user));
         toast("¡Bienvenido de vuelta!"); onLogin(data.user, data.token);
       } else {
-        const body = { nombre: form.nombre, email: form.email, password: form.password };
+        const body = { nombre: form.nombre, email: form.email, password: form.password, rol: form.rol };
         if (form.telefono) body.telefono = form.telefono;
         const data = await http("/auth/register", { method: "POST", body: JSON.stringify(body) });
         localStorage.setItem("token", data.token); localStorage.setItem("user", JSON.stringify(data.user));
@@ -516,6 +699,22 @@ const AuthScreen = ({ onLogin }) => {
             <InputField label="Correo electrónico" type="email" placeholder="correo@ejemplo.com" value={form.email} onChange={set("email")} />
             <InputField label="Contraseña" type="password" placeholder="••••••••" value={form.password} onChange={set("password")} />
             {mode === "register" && <InputField label="Teléfono (opcional)" placeholder="5512345678" value={form.telefono} onChange={set("telefono")} />}
+            {mode === "register" && (
+              <div>
+                <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--gray-700)", marginBottom: 6 }}>Tipo de cuenta</label>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  {[{ value: "cliente", icon: "user", label: "Cliente", desc: "Compra productos" }, { value: "vendedor", icon: "store", label: "Vendedor", desc: "Vende productos" }].map(({ value, icon, label, desc }) => (
+                    <button key={value} type="button" onClick={() => setForm(p => ({ ...p, rol: value }))} style={{ padding: "12px 10px", border: `2px solid ${form.rol === value ? "var(--red)" : "var(--gray-200)"}`, borderRadius: 10, background: form.rol === value ? "var(--red-pale)" : "var(--white)", cursor: "pointer", textAlign: "left", transition: "all .2s", display: "flex", flexDirection: "column", gap: 4 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <Icon name={icon} size={14} style={{ color: form.rol === value ? "var(--red)" : "var(--gray-400)" }} />
+                        <span style={{ fontSize: 13, fontWeight: 700, color: form.rol === value ? "var(--red)" : "var(--gray-700)" }}>{label}</span>
+                      </div>
+                      <span style={{ fontSize: 11, color: "var(--gray-400)", paddingLeft: 20 }}>{desc}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <button className="btn-primary" onClick={submit} disabled={loading} style={{ width: "100%", padding: 13, fontSize: 15, marginTop: 4, borderRadius: 10, justifyContent: "center" }}>
               {loading ? <><div style={{ width: 17, height: 17, border: "2px solid rgba(255,255,255,.3)", borderTop: "2px solid #fff", borderRadius: "50%", animation: "spin 1s linear infinite" }} />Procesando...</> : mode === "login" ? "Entrar" : "Crear cuenta"}
             </button>
@@ -853,7 +1052,7 @@ const AdminUsuarios = ({ token, currentUser }) => {
                   </td>
                   {!isMobile && <td data-label="Email" style={{ color: "var(--gray-500)", fontSize: 13 }}>{u.email}</td>}
                   {!isMobile && <td data-label="Teléfono" style={{ color: "var(--gray-500)" }}>{u.telefono || "—"}</td>}
-                  <td data-label="Rol"><span className={`badge ${u.rol === "admin" ? "badge-red" : "badge-gray"}`}>{u.rol}</span></td>
+                  <td data-label="Rol"><span className={`badge ${u.rol === "admin" ? "badge-red" : u.rol === "vendedor" ? "badge-blue" : "badge-gray"}`}>{u.rol === "admin" ? "Administrador" : u.rol === "vendedor" ? "Vendedor" : "Cliente"}</span></td>
                   <td>
                     <div style={{ display: "flex", gap: 5 }}>
                       <button className="btn-ghost btn-sm" onClick={() => { setForm({ nombre: u.nombre, email: u.email, telefono: u.telefono || "", rol: u.rol }); setModal(u); }}><Icon name="edit" size={13} /></button>
@@ -871,7 +1070,7 @@ const AdminUsuarios = ({ token, currentUser }) => {
           <InputField label="Nombre" value={form.nombre} onChange={set("nombre")} />
           <InputField label="Email" type="email" value={form.email} onChange={set("email")} />
           <InputField label="Teléfono" value={form.telefono} onChange={set("telefono")} />
-          <SelectField label="Rol" value={form.rol} onChange={set("rol")}><option value="cliente">Cliente</option><option value="admin">Administrador</option></SelectField>
+          <SelectField label="Rol" value={form.rol} onChange={set("rol")}><option value="cliente">Cliente</option><option value="vendedor">Vendedor</option><option value="admin">Administrador</option></SelectField>
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", paddingTop: 14, borderTop: "1px solid var(--gray-100)" }}>
             <Btn variant="secondary" onClick={() => setModal(null)}>Cancelar</Btn>
             <Btn onClick={save} disabled={saving}>{saving ? "Guardando..." : "Guardar"}</Btn>
@@ -1479,7 +1678,7 @@ const ClientPerfil = ({ token, user, onUpdate }) => {
             </div>
             <div style={{ paddingBottom: 4 }}>
               <h3 style={{ fontSize: 17, fontWeight: 800, color: "var(--gray-900)" }}>{user.nombre}</h3>
-              <span className={`badge ${user.rol === "admin" ? "badge-red" : "badge-gray"}`}>{user.rol === "admin" ? "Administrador" : "Cliente"}</span>
+              <span className={`badge ${user.rol === "admin" ? "badge-red" : user.rol === "vendedor" ? "badge-blue" : "badge-gray"}`}>{user.rol === "admin" ? "Administrador" : user.rol === "vendedor" ? "Vendedor" : "Cliente"}</span>
             </div>
           </div>
           <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
@@ -1507,7 +1706,7 @@ const ClientPerfil = ({ token, user, onUpdate }) => {
 export default function App() {
   const [user, setUser] = useState(() => { try { return JSON.parse(localStorage.getItem("user")); } catch { return null; } });
   const [token, setToken] = useState(() => localStorage.getItem("token") || null);
-  const [page, setPage] = useState(() => { const u = (() => { try { return JSON.parse(localStorage.getItem("user")); } catch { return null; } })(); return u?.rol === "admin" ? "dashboard" : "catalogo"; });
+  const [page, setPage] = useState(() => { const u = (() => { try { return JSON.parse(localStorage.getItem("user")); } catch { return null; } })(); return u?.rol === "admin" ? "dashboard" : u?.rol === "vendedor" ? "vendedor-dashboard" : "catalogo"; });
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const [cart, setCart] = useState([]);
@@ -1519,16 +1718,18 @@ export default function App() {
   // Close sidebar on desktop
   useEffect(() => { if (isDesktop) setSidebarOpen(false); }, [isDesktop]);
 
-  const handleLogin = (u, t) => { setUser(u); setToken(t); setPage(u.rol === "admin" ? "dashboard" : "catalogo"); };
+  const handleLogin = (u, t) => { setUser(u); setToken(t); setPage(u.rol === "admin" ? "dashboard" : u.rol === "vendedor" ? "vendedor-dashboard" : "catalogo"); };
   const handleLogout = () => { localStorage.removeItem("token"); localStorage.removeItem("user"); setUser(null); setToken(null); };
 
   if (!user || !token) return <><ToastContainer /><AuthScreen onLogin={handleLogin} /></>;
 
   const cartCount = cart.reduce((s, i) => s + i.qty, 0);
   const isAdmin = user?.rol === "admin";
+  const isCliente = user?.rol === "cliente";
 
   const renderPage = () => {
     switch (page) {
+      // Admin
       case "dashboard": return <AdminDashboard token={token} />;
       case "productos": return <AdminProductos token={token} />;
       case "pedidos-admin": return <AdminPedidos token={token} />;
@@ -1536,6 +1737,12 @@ export default function App() {
       case "categorias": return <AdminCategorias token={token} />;
       case "proveedores": return <AdminProveedores token={token} />;
       case "inventario": return <AdminInventario token={token} />;
+      // Vendedor
+      case "vendedor-dashboard": return <VendedorDashboard token={token} user={user} />;
+      case "vendedor-productos": return <VendedorProductos token={token} user={user} />;
+      case "vendedor-pedidos": return <AdminPedidos token={token} />;
+      case "vendedor-perfil": return <ClientPerfil token={token} user={user} onUpdate={u => setUser(u)} />;
+      // Cliente
       case "catalogo": return <ClientCatalogo token={token} onCartOpen={() => setCartOpen(true)} cart={cart} setCart={setCart} />;
       case "mis-pedidos": return <ClientPedidos token={token} />;
       case "mis-direcciones": return <ClientDirecciones token={token} />;
@@ -1576,7 +1783,7 @@ export default function App() {
       </main>
 
       {/* Cart FAB (mobile/tablet, client only) */}
-      {isSmall && !isAdmin && cartCount > 0 && (
+      {isSmall && isCliente && cartCount > 0 && (
         <button
           onClick={() => setCartOpen(true)}
           style={{ position: "fixed", bottom: 20, right: 16, zIndex: 180, background: "var(--red)", color: "#fff", border: "none", borderRadius: 16, padding: "13px 20px", display: "flex", alignItems: "center", gap: 10, fontFamily: "'Outfit',sans-serif", fontWeight: 700, fontSize: 15, boxShadow: "var(--shadow-red)", cursor: "pointer", animation: "fadeUp .3s ease" }}>
@@ -1586,7 +1793,7 @@ export default function App() {
       )}
 
       {/* Cart Modal */}
-      {!isAdmin && <CartModal open={cartOpen} onClose={() => setCartOpen(false)} cart={cart} setCart={setCart} token={token} />}
+      {isCliente && <CartModal open={cartOpen} onClose={() => setCartOpen(false)} cart={cart} setCart={setCart} token={token} />}
     </>
   );
 }

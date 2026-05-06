@@ -17,12 +17,15 @@ function generarToken(usuario) {
 
 // POST /api/auth/register
 exports.register = async (req, res) => {
-  const { nombre, email, password, telefono } = req.body;
+  const { nombre, email, password, telefono, rol } = req.body;
 
   // 1) Campos obligatorios
   if (!nombre || !email || !password) {
     return res.status(400).json({ message: 'nombre, email y password son obligatorios' });
   }
+
+  // Validar rol (solo cliente o vendedor, nunca admin desde registro)
+  const rolValido = ['cliente', 'vendedor'].includes(rol) ? rol : 'cliente';
 
   // 2) Validar nombre (solo letras y espacios)
   if (!isValidName(nombre)) {
@@ -67,16 +70,28 @@ exports.register = async (req, res) => {
     const password_hash = await bcrypt.hash(password, salt);
 
     const [result] = await pool.query(
-      'INSERT INTO usuario (nombre, email, password_hash, telefono) VALUES (?, ?, ?, ?)',
-      [nombre.trim(), email.toLowerCase().trim(), password_hash, telefono || null]
+      'INSERT INTO usuario (nombre, email, password_hash, telefono, rol) VALUES (?, ?, ?, ?, ?)',
+      [nombre.trim(), email.toLowerCase().trim(), password_hash, telefono || null, rolValido]
     );
 
+    const usuarioId = result.insertId;
+    let proveedor_id = null;
+
+    if (rolValido === 'vendedor') {
+      const [provResult] = await pool.query(
+        'INSERT INTO proveedor (usuario_id, nombre, tipo, contacto_email, telefono) VALUES (?, ?, ?, ?, ?)',
+        [usuarioId, nombre.trim(), 'local', email.toLowerCase().trim(), telefono || null]
+      );
+      proveedor_id = provResult.insertId;
+    }
+
     const nuevoUsuario = {
-      id: result.insertId,
+      id: usuarioId,
       nombre: nombre.trim(),
       email: email.toLowerCase().trim(),
       telefono: telefono || null,
-      rol: 'cliente'
+      rol: rolValido,
+      ...(proveedor_id && { proveedor_id })
     };
 
     const token = generarToken(nuevoUsuario);
@@ -116,10 +131,26 @@ exports.login = async (req, res) => {
       return res.status(401).json({ message: 'Credenciales inválidas' });
     }
 
-    const token = generarToken(usuario);
-
-    // no mandamos password_hash al cliente
     delete usuario.password_hash;
+
+    if (usuario.rol === 'vendedor') {
+      const [provRows] = await pool.query(
+        'SELECT id FROM proveedor WHERE usuario_id = ?',
+        [usuario.id]
+      );
+      if (provRows.length) {
+        usuario.proveedor_id = provRows[0].id;
+      } else {
+        // Vendedor sin proveedor (registro previo a la migración): crearlo ahora
+        const [provResult] = await pool.query(
+          'INSERT INTO proveedor (usuario_id, nombre, tipo, contacto_email, telefono) VALUES (?, ?, ?, ?, ?)',
+          [usuario.id, usuario.nombre, 'local', usuario.email, usuario.telefono || null]
+        );
+        usuario.proveedor_id = provResult.insertId;
+      }
+    }
+
+    const token = generarToken(usuario);
 
     return res.json({
       user: usuario,

@@ -34,10 +34,13 @@ CREATE TABLE direccion (
 -- 2️⃣ PROVEEDORES Y CATÁLOGO DE PRODUCTOS
 CREATE TABLE proveedor (
   id INT AUTO_INCREMENT PRIMARY KEY,
+  usuario_id INT UNIQUE,
   nombre VARCHAR(150) NOT NULL,
   tipo ENUM('local','dropshipping') DEFAULT 'local',
   contacto_email VARCHAR(150),
-  telefono VARCHAR(30)
+  telefono VARCHAR(30),
+  FOREIGN KEY (usuario_id) REFERENCES usuario(id)
+    ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
 CREATE TABLE categoria (

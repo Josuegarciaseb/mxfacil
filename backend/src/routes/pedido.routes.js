@@ -3,10 +3,11 @@ const router = express.Router();
 const pedCtrl = require('../controllers/pedido.controller');
 const auth = require('../middlewares/auth');
 const isAdmin = require('../middlewares/admin');
+const isAdminOrVendedor = require('../middlewares/isAdminOrVendedor');
 
-// Admin
-router.get('/admin', auth, isAdmin, pedCtrl.listPedidosAdmin);
-router.patch('/:id/estado', auth, isAdmin, pedCtrl.updateEstadoPedido);
+// Admin o vendedor
+router.get('/admin', auth, isAdminOrVendedor, pedCtrl.listPedidosAdmin);
+router.patch('/:id/estado', auth, isAdminOrVendedor, pedCtrl.updateEstadoPedido);
 
 // Cliente/admin
 router.get('/', auth, pedCtrl.listPedidosCliente);

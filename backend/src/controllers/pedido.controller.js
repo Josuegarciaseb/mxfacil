@@ -104,11 +104,8 @@ exports.getPedidoDetalle = async (req, res) => {
   const pedidoId = req.params.id;
   const user = req.user;
 
-  // Validar ID
   if (!isPositiveInteger(pedidoId)) {
-    return res.status(400).json({
-      message: 'El ID del pedido debe ser un número entero válido'
-    });
+    return res.status(400).json({ message: 'El ID del pedido debe ser un número entero válido' });
   }
 
   try {
@@ -117,10 +114,26 @@ exports.getPedidoDetalle = async (req, res) => {
       return res.status(404).json({ message: 'Pedido no encontrado' });
     }
 
-    if (user.rol !== 'admin' && detalle.pedido.usuario_id !== user.id) {
-      return res.status(403).json({ message: 'No tienes acceso a este pedido' });
+    if (user.rol === 'admin') {
+      return res.json(detalle);
     }
 
+    if (user.rol === 'vendedor') {
+      const [provRows] = await pool.query('SELECT id FROM proveedor WHERE usuario_id = ?', [user.id]);
+      if (!provRows.length) return res.status(403).json({ message: 'Sin proveedor asociado' });
+      const proveedorId = provRows[0].id;
+      const [itemRows] = await pool.query(
+        'SELECT pi.id FROM pedido_item pi JOIN producto pr ON pr.id = pi.producto_id WHERE pi.pedido_id = ? AND pr.proveedor_id = ?',
+        [pedidoId, proveedorId]
+      );
+      if (!itemRows.length) return res.status(403).json({ message: 'No tienes acceso a este pedido' });
+      return res.json(detalle);
+    }
+
+    // cliente: solo sus propios pedidos
+    if (detalle.pedido.usuario_id !== user.id) {
+      return res.status(403).json({ message: 'No tienes acceso a este pedido' });
+    }
     return res.json(detalle);
   } catch (err) {
     console.error('Error getPedidoDetalle:', err);
@@ -325,44 +338,56 @@ exports.updateEstadoPedido = async (req, res) => {
 
 exports.listPedidosAdmin = async (req, res) => {
   const { estado } = req.query;
+  const user = req.user;
 
   try {
     const params = [];
-    let where = 'WHERE 1=1';
+    const estadosValidos = ['pendiente', 'en_proceso', 'enviado', 'entregado', 'cancelado'];
 
     if (estado) {
-      const estadosValidos = ['pendiente', 'en_proceso', 'enviado', 'entregado', 'cancelado'];
       if (!estadosValidos.includes(estado)) {
-        return res.status(400).json({
-          message: `Estado inválido. Opciones: ${estadosValidos.join(', ')}`
-        });
+        return res.status(400).json({ message: `Estado inválido. Opciones: ${estadosValidos.join(', ')}` });
       }
-
-      where += ' AND p.estado = ?';
-      params.push(estado);
     }
 
+    // Vendedor: solo pedidos que contienen sus productos
+    if (user.rol === 'vendedor') {
+      const [provRows] = await pool.query('SELECT id FROM proveedor WHERE usuario_id = ?', [user.id]);
+      if (!provRows.length) return res.json([]);
+      const proveedorId = provRows[0].id;
+
+      let where = 'WHERE pr.proveedor_id = ?';
+      params.push(proveedorId);
+      if (estado) { where += ' AND p.estado = ?'; params.push(estado); }
+
+      const [rows] = await pool.query(
+        `SELECT DISTINCT p.id, p.usuario_id, u.nombre AS usuario_nombre, p.direccion_id, p.fecha, p.estado, p.total
+         FROM pedido p
+         JOIN usuario u ON u.id = p.usuario_id
+         JOIN pedido_item pi ON pi.pedido_id = p.id
+         JOIN producto pr ON pr.id = pi.producto_id
+         ${where}
+         ORDER BY p.fecha DESC`,
+        params
+      );
+      return res.json(rows);
+    }
+
+    // Admin: todos los pedidos
+    let where = 'WHERE 1=1';
+    if (estado) { where += ' AND p.estado = ?'; params.push(estado); }
+
     const [rows] = await pool.query(
-      `
-      SELECT
-        p.id,
-        p.usuario_id,
-        u.nombre AS usuario_nombre,
-        p.direccion_id,
-        p.fecha,
-        p.estado,
-        p.total
-      FROM pedido p
-      JOIN usuario u ON u.id = p.usuario_id
-      ${where}
-      ORDER BY p.fecha DESC
-      `,
+      `SELECT p.id, p.usuario_id, u.nombre AS usuario_nombre, p.direccion_id, p.fecha, p.estado, p.total
+       FROM pedido p
+       JOIN usuario u ON u.id = p.usuario_id
+       ${where}
+       ORDER BY p.fecha DESC`,
       params
     );
-
     return res.json(rows);
   } catch (err) {
     console.error('Error listPedidosAdmin:', err);
-    return res.status(500).json({ message: 'Error al obtener pedidos (admin)' });
+    return res.status(500).json({ message: 'Error al obtener pedidos' });
   }
 };
