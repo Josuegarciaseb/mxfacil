@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 
 const API = "http://localhost:3000/api";
 
@@ -175,8 +176,8 @@ const injectStyles = () => {
     tbody tr:hover td { background:var(--gray-50); }
     tbody tr:last-child td { border-bottom:none; }
 
-    .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.45); backdrop-filter:blur(4px); z-index:1000; display:flex; align-items:center; justify-content:center; padding:16px; animation:fadeIn .2s ease; }
-    .modal { background:var(--white); border:1px solid var(--gray-200); border-radius:var(--radius-xl); padding:24px; width:100%; max-width:520px; max-height:92vh; overflow-y:auto; box-shadow:var(--shadow-lg); animation:fadeUp .3s cubic-bezier(.22,1,.36,1); }
+    .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.45); backdrop-filter:blur(4px); z-index:9999; overflow-y:auto; padding:48px 16px 40px; animation:fadeIn .2s ease; }
+    .modal { background:var(--white); border:1px solid var(--gray-200); border-radius:var(--radius-xl); padding:24px; width:100%; max-width:520px; margin:0 auto; box-shadow:var(--shadow-lg); animation:fadeUp .3s cubic-bezier(.22,1,.36,1); position:relative; }
 
     .product-card { background:var(--white); border:1.5px solid var(--gray-200); border-radius:var(--radius-lg); overflow:hidden; transition:all .25s cubic-bezier(.22,1,.36,1); }
     .product-card:hover { border-color:var(--red); box-shadow:var(--shadow-red); transform:translateY(-3px); }
@@ -209,14 +210,14 @@ const injectStyles = () => {
     .sidebar-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:199; }
     .sidebar-overlay.visible { display:block; animation:fadeIn .2s ease; }
 
-    /* Mobile bottom nav */
-    .bottom-nav { display:none; }
-
     /* Responsive table wrapper */
     .table-scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; }
 
-    /* Mobile card list for tables */
-    .mobile-card-list { display:none; }
+    /* Responsive 2-column form grid — collapses to 1 col on mobile */
+    .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+
+    /* Page header wraps nicely */
+    .page-header-actions { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
 
     @media (max-width: 1023px) {
       :root { --sidebar-w: 0px; }
@@ -224,14 +225,29 @@ const injectStyles = () => {
       .sidebar-desktop.open { transform: translateX(0); box-shadow: var(--shadow-lg); }
     }
     @media (max-width: 639px) {
-      .modal { padding: 20px; border-radius: 16px; max-height: 96vh; }
-      .modal-overlay { padding: 12px; align-items: flex-end; }
-      .modal { border-radius: 20px 20px 16px 16px; }
+      /* Modal — tighter on mobile */
+      .modal-overlay { padding:24px 12px 32px; }
+      .modal { padding:20px 16px 24px; }
+
+      /* Form grids collapse to 1 column */
+      .form-grid { grid-template-columns: 1fr; gap: 10px; }
+
+      /* Tables → stacked cards */
       table thead { display:none; }
       table tbody tr { display:block; border:1px solid var(--gray-200); border-radius:12px; margin-bottom:10px; background:var(--white); padding:12px; }
       table tbody td { display:block; border:none; padding:4px 0; font-size:13px; }
       table tbody td::before { content: attr(data-label); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--gray-400); display:block; margin-bottom:2px; }
       tbody tr:hover td { background:transparent; }
+
+      /* Buttons full-width in modal footer */
+      .modal-footer { flex-direction: column-reverse !important; }
+      .modal-footer button { width: 100%; justify-content: center; }
+
+      /* Improve touch targets */
+      .btn-ghost, .btn-sm { min-height: 36px; }
+
+      /* Page header stack on very small screens */
+      .page-header { flex-direction: column !important; align-items: flex-start !important; }
     }
   `;
   const style = document.createElement("style");
@@ -279,7 +295,7 @@ const EmptyState = ({ icon, title, sub, action }) => (
 
 const Modal = ({ open, onClose, title, children }) => {
   if (!open) return null;
-  return (
+  return createPortal(
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
@@ -290,7 +306,8 @@ const Modal = ({ open, onClose, title, children }) => {
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 
@@ -301,12 +318,12 @@ const statusBadge = (estado) => {
 };
 
 const PageHeader = ({ title, subtitle, actions }) => (
-  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+  <div className="page-header" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
     <div>
       <h2 style={{ fontSize: 22, fontWeight: 800, color: "var(--gray-900)", marginBottom: 2 }}>{title}</h2>
       {subtitle && <p style={{ color: "var(--gray-500)", fontSize: 13 }}>{subtitle}</p>}
     </div>
-    {actions && <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>{actions}</div>}
+    {actions && <div className="page-header-actions">{actions}</div>}
   </div>
 );
 
@@ -605,13 +622,17 @@ const VendedorProductos = ({ token, user }) => {
             <option value="">Selecciona...</option>
             {categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
           </SelectField>
-          <div style={{ display: "grid", gridTemplateColumns: modal === "create" ? "1fr 1fr" : "1fr", gap: 12 }}>
+          {modal === "create" ? (
+            <div className="form-grid">
+              <InputField label="Precio (MXN)" type="number" min="0" step="0.01" value={form.precio} onChange={set("precio")} placeholder="0.00" />
+              <InputField label="Stock inicial" type="number" min="0" value={form.stock_inicial} onChange={set("stock_inicial")} placeholder="0" />
+            </div>
+          ) : (
             <InputField label="Precio (MXN)" type="number" min="0" step="0.01" value={form.precio} onChange={set("precio")} placeholder="0.00" />
-            {modal === "create" && <InputField label="Stock inicial" type="number" min="0" value={form.stock_inicial} onChange={set("stock_inicial")} placeholder="0" />}
-          </div>
+          )}
           <div className="input-group"><label className="input-label">Descripción</label><textarea value={form.descripcion} onChange={set("descripcion")} rows={3} style={{ resize: "vertical" }} /></div>
           <SelectField label="Estado" value={form.activo} onChange={set("activo")}><option value={1}>Activo</option><option value={0}>Inactivo</option></SelectField>
-          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", paddingTop: 14, borderTop: "1px solid var(--gray-100)" }}>
+          <div className="modal-footer" style={{ display: "flex", gap: 10, justifyContent: "flex-end", paddingTop: 14, borderTop: "1px solid var(--gray-100)" }}>
             <Btn variant="secondary" onClick={() => setModal(null)}>Cancelar</Btn>
             <Btn onClick={save} disabled={saving}>{saving ? "Guardando..." : "Guardar"}</Btn>
           </div>
@@ -884,7 +905,7 @@ const AdminProductos = ({ token }) => {
       <Modal open={!!modal} onClose={() => setModal(null)} title={modal === "create" ? "Nuevo Producto" : "Editar Producto"}>
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <InputField label="Nombre" value={form.nombre} onChange={set("nombre")} placeholder="Nombre del producto" />
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div className="form-grid">
             <SelectField label="Categoría" value={form.categoria_id} onChange={set("categoria_id")}>
               <option value="">Selecciona...</option>
               {categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
@@ -894,13 +915,17 @@ const AdminProductos = ({ token }) => {
               {proveedores.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
             </SelectField>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: modal === "create" ? "1fr 1fr" : "1fr", gap: 12 }}>
+          {modal === "create" ? (
+            <div className="form-grid">
+              <InputField label="Precio (MXN)" type="number" min="0" step="0.01" value={form.precio} onChange={set("precio")} placeholder="0.00" />
+              <InputField label="Stock inicial" type="number" min="0" value={form.stock_inicial} onChange={set("stock_inicial")} placeholder="0" />
+            </div>
+          ) : (
             <InputField label="Precio (MXN)" type="number" min="0" step="0.01" value={form.precio} onChange={set("precio")} placeholder="0.00" />
-            {modal === "create" && <InputField label="Stock inicial" type="number" min="0" value={form.stock_inicial} onChange={set("stock_inicial")} placeholder="0" />}
-          </div>
+          )}
           <div className="input-group"><label className="input-label">Descripción</label><textarea value={form.descripcion} onChange={set("descripcion")} rows={3} style={{ resize: "vertical" }} /></div>
           <SelectField label="Estado" value={form.activo} onChange={set("activo")}><option value={1}>Activo</option><option value={0}>Inactivo</option></SelectField>
-          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", paddingTop: 14, borderTop: "1px solid var(--gray-100)" }}>
+          <div className="modal-footer" style={{ display: "flex", gap: 10, justifyContent: "flex-end", paddingTop: 14, borderTop: "1px solid var(--gray-100)" }}>
             <Btn variant="secondary" onClick={() => setModal(null)}>Cancelar</Btn>
             <Btn onClick={save} disabled={saving}>{saving ? "Guardando..." : "Guardar"}</Btn>
           </div>
@@ -1071,7 +1096,7 @@ const AdminUsuarios = ({ token, currentUser }) => {
           <InputField label="Email" type="email" value={form.email} onChange={set("email")} />
           <InputField label="Teléfono" value={form.telefono} onChange={set("telefono")} />
           <SelectField label="Rol" value={form.rol} onChange={set("rol")}><option value="cliente">Cliente</option><option value="vendedor">Vendedor</option><option value="admin">Administrador</option></SelectField>
-          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", paddingTop: 14, borderTop: "1px solid var(--gray-100)" }}>
+          <div className="modal-footer" style={{ display: "flex", gap: 10, justifyContent: "flex-end", paddingTop: 14, borderTop: "1px solid var(--gray-100)" }}>
             <Btn variant="secondary" onClick={() => setModal(null)}>Cancelar</Btn>
             <Btn onClick={save} disabled={saving}>{saving ? "Guardando..." : "Guardar"}</Btn>
           </div>
@@ -1121,7 +1146,7 @@ const AdminCategorias = ({ token }) => {
       <Modal open={!!modal} onClose={() => setModal(null)} title={modal === "create" ? "Nueva Categoría" : "Editar Categoría"}>
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <InputField label="Nombre" value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Ej: Frutas y verduras" />
-          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", paddingTop: 14, borderTop: "1px solid var(--gray-100)" }}>
+          <div className="modal-footer" style={{ display: "flex", gap: 10, justifyContent: "flex-end", paddingTop: 14, borderTop: "1px solid var(--gray-100)" }}>
             <Btn variant="secondary" onClick={() => setModal(null)}>Cancelar</Btn>
             <Btn onClick={save} disabled={saving}>{saving ? "Guardando..." : "Guardar"}</Btn>
           </div>
@@ -1184,7 +1209,7 @@ const AdminProveedores = ({ token }) => {
           <SelectField label="Tipo" value={form.tipo} onChange={set("tipo")}><option value="local">Local</option><option value="dropshipping">Dropshipping</option></SelectField>
           <InputField label="Email de contacto" type="email" value={form.contacto_email} onChange={set("contacto_email")} />
           <InputField label="Teléfono (10 dígitos)" value={form.telefono} onChange={set("telefono")} />
-          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", paddingTop: 14, borderTop: "1px solid var(--gray-100)" }}>
+          <div className="modal-footer" style={{ display: "flex", gap: 10, justifyContent: "flex-end", paddingTop: 14, borderTop: "1px solid var(--gray-100)" }}>
             <Btn variant="secondary" onClick={() => setModal(null)}>Cancelar</Btn>
             <Btn onClick={save} disabled={saving}>{saving ? "Guardando..." : "Guardar"}</Btn>
           </div>
@@ -1382,7 +1407,7 @@ const CartModal = ({ open, onClose, cart, setCart, token }) => {
   };
 
   if (!open) return null;
-  return (
+  return createPortal(
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" style={{ maxWidth: isMobile ? "100%" : 520 }} onClick={e => e.stopPropagation()}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
@@ -1453,7 +1478,8 @@ const CartModal = ({ open, onClose, cart, setCart, token }) => {
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 
@@ -1630,11 +1656,11 @@ const ClientDirecciones = ({ token }) => {
       <Modal open={!!modal} onClose={() => setModal(null)} title={modal === "create" ? "Nueva Dirección" : "Editar Dirección"}>
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <InputField label="Calle y número" value={form.linea1} onChange={set("linea1")} placeholder="Av. Reforma 123, Col. Centro" />
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <div className="form-grid">
             <InputField label="Ciudad" value={form.ciudad} onChange={set("ciudad")} placeholder="Ciudad de México" />
             <InputField label="Estado" value={form.estado} onChange={set("estado")} placeholder="CDMX" />
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <div className="form-grid">
             <InputField label="Código Postal" value={form.cp} onChange={set("cp")} placeholder="06600" maxLength={5} />
             <InputField label="País" value={form.pais} onChange={set("pais")} placeholder="México" />
           </div>
@@ -1642,7 +1668,7 @@ const ClientDirecciones = ({ token }) => {
             <input type="checkbox" checked={form.es_principal} onChange={set("es_principal")} style={{ width: 16, height: 16, accentColor: "var(--red)" }} />
             <span>Dirección principal</span>
           </label>
-          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", paddingTop: 14, borderTop: "1px solid var(--gray-100)" }}>
+          <div className="modal-footer" style={{ display: "flex", gap: 10, justifyContent: "flex-end", paddingTop: 14, borderTop: "1px solid var(--gray-100)" }}>
             <Btn variant="secondary" onClick={() => setModal(null)}>Cancelar</Btn>
             <Btn onClick={save} disabled={saving}>{saving ? "Guardando..." : "Guardar"}</Btn>
           </div>
