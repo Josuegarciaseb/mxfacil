@@ -62,6 +62,14 @@ function isValidPassword(password) {
   return regex.test(password);
 }
 
+// RFC mexicano: persona moral (12) o persona física (13)
+// Formato: 3-4 letras/& + YYMMDD + 3 alfanuméricos (homoclave)
+function isValidRFC(rfc) {
+  if (typeof rfc !== 'string') return false;
+  const str = rfc.trim().toUpperCase();
+  const regex = /^[A-ZÑ&]{3,4}\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])[A-Z0-9]{3}$/;
+  return regex.test(str);
+}
 
 module.exports = {
   isValidEmail,
@@ -71,5 +79,6 @@ module.exports = {
   isPositiveNumber,
   isValidCP,
   isValidLocationName,
-  isValidPassword
+  isValidPassword,
+  isValidRFC,
 };
