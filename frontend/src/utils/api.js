@@ -1,0 +1,10 @@
+const API = "http://localhost:3000/api";
+
+export const http = async (path, opts = {}, token = null) => {
+  const headers = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const res = await fetch(`${API}${path}`, { ...opts, headers });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.message || "Error en la petición");
+  return data;
+};
