@@ -3,7 +3,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const pool = require('../config/db');
-const { isValidEmail, isValidName, isValidPhone, isValidPassword } = require('../utils/validators');
+const { isValidEmail, isValidName, isValidPhone, isValidPassword, isValidRFC } = require('../utils/validators');
 
 
 
@@ -17,7 +17,7 @@ function generarToken(usuario) {
 
 // POST /api/auth/register
 exports.register = async (req, res) => {
-  const { nombre, email, password, telefono, rol } = req.body;
+  const { nombre, email, password, telefono, rol, rfc } = req.body;
 
   // 1) Campos obligatorios
   if (!nombre || !email || !password) {
@@ -55,6 +55,13 @@ exports.register = async (req, res) => {
     });
   }
 
+  // RFC (solo vendedores, opcional)
+  if (rolValido === 'vendedor' && rfc && !isValidRFC(rfc)) {
+    return res.status(400).json({
+      message: 'El RFC no tiene un formato válido (ej: ABC010101AAA o XAXX010101000)'
+    });
+  }
+
 
   try {
     // ¿email ya existe?
@@ -78,9 +85,10 @@ exports.register = async (req, res) => {
     let proveedor_id = null;
 
     if (rolValido === 'vendedor') {
+      const rfcFinal = rfc ? rfc.trim().toUpperCase() : null;
       const [provResult] = await pool.query(
-        'INSERT INTO proveedor (usuario_id, nombre, tipo, contacto_email, telefono) VALUES (?, ?, ?, ?, ?)',
-        [usuarioId, nombre.trim(), 'local', email.toLowerCase().trim(), telefono || null]
+        'INSERT INTO proveedor (usuario_id, nombre, tipo, contacto_email, telefono, rfc) VALUES (?, ?, ?, ?, ?, ?)',
+        [usuarioId, nombre.trim(), 'local', email.toLowerCase().trim(), telefono || null, rfcFinal]
       );
       proveedor_id = provResult.insertId;
     }

@@ -2,6 +2,70 @@
 const pool = require('../config/db');
 const { isValidEmail, isValidName, isValidPhone, isValidRFC } = require('../utils/validators');
 
+// GET /api/proveedores/me (vendedor)
+exports.getMiProveedor = async (req, res) => {
+  if (req.user.rol !== 'vendedor') {
+    return res.status(403).json({ message: 'Solo para vendedores' });
+  }
+  try {
+    const [rows] = await pool.query(
+      `SELECT id, nombre, rfc, verificado, verificado_en, motivo_rechazo
+       FROM proveedor WHERE usuario_id = ?`,
+      [req.user.id]
+    );
+    if (!rows.length) return res.status(404).json({ message: 'Proveedor no encontrado' });
+    return res.json(rows[0]);
+  } catch (err) {
+    console.error('Error getMiProveedor:', err);
+    return res.status(500).json({ message: 'Error al obtener proveedor' });
+  }
+};
+
+// PATCH /api/proveedores/me (vendedor)
+// Body: { rfc: string }
+exports.updateMiRFC = async (req, res) => {
+  if (req.user.rol !== 'vendedor') {
+    return res.status(403).json({ message: 'Solo para vendedores' });
+  }
+  const { rfc } = req.body;
+
+  if (!rfc || !rfc.trim()) {
+    return res.status(400).json({ message: 'rfc es obligatorio' });
+  }
+  if (!isValidRFC(rfc)) {
+    return res.status(400).json({
+      message: 'El RFC no tiene un formato válido (ej: ABC010101AAA o XAXX010101000)'
+    });
+  }
+
+  const rfcFinal = rfc.trim().toUpperCase();
+
+  try {
+    const [rows] = await pool.query(
+      'SELECT id FROM proveedor WHERE usuario_id = ?',
+      [req.user.id]
+    );
+    if (!rows.length) return res.status(404).json({ message: 'Proveedor no encontrado' });
+
+    await pool.query(
+      `UPDATE proveedor
+       SET rfc = ?, verificado = 'pendiente', verificado_en = NULL, motivo_rechazo = NULL
+       WHERE usuario_id = ?`,
+      [rfcFinal, req.user.id]
+    );
+
+    const [updated] = await pool.query(
+      `SELECT id, nombre, rfc, verificado, verificado_en, motivo_rechazo
+       FROM proveedor WHERE usuario_id = ?`,
+      [req.user.id]
+    );
+    return res.json(updated[0]);
+  } catch (err) {
+    console.error('Error updateMiRFC:', err);
+    return res.status(500).json({ message: 'Error al actualizar RFC' });
+  }
+};
+
 // GET /api/proveedores
 // Opcional: ?tipo=local|dropshipping
 exports.listProveedores = async (req, res) => {

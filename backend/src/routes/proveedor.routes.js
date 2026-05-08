@@ -7,6 +7,10 @@ const isAdmin  = require('../middlewares/admin');
 // Listar proveedores (público)
 router.get('/',    provCtrl.listProveedores);
 
+// Vendedor: su propio proveedor (debe ir ANTES de /:id)
+router.get('/me',    auth, provCtrl.getMiProveedor);
+router.patch('/me',  auth, provCtrl.updateMiRFC);
+
 // Admin
 router.post('/',      auth, isAdmin, provCtrl.createProveedor);
 router.put('/:id',    auth, isAdmin, provCtrl.updateProveedor);

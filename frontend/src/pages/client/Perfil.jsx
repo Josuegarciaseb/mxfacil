@@ -1,14 +1,25 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { http } from "../../utils/api";
 import { toast } from "../../utils/toast";
 import PageHeader from "../../components/ui/PageHeader";
 import Btn from "../../components/ui/Btn";
+import StatusBadge from "../../components/ui/StatusBadge";
 import { InputField } from "../../components/ui/FormFields";
 import Icon from "../../components/ui/Icon";
 
 const ClientPerfil = ({ token, user, onUpdate }) => {
-  const [form,   setForm]   = useState({ nombre: user.nombre, email: user.email, telefono: user.telefono || "" });
-  const [saving, setSaving] = useState(false);
+  const [form,      setForm]      = useState({ nombre: user.nombre, email: user.email, telefono: user.telefono || "" });
+  const [saving,    setSaving]    = useState(false);
+  const [proveedor, setProveedor] = useState(null);
+  const [rfcInput,  setRfcInput]  = useState("");
+  const [savingRfc, setSavingRfc] = useState(false);
+
+  useEffect(() => {
+    if (user.rol !== "vendedor") return;
+    http("/proveedores/me", {}, token)
+      .then((p) => { setProveedor(p); setRfcInput(p.rfc || ""); })
+      .catch(() => {});
+  }, [token, user.rol]);
 
   const set = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }));
 
@@ -21,6 +32,16 @@ const ClientPerfil = ({ token, user, onUpdate }) => {
       toast("Perfil actualizado");
     } catch (e) { toast(e.message, "error"); }
     finally { setSaving(false); }
+  };
+
+  const saveRfc = async () => {
+    setSavingRfc(true);
+    try {
+      const updated = await http("/proveedores/me", { method: "PATCH", body: JSON.stringify({ rfc: rfcInput }) }, token);
+      setProveedor(updated);
+      toast("RFC guardado — pendiente de verificación por el administrador");
+    } catch (e) { toast(e.message, "error"); }
+    finally { setSavingRfc(false); }
   };
 
   const ROL_LABEL = { admin: "Administrador", vendedor: "Vendedor", cliente: "Cliente" };
@@ -70,6 +91,59 @@ const ClientPerfil = ({ token, user, onUpdate }) => {
           </Btn>
         </div>
       </div>
+
+      {/* RFC / Verificación (solo vendedores) */}
+      {user.rol === "vendedor" && proveedor && (
+        <div className="card" style={{ padding: 22, marginTop: 18 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 18 }}>
+            <Icon name="shield" size={16} style={{ color: "var(--gray-400)" }} />
+            <h3 style={{ fontSize: 15, fontWeight: 700, color: "var(--gray-800)" }}>Verificación de empresa</h3>
+          </div>
+
+          {/* Estado actual */}
+          <div style={{ background: "var(--gray-50)", borderRadius: 9, padding: "10px 14px", border: "1px solid var(--gray-100)", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+            <div style={{ fontSize: 13, color: "var(--gray-600)" }}>
+              {proveedor.rfc
+                ? <span style={{ fontFamily: "monospace", fontWeight: 700, color: "var(--gray-800)" }}>{proveedor.rfc}</span>
+                : <span style={{ color: "var(--gray-400)" }}>Sin RFC registrado</span>
+              }
+            </div>
+            <StatusBadge estado={proveedor.verificado || "pendiente"} />
+          </div>
+
+          {/* Motivo de rechazo */}
+          {proveedor.verificado === "rechazado" && proveedor.motivo_rechazo && (
+            <div style={{ background: "#fee2e2", borderRadius: 9, padding: "10px 14px", marginBottom: 16, fontSize: 13, color: "#b91c1c", border: "1px solid #fecaca" }}>
+              <strong>Motivo del rechazo:</strong> {proveedor.motivo_rechazo}
+            </div>
+          )}
+
+          {/* Mensaje informativo según estado */}
+          {proveedor.verificado === "aprobado" && (
+            <div style={{ background: "#f0fdf4", borderRadius: 9, padding: "10px 14px", marginBottom: 16, fontSize: 13, color: "#15803d", border: "1px solid #bbf7d0" }}>
+              Tu empresa está verificada. Si actualizas el RFC, volverá a estado pendiente para re-verificación.
+            </div>
+          )}
+
+          {/* Input RFC */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <InputField
+              label={proveedor.rfc ? "Actualizar RFC" : "Ingresar RFC"}
+              placeholder="ej. ABC010101AAA"
+              value={rfcInput}
+              onChange={(e) => setRfcInput(e.target.value.toUpperCase())}
+              style={{ fontFamily: "monospace" }}
+            />
+            <Btn
+              onClick={saveRfc}
+              disabled={savingRfc || !rfcInput.trim() || rfcInput.trim() === proveedor.rfc}
+              style={{ alignSelf: "flex-start" }}
+            >
+              {savingRfc ? "Guardando..." : <><Icon name="shield" size={15} />Enviar para verificación</>}
+            </Btn>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

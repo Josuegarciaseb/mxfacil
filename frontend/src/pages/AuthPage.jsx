@@ -7,7 +7,7 @@ import { InputField }    from "../components/ui/FormFields";
 
 const AuthPage = ({ onLogin }) => {
   const [mode,    setMode]    = useState("login");
-  const [form,    setForm]    = useState({ nombre: "", email: "", password: "", telefono: "", rol: "cliente" });
+  const [form,    setForm]    = useState({ nombre: "", email: "", password: "", telefono: "", rol: "cliente", rfc: "" });
   const [loading, setLoading] = useState(false);
   const { isMobile } = useBreakpoint();
 
@@ -28,6 +28,7 @@ const AuthPage = ({ onLogin }) => {
       } else {
         const body = { nombre: form.nombre, email: form.email, password: form.password, rol: form.rol };
         if (form.telefono) body.telefono = form.telefono;
+        if (form.rol === "vendedor" && form.rfc) body.rfc = form.rfc;
         const data = await http("/auth/register", { method: "POST", body: JSON.stringify(body) });
         localStorage.setItem("token", data.token);
         localStorage.setItem("user", JSON.stringify(data.user));
@@ -96,6 +97,15 @@ const AuthPage = ({ onLogin }) => {
             <InputField label="Correo electrónico" type="email" placeholder="correo@ejemplo.com" value={form.email} onChange={set("email")} />
             <InputField label="Contraseña" type="password" placeholder="••••••••" value={form.password} onChange={set("password")} />
             {mode === "register" && <InputField label="Teléfono (opcional)" placeholder="5512345678" value={form.telefono} onChange={set("telefono")} />}
+            {mode === "register" && form.rol === "vendedor" && (
+              <InputField
+                label="RFC de la empresa (opcional)"
+                placeholder="ej. ABC010101AAA"
+                value={form.rfc}
+                onChange={set("rfc")}
+                style={{ fontFamily: "monospace", textTransform: "uppercase" }}
+              />
+            )}
             {mode === "register" && (
               <div>
                 <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--gray-700)", marginBottom: 6 }}>Tipo de cuenta</label>
