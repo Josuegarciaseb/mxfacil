@@ -1,6 +1,6 @@
 // src/controllers/proveedor.controller.js
 const pool = require('../config/db');
-const { isValidEmail, isValidName, isValidPhone } = require('../utils/validators');
+const { isValidEmail, isValidName, isValidPhone, isValidRFC } = require('../utils/validators');
 
 // GET /api/proveedores
 // Opcional: ?tipo=local|dropshipping
@@ -23,7 +23,11 @@ exports.listProveedores = async (req, res) => {
         nombre,
         tipo,
         contacto_email,
-        telefono
+        telefono,
+        rfc,
+        verificado,
+        verificado_en,
+        motivo_rechazo
       FROM proveedor
       ${where}
       ORDER BY nombre ASC
@@ -40,11 +44,11 @@ exports.listProveedores = async (req, res) => {
 
 // POST /api/proveedores (admin)
 exports.createProveedor = async (req, res) => {
-  const { nombre, tipo, contacto_email, telefono } = req.body;
+  const { nombre, tipo, contacto_email, telefono, rfc } = req.body;
 
   if (!nombre) {
-  return res.status(400).json({ message: 'nombre es obligatorio' });
-}
+    return res.status(400).json({ message: 'nombre es obligatorio' });
+  }
 
   if (!telefono) {
     return res.status(400).json({ message: 'telefono es obligatorio' });
@@ -56,38 +60,33 @@ exports.createProveedor = async (req, res) => {
     });
   }
 
-
-//  if (!isValidName(nombre)) {
-//    return res.status(400).json({
-//      message: 'El nombre solo puede contener letras y espacios, sin números ni símbolos'
-//    });
-//  }
-
   if (contacto_email && !isValidEmail(contacto_email)) {
     return res.status(400).json({
       message: 'El correo de contacto no es válido (ejemplo: correo@ejemplo.com)'
     });
   }
 
-  if (telefono && !isValidPhone(telefono)) {
+  if (rfc && !isValidRFC(rfc)) {
     return res.status(400).json({
-      message: 'El teléfono debe contener exactamente 10 dígitos numéricos'
+      message: 'El RFC no tiene un formato válido (ej: ABC010101AAA o XAXX010101000)'
     });
   }
 
   const tipoValido = tipo === 'local' || tipo === 'dropshipping' ? tipo : 'local';
+  const rfcFinal   = rfc ? rfc.trim().toUpperCase() : null;
 
   try {
     const [result] = await pool.query(
       `
-      INSERT INTO proveedor (nombre, tipo, contacto_email, telefono)
-      VALUES (?, ?, ?, ?)
+      INSERT INTO proveedor (nombre, tipo, contacto_email, telefono, rfc)
+      VALUES (?, ?, ?, ?, ?)
       `,
-      [nombre, tipoValido, contacto_email || null, telefono || null]
+      [nombre, tipoValido, contacto_email || null, telefono || null, rfcFinal]
     );
 
     const [rows] = await pool.query(
-      'SELECT id, nombre, tipo, contacto_email, telefono FROM proveedor WHERE id = ?',
+      `SELECT id, nombre, tipo, contacto_email, telefono, rfc, verificado, verificado_en, motivo_rechazo
+       FROM proveedor WHERE id = ?`,
       [result.insertId]
     );
 
@@ -101,7 +100,7 @@ exports.createProveedor = async (req, res) => {
 // PUT /api/proveedores/:id (admin)
 exports.updateProveedor = async (req, res) => {
   const id = req.params.id;
-  const { nombre, tipo, contacto_email, telefono } = req.body;
+  const { nombre, tipo, contacto_email, telefono, rfc } = req.body;
 
   try {
     const [existentes] = await pool.query(
@@ -113,13 +112,6 @@ exports.updateProveedor = async (req, res) => {
     }
 
     const actual = existentes[0];
-
-    // Validaciones
-    //if (nombre != null && nombre !== '' && !isValidName(nombre)) {
-      //return res.status(400).json({
-        //message: 'El nombre solo puede contener letras y espacios, sin números ni símbolos'
-      //});
-    //}
 
     if (contacto_email != null && contacto_email !== '' && !isValidEmail(contacto_email)) {
       return res.status(400).json({
@@ -133,31 +125,52 @@ exports.updateProveedor = async (req, res) => {
       });
     }
 
-    let tipoFinal = actual.tipo;
-    if (tipo === 'local' || tipo === 'dropshipping') {
-      tipoFinal = tipo;
+    if (rfc != null && rfc !== '' && !isValidRFC(rfc)) {
+      return res.status(400).json({
+        message: 'El RFC no tiene un formato válido (ej: ABC010101AAA o XAXX010101000)'
+      });
     }
+
+    let tipoFinal = actual.tipo;
+    if (tipo === 'local' || tipo === 'dropshipping') tipoFinal = tipo;
+
+    const rfcNuevo = rfc != null && rfc !== '' ? rfc.trim().toUpperCase() : actual.rfc;
+
+    // Si el RFC cambia, volver a pendiente para re-verificación
+    const rfcCambio     = rfcNuevo !== actual.rfc;
+    const verificadoFin = rfcCambio ? 'pendiente' : actual.verificado;
+    const verificadoEn  = rfcCambio ? null        : actual.verificado_en;
+    const motivoFin     = rfcCambio ? null        : actual.motivo_rechazo;
 
     await pool.query(
       `
       UPDATE proveedor
-      SET nombre = ?,
-          tipo = ?,
-          contacto_email = ?,
-          telefono = ?
+      SET nombre          = ?,
+          tipo            = ?,
+          contacto_email  = ?,
+          telefono        = ?,
+          rfc             = ?,
+          verificado      = ?,
+          verificado_en   = ?,
+          motivo_rechazo  = ?
       WHERE id = ?
       `,
       [
         nombre != null && nombre !== '' ? nombre : actual.nombre,
         tipoFinal,
         contacto_email != null ? contacto_email : actual.contacto_email,
-        telefono != null ? telefono : actual.telefono,
-        id
+        telefono       != null ? telefono       : actual.telefono,
+        rfcNuevo,
+        verificadoFin,
+        verificadoEn,
+        motivoFin,
+        id,
       ]
     );
 
     const [rows] = await pool.query(
-      'SELECT id, nombre, tipo, contacto_email, telefono FROM proveedor WHERE id = ?',
+      `SELECT id, nombre, tipo, contacto_email, telefono, rfc, verificado, verificado_en, motivo_rechazo
+       FROM proveedor WHERE id = ?`,
       [id]
     );
 
@@ -165,6 +178,67 @@ exports.updateProveedor = async (req, res) => {
   } catch (err) {
     console.error('Error updateProveedor:', err);
     return res.status(500).json({ message: 'Error al actualizar proveedor' });
+  }
+};
+
+// PATCH /api/proveedores/:id/verificacion (admin)
+// Body: { accion: "aprobar" | "rechazar", motivo?: string }
+exports.verificarProveedor = async (req, res) => {
+  const id = req.params.id;
+  const { accion, motivo } = req.body;
+
+  if (accion !== 'aprobar' && accion !== 'rechazar') {
+    return res.status(400).json({
+      message: 'accion debe ser "aprobar" o "rechazar"'
+    });
+  }
+
+  if (accion === 'rechazar' && (!motivo || !motivo.trim())) {
+    return res.status(400).json({
+      message: 'motivo es obligatorio al rechazar'
+    });
+  }
+
+  try {
+    const [rows] = await pool.query(
+      'SELECT id, rfc, verificado FROM proveedor WHERE id = ?',
+      [id]
+    );
+    if (!rows.length) {
+      return res.status(404).json({ message: 'Proveedor no encontrado' });
+    }
+
+    if (!rows[0].rfc) {
+      return res.status(400).json({
+        message: 'El proveedor no tiene RFC registrado; no se puede verificar'
+      });
+    }
+
+    const nuevoEstado = accion === 'aprobar' ? 'aprobado' : 'rechazado';
+    const motivoFinal = accion === 'rechazar' ? motivo.trim() : null;
+
+    await pool.query(
+      `
+      UPDATE proveedor
+      SET verificado     = ?,
+          verificado_en  = NOW(),
+          verificado_por = ?,
+          motivo_rechazo = ?
+      WHERE id = ?
+      `,
+      [nuevoEstado, req.user.id, motivoFinal, id]
+    );
+
+    const [updated] = await pool.query(
+      `SELECT id, nombre, rfc, verificado, verificado_en, motivo_rechazo
+       FROM proveedor WHERE id = ?`,
+      [id]
+    );
+
+    return res.json(updated[0]);
+  } catch (err) {
+    console.error('Error verificarProveedor:', err);
+    return res.status(500).json({ message: 'Error al verificar proveedor' });
   }
 };
 
