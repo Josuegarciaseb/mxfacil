@@ -103,6 +103,8 @@ export default function App() {
         isOpen={isDesktop || sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         isMobile={isSmall}
+        cartCount={cartCount}
+        onCartOpen={() => setCartOpen(true)}
       />
 
       {isSmall && (

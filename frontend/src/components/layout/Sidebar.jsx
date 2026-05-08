@@ -24,7 +24,7 @@ const NAV_CLIENTE = [
   { id: "mi-perfil",        icon: "user",       label: "Mi Perfil" },
 ];
 
-const Sidebar = ({ user, active, onNav, onLogout, isOpen, onClose, isMobile }) => {
+const Sidebar = ({ user, active, onNav, onLogout, isOpen, onClose, isMobile, cartCount, onCartOpen }) => {
   const isAdmin    = user?.rol === "admin";
   const isVendedor = user?.rol === "vendedor";
   const navItems   = isAdmin ? NAV_ADMIN : isVendedor ? NAV_VENDEDOR : NAV_CLIENTE;
@@ -204,6 +204,52 @@ const Sidebar = ({ user, active, onNav, onLogout, isOpen, onClose, isMobile }) =
             );
           })}
         </nav>
+
+        {/* ── Cart (cliente, desktop) ── */}
+        {user?.rol === "cliente" && !isMobile && (
+          <div style={{ padding: "0 10px 6px" }}>
+            <button
+              onClick={onCartOpen}
+              style={{
+                width: "100%",
+                display: "flex", alignItems: "center", gap: 11,
+                padding: "10px 12px",
+                borderRadius: 9, border: "none",
+                cursor: "pointer",
+                background: cartCount > 0 ? "var(--red)" : "transparent",
+                color: cartCount > 0 ? "#fff" : "var(--gray-600)",
+                fontFamily: "'Outfit',sans-serif",
+                fontWeight: 600, fontSize: 14,
+                transition: "all .15s",
+              }}
+              onMouseEnter={(e) => {
+                if (!cartCount) {
+                  e.currentTarget.style.background = "var(--red-pale)";
+                  e.currentTarget.style.color = "var(--red)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!cartCount) {
+                  e.currentTarget.style.background = "transparent";
+                  e.currentTarget.style.color = "var(--gray-600)";
+                }
+              }}
+            >
+              <Icon name="cart" size={17} style={{ color: cartCount > 0 ? "#fff" : "var(--gray-400)" }} />
+              Mi Carrito
+              {cartCount > 0 && (
+                <span style={{
+                  marginLeft: "auto",
+                  background: "rgba(255,255,255,.25)",
+                  borderRadius: 20, padding: "1px 8px",
+                  fontSize: 13, fontWeight: 700,
+                }}>
+                  {cartCount}
+                </span>
+              )}
+            </button>
+          </div>
+        )}
 
         {/* ── Logout ── */}
         <div style={{ padding: "10px", borderTop: "1px solid var(--gray-100)" }}>

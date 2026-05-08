@@ -69,10 +69,12 @@ async function getPedidoDetalleCompleto(pedidoId, conn = null) {
       pi.id,
       pi.producto_id,
       pr.nombre AS producto_nombre,
+      prov.nombre AS proveedor_nombre,
       pi.cantidad,
       pi.precio_unitario
     FROM pedido_item pi
     JOIN producto pr ON pr.id = pi.producto_id
+    JOIN proveedor prov ON prov.id = pr.proveedor_id
     WHERE pi.pedido_id = ?
     `,
     [pedidoId]

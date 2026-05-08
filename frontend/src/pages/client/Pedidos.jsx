@@ -16,8 +16,13 @@ const DetalleContent = ({ detalle }) => (
       <div style={{ fontSize: 11, color: "var(--gray-400)", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 8 }}>Productos</div>
       {detalle.items?.map((i) => (
         <div key={i.id} style={{ display: "flex", justifyContent: "space-between", marginBottom: 7, fontSize: 13 }}>
-          <span style={{ color: "var(--gray-700)" }}>{i.producto_nombre} <span style={{ color: "var(--gray-400)" }}>x{i.cantidad}</span></span>
-          <span style={{ fontWeight: 700 }}>${(i.precio_unitario * i.cantidad).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
+          <div>
+            <span style={{ color: "var(--gray-700)" }}>{i.producto_nombre} <span style={{ color: "var(--gray-400)" }}>x{i.cantidad}</span></span>
+            {i.proveedor_nombre && (
+              <div style={{ fontSize: 11, color: "var(--gray-400)", marginTop: 1 }}>{i.proveedor_nombre}</div>
+            )}
+          </div>
+          <span style={{ fontWeight: 700, flexShrink: 0, marginLeft: 8 }}>${(i.precio_unitario * i.cantidad).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
         </div>
       ))}
       <div style={{ borderTop: "1px solid var(--gray-200)", paddingTop: 8, marginTop: 4, display: "flex", justifyContent: "space-between", fontWeight: 800, fontSize: 14 }}>
