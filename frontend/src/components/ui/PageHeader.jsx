@@ -5,7 +5,7 @@ const PageHeader = ({ title, subtitle, actions }) => (
       display: "flex",
       alignItems: "flex-start",
       justifyContent: "space-between",
-      marginBottom: 20,
+      marginBottom: 22,
       flexWrap: "wrap",
       gap: 12,
     }}
@@ -14,9 +14,10 @@ const PageHeader = ({ title, subtitle, actions }) => (
       <h2
         style={{
           fontSize: 22,
-          fontWeight: 800,
+          fontWeight: 900,
           color: "var(--gray-900)",
           marginBottom: 2,
+          letterSpacing: "-.02em",
         }}
       >
         {title}

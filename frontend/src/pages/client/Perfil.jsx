@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { http } from "../../utils/api";
 import { toast } from "../../utils/toast";
+import { useBreakpoint } from "../../hooks/useBreakpoint";
 import PageHeader from "../../components/ui/PageHeader";
 import Btn from "../../components/ui/Btn";
 import StatusBadge from "../../components/ui/StatusBadge";
@@ -13,6 +14,7 @@ const ClientPerfil = ({ token, user, onUpdate }) => {
   const [proveedor, setProveedor] = useState(null);
   const [rfcInput,  setRfcInput]  = useState("");
   const [savingRfc, setSavingRfc] = useState(false);
+  const { isDesktop } = useBreakpoint();
 
   useEffect(() => {
     if (user.rol !== "vendedor") return;
@@ -48,102 +50,113 @@ const ClientPerfil = ({ token, user, onUpdate }) => {
   const ROL_BADGE = { admin: "badge-red", vendedor: "badge-blue", cliente: "badge-gray" };
 
   return (
-    <div className="fade-up" style={{ maxWidth: 520 }}>
+    <div className="fade-up" style={{ maxWidth: isDesktop ? 1080 : 560 }}>
       <PageHeader title="Mi Perfil" subtitle="Tu informacion personal" />
 
-      {/* Profile card */}
-      <div className="card" style={{ padding: 0, overflow: "hidden", marginBottom: 18 }}>
-        <div style={{ background: "linear-gradient(135deg, var(--red) 0%, #9b111a 100%)", padding: "24px 24px 40px", position: "relative" }}>
-          <div style={{ position: "absolute", top: -30, right: -30, width: 100, height: 100, borderRadius: "50%", background: "rgba(255,255,255,.07)" }} />
-        </div>
-        <div style={{ padding: "0 24px 20px" }}>
-          <div style={{ display: "flex", alignItems: "flex-end", gap: 14, marginTop: -24, marginBottom: 14 }}>
-            <div style={{ width: 56, height: 56, background: "var(--white)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, fontWeight: 900, color: "var(--red)", border: "3px solid var(--white)", boxShadow: "var(--shadow)", flexShrink: 0 }}>
-              {user.nombre?.[0]?.toUpperCase()}
-            </div>
-            <div style={{ paddingBottom: 4 }}>
-              <h3 style={{ fontSize: 17, fontWeight: 800, color: "var(--gray-900)" }}>{user.nombre}</h3>
-              <span className={"badge " + (ROL_BADGE[user.rol] || "badge-gray")}>{ROL_LABEL[user.rol] || user.rol}</span>
-            </div>
+      {/* ── Two-column on desktop, stacked on mobile ── */}
+      <div style={{
+        display: isDesktop ? "grid" : "flex",
+        gridTemplateColumns: isDesktop ? "300px 1fr" : undefined,
+        flexDirection: isDesktop ? undefined : "column",
+        gap: 18,
+        alignItems: "start",
+      }}>
+
+        {/* ── Columna izquierda: Profile card ── */}
+        <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+          <div style={{ background: "linear-gradient(135deg, var(--red) 0%, #9b111a 100%)", padding: "24px 24px 40px", position: "relative" }}>
+            <div style={{ position: "absolute", top: -30, right: -30, width: 100, height: 100, borderRadius: "50%", background: "rgba(255,255,255,.07)" }} />
           </div>
-          <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13, color: "var(--gray-500)" }}>
-              <Icon name="mail" size={13} />{user.email}
-            </div>
-            {user.telefono && (
-              <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13, color: "var(--gray-500)" }}>
-                <Icon name="phone" size={13} />{user.telefono}
+          <div style={{ padding: "0 24px 20px" }}>
+            <div style={{ display: "flex", alignItems: "flex-end", gap: 14, marginTop: -24, marginBottom: 14 }}>
+              <div style={{ width: 56, height: 56, background: "var(--white)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, fontWeight: 900, color: "var(--red)", border: "3px solid var(--white)", boxShadow: "var(--shadow)", flexShrink: 0 }}>
+                {user.nombre?.[0]?.toUpperCase()}
               </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Edit form */}
-      <div className="card" style={{ padding: 22 }}>
-        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 18, color: "var(--gray-800)" }}>Editar informacion</h3>
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <InputField label="Nombre completo"       value={form.nombre}   onChange={set("nombre")} />
-          <InputField label="Correo electronico" type="email" value={form.email} onChange={set("email")} />
-          <InputField label="Telefono (10 digitos)" value={form.telefono} onChange={set("telefono")} placeholder="5512345678" />
-          <Btn onClick={save} disabled={saving} style={{ alignSelf: "flex-start" }}>
-            {saving ? "Guardando..." : <><Icon name="check" size={16} />Guardar cambios</>}
-          </Btn>
-        </div>
-      </div>
-
-      {/* RFC / Verificación (solo vendedores) */}
-      {user.rol === "vendedor" && proveedor && (
-        <div className="card" style={{ padding: 22, marginTop: 18 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 18 }}>
-            <Icon name="shield" size={16} style={{ color: "var(--gray-400)" }} />
-            <h3 style={{ fontSize: 15, fontWeight: 700, color: "var(--gray-800)" }}>Verificación de empresa</h3>
-          </div>
-
-          {/* Estado actual */}
-          <div style={{ background: "var(--gray-50)", borderRadius: 9, padding: "10px 14px", border: "1px solid var(--gray-100)", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-            <div style={{ fontSize: 13, color: "var(--gray-600)" }}>
-              {proveedor.rfc
-                ? <span style={{ fontFamily: "monospace", fontWeight: 700, color: "var(--gray-800)" }}>{proveedor.rfc}</span>
-                : <span style={{ color: "var(--gray-400)" }}>Sin RFC registrado</span>
-              }
+              <div style={{ paddingBottom: 4 }}>
+                <h3 style={{ fontSize: 17, fontWeight: 800, color: "var(--gray-900)" }}>{user.nombre}</h3>
+                <span className={"badge " + (ROL_BADGE[user.rol] || "badge-gray")}>{ROL_LABEL[user.rol] || user.rol}</span>
+              </div>
             </div>
-            <StatusBadge estado={proveedor.verificado || "pendiente"} />
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13, color: "var(--gray-500)" }}>
+                <Icon name="mail" size={13} />{user.email}
+              </div>
+              {user.telefono && (
+                <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13, color: "var(--gray-500)" }}>
+                  <Icon name="phone" size={13} />{user.telefono}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* ── Columna derecha: form + RFC ── */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+
+          {/* Edit form */}
+          <div className="card" style={{ padding: 22 }}>
+            <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 18, color: "var(--gray-800)" }}>Editar informacion</h3>
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <InputField label="Nombre completo"       value={form.nombre}   onChange={set("nombre")} />
+              <InputField label="Correo electronico" type="email" value={form.email} onChange={set("email")} />
+              <InputField label="Telefono (10 digitos)" value={form.telefono} onChange={set("telefono")} placeholder="5512345678" />
+              <Btn onClick={save} disabled={saving} style={{ alignSelf: "flex-start" }}>
+                {saving ? "Guardando..." : <><Icon name="check" size={16} />Guardar cambios</>}
+              </Btn>
+            </div>
           </div>
 
-          {/* Motivo de rechazo */}
-          {proveedor.verificado === "rechazado" && proveedor.motivo_rechazo && (
-            <div style={{ background: "#fee2e2", borderRadius: 9, padding: "10px 14px", marginBottom: 16, fontSize: 13, color: "#b91c1c", border: "1px solid #fecaca" }}>
-              <strong>Motivo del rechazo:</strong> {proveedor.motivo_rechazo}
+          {/* RFC / Verificación (solo vendedores) */}
+          {user.rol === "vendedor" && proveedor && (
+            <div className="card" style={{ padding: 22 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 18 }}>
+                <Icon name="shield" size={16} style={{ color: "var(--gray-400)" }} />
+                <h3 style={{ fontSize: 15, fontWeight: 700, color: "var(--gray-800)" }}>Verificación de empresa</h3>
+              </div>
+
+              <div style={{ background: "var(--gray-50)", borderRadius: 9, padding: "10px 14px", border: "1px solid var(--gray-100)", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+                <div style={{ fontSize: 13, color: "var(--gray-600)" }}>
+                  {proveedor.rfc
+                    ? <span style={{ fontFamily: "monospace", fontWeight: 700, color: "var(--gray-800)" }}>{proveedor.rfc}</span>
+                    : <span style={{ color: "var(--gray-400)" }}>Sin RFC registrado</span>
+                  }
+                </div>
+                <StatusBadge estado={proveedor.verificado || "pendiente"} />
+              </div>
+
+              {proveedor.verificado === "rechazado" && proveedor.motivo_rechazo && (
+                <div style={{ background: "#fee2e2", borderRadius: 9, padding: "10px 14px", marginBottom: 16, fontSize: 13, color: "#b91c1c", border: "1px solid #fecaca" }}>
+                  <strong>Motivo del rechazo:</strong> {proveedor.motivo_rechazo}
+                </div>
+              )}
+
+              {proveedor.verificado === "aprobado" && (
+                <div style={{ background: "#f0fdf4", borderRadius: 9, padding: "10px 14px", marginBottom: 16, fontSize: 13, color: "#15803d", border: "1px solid #bbf7d0" }}>
+                  Tu empresa está verificada. Si actualizas el RFC, volverá a estado pendiente para re-verificación.
+                </div>
+              )}
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <InputField
+                  label={proveedor.rfc ? "Actualizar RFC" : "Ingresar RFC"}
+                  placeholder="ej. ABC010101AAA"
+                  value={rfcInput}
+                  onChange={(e) => setRfcInput(e.target.value.toUpperCase())}
+                  style={{ fontFamily: "monospace" }}
+                />
+                <Btn
+                  onClick={saveRfc}
+                  disabled={savingRfc || !rfcInput.trim() || rfcInput.trim() === proveedor.rfc}
+                  style={{ alignSelf: "flex-start" }}
+                >
+                  {savingRfc ? "Guardando..." : <><Icon name="shield" size={15} />Enviar para verificación</>}
+                </Btn>
+              </div>
             </div>
           )}
 
-          {/* Mensaje informativo según estado */}
-          {proveedor.verificado === "aprobado" && (
-            <div style={{ background: "#f0fdf4", borderRadius: 9, padding: "10px 14px", marginBottom: 16, fontSize: 13, color: "#15803d", border: "1px solid #bbf7d0" }}>
-              Tu empresa está verificada. Si actualizas el RFC, volverá a estado pendiente para re-verificación.
-            </div>
-          )}
-
-          {/* Input RFC */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <InputField
-              label={proveedor.rfc ? "Actualizar RFC" : "Ingresar RFC"}
-              placeholder="ej. ABC010101AAA"
-              value={rfcInput}
-              onChange={(e) => setRfcInput(e.target.value.toUpperCase())}
-              style={{ fontFamily: "monospace" }}
-            />
-            <Btn
-              onClick={saveRfc}
-              disabled={savingRfc || !rfcInput.trim() || rfcInput.trim() === proveedor.rfc}
-              style={{ alignSelf: "flex-start" }}
-            >
-              {savingRfc ? "Guardando..." : <><Icon name="shield" size={15} />Enviar para verificación</>}
-            </Btn>
-          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 };

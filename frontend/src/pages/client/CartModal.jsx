@@ -99,10 +99,18 @@ const CartModal = ({ open, onClose, cart, setCart, token }) => {
             </div>
 
             {/* Total */}
-            <div style={{ background: "var(--red-pale)", border: "1px solid #fecdd3", borderRadius: 10, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontWeight: 700, color: "var(--gray-700)", fontSize: 14 }}>Total</span>
-              <span style={{ fontWeight: 900, color: "var(--red)", fontSize: 20, letterSpacing: "-.02em" }}>
-                ${cartTotal.toLocaleString("es-MX", { minimumFractionDigits: 2 })} <span style={{ fontSize: 12, fontWeight: 500 }}>MXN</span>
+            <div style={{
+              background: "linear-gradient(135deg, #0D1B2A, #1a3048)",
+              borderRadius: 12, padding: "14px 18px",
+              display: "flex", justifyContent: "space-between", alignItems: "center",
+            }}>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,.5)", letterSpacing: ".06em", textTransform: "uppercase" }}>Total del pedido</div>
+                <div style={{ fontSize: 10, color: "rgba(255,255,255,.35)", marginTop: 1 }}>precio mayoreo</div>
+              </div>
+              <span style={{ fontWeight: 900, color: "#FDE68A", fontSize: 22, letterSpacing: "-.025em" }}>
+                ${cartTotal.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                <span style={{ fontSize: 13, fontWeight: 500, color: "rgba(255,255,255,.5)", marginLeft: 4 }}>MXN</span>
               </span>
             </div>
 

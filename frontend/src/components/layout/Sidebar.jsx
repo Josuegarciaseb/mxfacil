@@ -18,15 +18,23 @@ const NAV_VENDEDOR = [
 ];
 
 const NAV_CLIENTE = [
-  { id: "catalogo",         icon: "store",      label: "Catálogo" },
-  { id: "mis-pedidos",      icon: "shoppingBag",label: "Mis Pedidos" },
-  { id: "mis-direcciones",  icon: "mapPin",     label: "Mis Direcciones" },
-  { id: "mi-perfil",        icon: "user",       label: "Mi Perfil" },
+  { id: "catalogo",        icon: "store",       label: "Catálogo" },
+  { id: "mis-pedidos",     icon: "shoppingBag", label: "Mis Pedidos" },
+  { id: "mis-direcciones", icon: "mapPin",      label: "Mis Direcciones" },
+  { id: "mi-perfil",       icon: "user",        label: "Mi Perfil" },
 ];
+
+const SIDEBAR_BG     = "#0D1B2A";
+const SIDEBAR_HOVER  = "rgba(255,255,255,.06)";
+const SIDEBAR_ACTIVE = "rgba(200,32,42,.18)";
+const TEXT_MUTED     = "#8DA2B5";
+const TEXT_BRIGHT    = "#E2EAF4";
+const BORDER_COLOR   = "rgba(255,255,255,.07)";
 
 const Sidebar = ({ user, active, onNav, onLogout, isOpen, onClose, isMobile, cartCount, onCartOpen }) => {
   const isAdmin    = user?.rol === "admin";
   const isVendedor = user?.rol === "vendedor";
+  const isCliente  = user?.rol === "cliente";
   const navItems   = isAdmin ? NAV_ADMIN : isVendedor ? NAV_VENDEDOR : NAV_CLIENTE;
 
   const handleNav = (id) => { onNav(id); if (isMobile) onClose(); };
@@ -43,114 +51,105 @@ const Sidebar = ({ user, active, onNav, onLogout, isOpen, onClose, isMobile, car
       <div
         className="sidebar-desktop"
         style={{
-          width: isMobile ? 260 : "var(--sidebar-w, 248px)",
-          minWidth: 248,
-          background: "var(--white)",
-          borderRight: "1px solid var(--gray-200)",
+          width: isMobile ? 272 : "var(--sidebar-w, 256px)",
+          minWidth: 256,
+          background: SIDEBAR_BG,
+          borderRight: `1px solid ${BORDER_COLOR}`,
           height: "100vh",
           position: "fixed",
-          top: 0,
-          left: 0,
+          top: 0, left: 0,
           display: "flex",
           flexDirection: "column",
           zIndex: 200,
         }}
-        ref={(el) => {
-          if (el)
-            el.style.transform =
-              isMobile ? (isOpen ? "translateX(0)" : "translateX(-100%)") : "";
-        }}
       >
         {/* ── Logo ── */}
-        <div
-          style={{
-            padding: "18px 18px 14px",
-            borderBottom: "1px solid var(--gray-100)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div
-              style={{
-                width: 38, height: 38,
-                background: "var(--red)",
-                borderRadius: 10,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                boxShadow: "var(--shadow-red)",
-                flexShrink: 0,
-              }}
-            >
-              <Icon name="store" size={19} style={{ color: "white" }} />
+        <div style={{
+          padding: "20px 18px 16px",
+          borderBottom: `1px solid ${BORDER_COLOR}`,
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
+            <div style={{
+              width: 40, height: 40, flexShrink: 0,
+              background: "linear-gradient(135deg, #E53935 0%, #A01820 100%)",
+              borderRadius: 11,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              boxShadow: "0 4px 14px rgba(200,32,42,.38)",
+            }}>
+              <Icon name="store" size={20} style={{ color: "#fff" }} />
             </div>
             <div>
-              <div style={{ fontWeight: 800, fontSize: 14, color: "var(--gray-900)", lineHeight: 1.2 }}>
+              <div style={{ fontWeight: 800, fontSize: 15, color: TEXT_BRIGHT, lineHeight: 1.2, letterSpacing: "-.01em" }}>
                 Comercio Fácil
               </div>
-              <div style={{ fontSize: 11, color: "var(--gray-400)", fontWeight: 500 }}>
-                México
+              <div style={{ fontSize: 10, color: TEXT_MUTED, fontWeight: 600, letterSpacing: ".06em", textTransform: "uppercase" }}>
+                Mayoreo · México
               </div>
             </div>
           </div>
           {isMobile && (
-            <button className="btn-ghost" onClick={onClose} style={{ padding: 6 }}>
-              <Icon name="x" size={18} style={{ color: "var(--gray-500)" }} />
+            <button
+              onClick={onClose}
+              style={{
+                background: "rgba(255,255,255,.07)", border: "none",
+                borderRadius: 8, padding: "6px 7px", cursor: "pointer",
+                display: "flex", alignItems: "center", color: TEXT_MUTED,
+                transition: "all .15s",
+              }}
+            >
+              <Icon name="x" size={17} />
             </button>
           )}
         </div>
 
-        {/* ── User info ── */}
-        <div
-          style={{
-            padding: "12px 14px",
-            borderBottom: "1px solid var(--gray-100)",
-            background: isAdmin ? "var(--red-pale)" : "var(--gray-50)",
-          }}
-        >
+        {/* ── Usuario ── */}
+        <div style={{
+          padding: "13px 16px",
+          borderBottom: `1px solid ${BORDER_COLOR}`,
+          background: "rgba(255,255,255,.025)",
+        }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div
-              style={{
-                width: 34, height: 34,
-                background: isAdmin ? "var(--red)" : "var(--gray-600)",
-                borderRadius: "50%",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 14, fontWeight: 700, color: "#fff",
-                flexShrink: 0,
-              }}
-            >
+            <div style={{
+              width: 36, height: 36, flexShrink: 0,
+              background: isAdmin
+                ? "linear-gradient(135deg,#E53935,#A01820)"
+                : "linear-gradient(135deg,#1D4ED8,#1e3a5f)",
+              borderRadius: "50%",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 14, fontWeight: 800, color: "#fff",
+              border: "2px solid rgba(255,255,255,.1)",
+            }}>
               {user?.nombre?.[0]?.toUpperCase()}
             </div>
-            <div style={{ minWidth: 0 }}>
-              <div
-                style={{
-                  fontSize: 13, fontWeight: 700,
-                  whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-                  color: "var(--gray-800)",
-                }}
-              >
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{
+                fontSize: 13, fontWeight: 700, color: TEXT_BRIGHT,
+                whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+              }}>
                 {user?.nombre}
               </div>
-              <span
-                className={`badge ${isAdmin ? "badge-red" : "badge-gray"}`}
-                style={{ fontSize: 10, padding: "1px 7px" }}
-              >
-                {isAdmin ? "Administrador" : isVendedor ? "Vendedor" : "Cliente"}
+              <span style={{
+                display: "inline-flex", alignItems: "center",
+                fontSize: 9, fontWeight: 700, letterSpacing: ".05em", textTransform: "uppercase",
+                background: isAdmin ? "rgba(200,32,42,.3)" : "rgba(255,255,255,.08)",
+                color: isAdmin ? "#FCA5A5" : TEXT_MUTED,
+                padding: "2px 8px", borderRadius: 99,
+              }}>
+                {isAdmin ? "Administrador" : isVendedor ? "Vendedor" : "Mayorista"}
               </span>
             </div>
           </div>
         </div>
 
-        {/* ── Nav ── */}
-        <nav style={{ flex: 1, padding: "10px", overflowY: "auto" }}>
-          <div
-            style={{
-              fontSize: 10, fontWeight: 700, color: "var(--gray-400)",
-              textTransform: "uppercase", letterSpacing: ".1em",
-              padding: "4px 6px", marginBottom: 4,
-            }}
-          >
-            {isAdmin ? "Administración" : "Mi cuenta"}
+        {/* ── Navegación ── */}
+        <nav style={{ flex: 1, padding: "12px 10px", overflowY: "auto" }}>
+          <div style={{
+            fontSize: 9, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase",
+            color: "rgba(141,162,181,.45)",
+            padding: "0 8px", marginBottom: 8,
+          }}>
+            {isAdmin ? "Administración" : isVendedor ? "Panel Vendedor" : "Mi Cuenta"}
           </div>
 
           {navItems.map(({ id, icon, label }) => {
@@ -161,87 +160,87 @@ const Sidebar = ({ user, active, onNav, onLogout, isOpen, onClose, isMobile, car
                 onClick={() => handleNav(id)}
                 style={{
                   width: "100%",
-                  display: "flex", alignItems: "center", gap: 11,
+                  display: "flex", alignItems: "center", gap: 10,
                   padding: "10px 12px",
-                  borderRadius: 9, border: "none",
+                  paddingLeft: isActive ? "9px" : "12px",
+                  borderLeft: isActive ? "3px solid var(--red)" : "3px solid transparent",
+                  borderTop: "none", borderRight: "none", borderBottom: "none",
+                  borderRadius: "0 9px 9px 0",
                   cursor: "pointer",
                   transition: "all .15s",
                   fontFamily: "'Outfit',sans-serif",
-                  fontWeight: isActive ? 600 : 500,
+                  fontWeight: isActive ? 700 : 500,
                   fontSize: 14,
                   textAlign: "left",
                   marginBottom: 2,
-                  background: isActive ? "var(--red)" : "transparent",
-                  color: isActive ? "white" : "var(--gray-600)",
+                  background: isActive ? SIDEBAR_ACTIVE : "transparent",
+                  color: isActive ? "#FCA5A5" : TEXT_MUTED,
                 }}
                 onMouseEnter={(e) => {
                   if (!isActive) {
-                    e.currentTarget.style.background = "var(--red-pale)";
-                    e.currentTarget.style.color = "var(--red)";
+                    e.currentTarget.style.background = SIDEBAR_HOVER;
+                    e.currentTarget.style.color = TEXT_BRIGHT;
                   }
                 }}
                 onMouseLeave={(e) => {
                   if (!isActive) {
                     e.currentTarget.style.background = "transparent";
-                    e.currentTarget.style.color = "var(--gray-600)";
+                    e.currentTarget.style.color = TEXT_MUTED;
                   }
                 }}
               >
                 <Icon
                   name={icon}
                   size={17}
-                  style={{ color: isActive ? "white" : "var(--gray-400)" }}
+                  style={{ color: isActive ? "#FCA5A5" : "rgba(141,162,181,.65)", flexShrink: 0 }}
                 />
-                {label}
+                <span style={{ flex: 1 }}>{label}</span>
                 {isActive && (
-                  <Icon
-                    name="chevronRight"
-                    size={13}
-                    style={{ marginLeft: "auto", color: "rgba(255,255,255,.7)" }}
-                  />
+                  <Icon name="chevronRight" size={12} style={{ color: "rgba(252,165,165,.45)" }} />
                 )}
               </button>
             );
           })}
         </nav>
 
-        {/* ── Cart (cliente, desktop) ── */}
-        {user?.rol === "cliente" && !isMobile && (
-          <div style={{ padding: "0 10px 6px" }}>
+        {/* ── Carrito (cliente, desktop) ── */}
+        {isCliente && !isMobile && (
+          <div style={{ padding: "0 10px 8px" }}>
             <button
               onClick={onCartOpen}
               style={{
                 width: "100%",
-                display: "flex", alignItems: "center", gap: 11,
-                padding: "10px 12px",
-                borderRadius: 9, border: "none",
+                display: "flex", alignItems: "center", gap: 10,
+                padding: "11px 14px",
+                borderRadius: 10, border: "none",
                 cursor: "pointer",
-                background: cartCount > 0 ? "var(--red)" : "transparent",
-                color: cartCount > 0 ? "#fff" : "var(--gray-600)",
-                fontFamily: "'Outfit',sans-serif",
-                fontWeight: 600, fontSize: 14,
-                transition: "all .15s",
+                background: cartCount > 0
+                  ? "linear-gradient(135deg,var(--gold-light),var(--gold))"
+                  : "rgba(255,255,255,.05)",
+                color: cartCount > 0 ? "#fff" : TEXT_MUTED,
+                fontFamily: "'Outfit',sans-serif", fontWeight: 600, fontSize: 14,
+                transition: "all .2s",
+                boxShadow: cartCount > 0 ? "var(--shadow-gold)" : "none",
               }}
               onMouseEnter={(e) => {
                 if (!cartCount) {
-                  e.currentTarget.style.background = "var(--red-pale)";
-                  e.currentTarget.style.color = "var(--red)";
+                  e.currentTarget.style.background = SIDEBAR_HOVER;
+                  e.currentTarget.style.color = TEXT_BRIGHT;
                 }
               }}
               onMouseLeave={(e) => {
                 if (!cartCount) {
-                  e.currentTarget.style.background = "transparent";
-                  e.currentTarget.style.color = "var(--gray-600)";
+                  e.currentTarget.style.background = "rgba(255,255,255,.05)";
+                  e.currentTarget.style.color = TEXT_MUTED;
                 }
               }}
             >
-              <Icon name="cart" size={17} style={{ color: cartCount > 0 ? "#fff" : "var(--gray-400)" }} />
-              Mi Carrito
+              <Icon name="cart" size={17} />
+              <span style={{ flex: 1 }}>Mi Carrito</span>
               {cartCount > 0 && (
                 <span style={{
-                  marginLeft: "auto",
-                  background: "rgba(255,255,255,.25)",
-                  borderRadius: 20, padding: "1px 8px",
+                  background: "rgba(255,255,255,.28)",
+                  borderRadius: 20, padding: "2px 10px",
                   fontSize: 13, fontWeight: 700,
                 }}>
                   {cartCount}
@@ -251,32 +250,31 @@ const Sidebar = ({ user, active, onNav, onLogout, isOpen, onClose, isMobile, car
           </div>
         )}
 
-        {/* ── Logout ── */}
-        <div style={{ padding: "10px", borderTop: "1px solid var(--gray-100)" }}>
+        {/* ── Cerrar sesión ── */}
+        <div style={{ padding: "10px", borderTop: `1px solid ${BORDER_COLOR}` }}>
           <button
             onClick={onLogout}
             style={{
               width: "100%",
-              display: "flex", alignItems: "center", gap: 11,
+              display: "flex", alignItems: "center", gap: 10,
               padding: "10px 12px",
               borderRadius: 9, border: "none",
               cursor: "pointer",
               background: "transparent",
-              color: "var(--gray-500)",
-              fontFamily: "'Outfit',sans-serif",
-              fontWeight: 500, fontSize: 14,
+              color: "rgba(141,162,181,.55)",
+              fontFamily: "'Outfit',sans-serif", fontWeight: 500, fontSize: 14,
               transition: "all .15s",
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = "#fee2e2";
-              e.currentTarget.style.color = "#dc2626";
+              e.currentTarget.style.background = "rgba(220,38,38,.12)";
+              e.currentTarget.style.color = "#FCA5A5";
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.background = "transparent";
-              e.currentTarget.style.color = "var(--gray-500)";
+              e.currentTarget.style.color = "rgba(141,162,181,.55)";
             }}
           >
-            <Icon name="logout" size={16} style={{ color: "var(--gray-400)" }} />
+            <Icon name="logout" size={16} />
             Cerrar sesión
           </button>
         </div>
