@@ -27,5 +27,16 @@ services:
     depends_on:
       - mysql
 
+  backend:
+    build: .
+    container_name: mxfacil-backend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    depends_on:
+      - mysql
+
 volumes:
   mxfacil_mysql_data:

@@ -4,3 +4,5 @@
 /.env.local 
 /.claude
 /docs
+/backend/node_modules
+/frontend/node_modules
