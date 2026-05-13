@@ -1,9 +1,8 @@
 const crypto = require('crypto');
-
 const ALGORITHM    = 'aes-256-gcm';
 const ENCODING     = 'hex';
-const IV_LENGTH    = 12;  
-const TAG_LENGTH   = 16;   
+const IV_LENGTH    = 12;
+const TAG_LENGTH   = 16; 
 
 function getKey() {
   const key = process.env.ENCRYPTION_KEY;
@@ -21,7 +20,6 @@ function getHmacKey() {
   return key;
 }
 
-// ─── 1. CIFRADO SIMÉTRICO AES-256-GCM ────────────────────────────────────────
 function encrypt(value) {
   const key       = getKey();
   const iv        = crypto.randomBytes(IV_LENGTH);
@@ -53,7 +51,6 @@ function decrypt(encryptedValue) {
 
   const decrypted = Buffer.concat([decipher.update(cipherText), decipher.final()]).toString('utf8');
 
-  // Intentar parsear como JSON
   try { return JSON.parse(decrypted); } catch { return decrypted; }
 }
 
@@ -64,7 +61,6 @@ function hashData(value) {
 
 function verifyHash(value, expectedHash) {
   const computed = hashData(value);
-
   return crypto.timingSafeEqual(
     Buffer.from(computed, ENCODING),
     Buffer.from(expectedHash, ENCODING)
@@ -77,6 +73,7 @@ function signData(value) {
   return crypto.createHmac('sha256', key).update(text).digest(ENCODING);
 }
 
+
 function verifySignature(value, signature) {
   try {
     const expected = signData(value);
@@ -84,7 +81,6 @@ function verifySignature(value, signature) {
     const expBuf   = Buffer.from(expected,  ENCODING);
 
     if (sigBuf.length !== expBuf.length) return false;
-
     return crypto.timingSafeEqual(sigBuf, expBuf);
   } catch {
     return false;
