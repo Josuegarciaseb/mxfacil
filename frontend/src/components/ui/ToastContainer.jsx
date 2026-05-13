@@ -39,7 +39,7 @@ const ToastContainer = () => {
             padding: "12px 16px",
             borderRadius: 12,
             fontSize: 14,
-            fontFamily: "'Outfit', sans-serif",
+            fontFamily: "'Sora', sans-serif",
             fontWeight: 500,
             boxShadow: "0 8px 32px rgba(0,0,0,.2)",
             animation: "toastIn .3s cubic-bezier(.34,1.56,.64,1)",

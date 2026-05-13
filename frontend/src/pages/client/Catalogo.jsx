@@ -90,7 +90,7 @@ const ClientCatalogo = ({
             <select style={{
               fontSize: 13, padding: "7px 12px", borderRadius: 9,
               border: "1.5px solid var(--gray-200)", color: "var(--gray-700)",
-              fontFamily: "'Outfit',sans-serif", fontWeight: 500,
+              fontFamily: "'Sora',sans-serif", fontWeight: 500,
               background: "#fff", cursor: "pointer",
             }}>
               <option>Más relevantes</option>
@@ -141,7 +141,7 @@ const ClientCatalogo = ({
                     : "#fff",
                   color: active ? "#fff" : "var(--gray-600)",
                   fontSize: 12, fontWeight: 600, whiteSpace: "nowrap",
-                  fontFamily: "'Outfit',sans-serif", transition: "all .15s",
+                  fontFamily: "'Sora',sans-serif", transition: "all .15s",
                   boxShadow: active ? "0 2px 8px rgba(200,32,42,.2)" : "none",
                   flexShrink: 0,
                 }}

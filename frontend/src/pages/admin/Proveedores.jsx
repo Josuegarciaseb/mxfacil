@@ -199,7 +199,7 @@ const AdminProveedores = ({ token }) => {
                   onClick={() => setVerifyAccion("aprobar")}
                   style={{
                     flex: 1, padding: "12px 0", borderRadius: 10, border: "2px solid #16a34a",
-                    background: "transparent", cursor: "pointer", fontFamily: "'Outfit',sans-serif",
+                    background: "transparent", cursor: "pointer", fontFamily: "'Sora',sans-serif",
                     fontWeight: 700, fontSize: 14, color: "#16a34a",
                     display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                     transition: "all .15s",
@@ -212,9 +212,9 @@ const AdminProveedores = ({ token }) => {
                 <button
                   onClick={() => setVerifyAccion("rechazar")}
                   style={{
-                    flex: 1, padding: "12px 0", borderRadius: 10, border: "2px solid var(--red)",
-                    background: "transparent", cursor: "pointer", fontFamily: "'Outfit',sans-serif",
-                    fontWeight: 700, fontSize: 14, color: "var(--red)",
+                    flex: 1, padding: "12px 0", borderRadius: 10, border: "2px solid #dc2626",
+                    background: "transparent", cursor: "pointer", fontFamily: "'Sora',sans-serif",
+                    fontWeight: 700, fontSize: 14, color: "#dc2626",
                     display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                     transition: "all .15s",
                   }}
@@ -252,13 +252,13 @@ const AdminProveedores = ({ token }) => {
                     onChange={(e) => setVerifyMotivo(e.target.value)}
                     placeholder="Describe el motivo del rechazo..."
                     rows={3}
-                    style={{ resize: "vertical", fontFamily: "'Outfit',sans-serif", fontSize: 13 }}
+                    style={{ resize: "vertical", fontFamily: "'Sora',sans-serif", fontSize: 13 }}
                   />
                 </div>
                 <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
                   <Btn variant="secondary" onClick={() => setVerifyAccion(null)}>Atrás</Btn>
                   <Btn onClick={submitVerify} disabled={verifying || !verifyMotivo.trim()}
-                    style={{ background: "var(--red)", borderColor: "var(--red)" }}>
+                    style={{ background: "#dc2626", borderColor: "#dc2626" }}>
                     {verifying ? "Guardando..." : "Confirmar rechazo"}
                   </Btn>
                 </div>

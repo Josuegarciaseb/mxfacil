@@ -64,7 +64,7 @@ const ClientPerfil = ({ token, user, onUpdate }) => {
 
         {/* ── Columna izquierda: Profile card ── */}
         <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-          <div style={{ background: "linear-gradient(135deg, var(--red) 0%, #9b111a 100%)", padding: "24px 24px 40px", position: "relative" }}>
+          <div style={{ background: "linear-gradient(135deg, #639922 0%, #27500A 100%)", padding: "24px 24px 40px", position: "relative" }}>
             <div style={{ position: "absolute", top: -30, right: -30, width: 100, height: 100, borderRadius: "50%", background: "rgba(255,255,255,.07)" }} />
           </div>
           <div style={{ padding: "0 24px 20px" }}>

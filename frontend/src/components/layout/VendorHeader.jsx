@@ -8,11 +8,12 @@ const NAV = [
   { id: "vendedor-perfil",    icon: "user",        label: "Mi Perfil"     },
 ];
 
-const BG        = "#0D1B2A";
-const BG_ALT    = "#0A1520";
-const BORDER    = "rgba(255,255,255,.07)";
-const TEXT_MUTED  = "#8DA2B5";
-const TEXT_BRIGHT = "#E2EAF4";
+const BG          = "#173404";
+const BG_ALT      = "#1e4205";
+const BORDER      = "rgba(255,255,255,.07)";
+const TEXT_MUTED  = "#89a880";
+const TEXT_BRIGHT = "#e0edd5";
+const ACCENT      = "#639922";
 
 const VendorHeader = ({ user, page, onNav, onLogout, isSmall, isDesktop }) => {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -56,19 +57,19 @@ const VendorHeader = ({ user, page, onNav, onLogout, isSmall, isDesktop }) => {
         >
           <div style={{
             width: isSmall ? 34 : 40, height: isSmall ? 34 : 40,
-            background: "linear-gradient(135deg,#E53935,#A01820)",
+            background: ACCENT,
             borderRadius: isSmall ? 9 : 11, flexShrink: 0,
             display: "flex", alignItems: "center", justifyContent: "center",
-            boxShadow: "0 4px 14px rgba(200,32,42,.38)",
+            boxShadow: "0 4px 14px rgba(99,153,34,.38)",
           }}>
             <Icon name="store" size={isSmall ? 17 : 21} style={{ color: "#fff" }} />
           </div>
           {!isSmall && (
             <div style={{ lineHeight: 1.2 }}>
-              <div style={{ fontWeight: 800, fontSize: 15, color: TEXT_BRIGHT, letterSpacing: "-.01em" }}>
+              <div style={{ fontWeight: 600, fontSize: 15, color: TEXT_BRIGHT, letterSpacing: "-.01em", fontFamily: "'Sora',sans-serif" }}>
                 Comercio Fácil
               </div>
-              <div style={{ fontSize: 9, color: TEXT_MUTED, fontWeight: 600, letterSpacing: ".06em", textTransform: "uppercase" }}>
+              <div style={{ fontSize: 9, color: TEXT_MUTED, fontWeight: 600, letterSpacing: ".06em", textTransform: "uppercase", fontFamily: "'Sora',sans-serif" }}>
                 Panel Vendedor
               </div>
             </div>
@@ -78,14 +79,14 @@ const VendorHeader = ({ user, page, onNav, onLogout, isSmall, isDesktop }) => {
         {/* Título de página en mobile */}
         {isSmall && (
           <span style={{
-            flex: 1, fontWeight: 700, fontSize: 15, color: TEXT_BRIGHT,
+            flex: 1, fontWeight: 600, fontSize: 15, color: TEXT_BRIGHT,
             whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+            fontFamily: "'Sora',sans-serif",
           }}>
             {currentLabel}
           </span>
         )}
 
-        {/* Espacio en desktop */}
         {!isSmall && <div style={{ flex: 1 }} />}
 
         {/* Hamburger (mobile) */}
@@ -94,8 +95,8 @@ const VendorHeader = ({ user, page, onNav, onLogout, isSmall, isDesktop }) => {
             <button
               onClick={() => setNavOpen(!navOpen)}
               style={{
-                background: navOpen ? "rgba(200,32,42,.18)" : "rgba(255,255,255,.07)",
-                border: `1px solid ${navOpen ? "rgba(200,32,42,.4)" : BORDER}`,
+                background: navOpen ? `rgba(99,153,34,.18)` : "rgba(255,255,255,.07)",
+                border: `1px solid ${navOpen ? `rgba(99,153,34,.4)` : BORDER}`,
                 borderRadius: 9, padding: "7px 9px",
                 cursor: "pointer", display: "flex", alignItems: "center",
                 transition: "all .15s",
@@ -107,13 +108,13 @@ const VendorHeader = ({ user, page, onNav, onLogout, isSmall, isDesktop }) => {
             {navOpen && (
               <div style={{
                 position: "absolute", top: "calc(100% + 8px)", right: 0,
-                background: "#162535", border: `1px solid ${BORDER}`,
+                background: BG_ALT, border: `1px solid ${BORDER}`,
                 borderRadius: 14, padding: 8, minWidth: 200,
                 boxShadow: "0 12px 40px rgba(0,0,0,.4)", zIndex: 9999,
                 animation: "fadeUp .2s ease",
               }}>
                 {NAV.map(({ id, icon, label }) => {
-                  const active = page === id;
+                  const isActive = page === id;
                   return (
                     <button
                       key={id}
@@ -121,18 +122,18 @@ const VendorHeader = ({ user, page, onNav, onLogout, isSmall, isDesktop }) => {
                       style={{
                         width: "100%", display: "flex", alignItems: "center", gap: 9,
                         padding: "10px 12px",
-                        paddingLeft: active ? "9px" : "12px",
-                        borderLeft: active ? "3px solid var(--red)" : "3px solid transparent",
+                        paddingLeft: isActive ? "9px" : "12px",
+                        borderLeft: isActive ? `3px solid ${ACCENT}` : "3px solid transparent",
                         border: "none", borderRadius: "0 9px 9px 0",
-                        background: active ? "rgba(200,32,42,.18)" : "transparent",
-                        color: active ? "#FCA5A5" : TEXT_MUTED,
-                        fontFamily: "'Outfit',sans-serif", fontWeight: active ? 700 : 500, fontSize: 14,
+                        background: isActive ? `rgba(99,153,34,.18)` : "transparent",
+                        color: isActive ? "#C0DD97" : TEXT_MUTED,
+                        fontFamily: "'Sora',sans-serif", fontWeight: isActive ? 600 : 400, fontSize: 14,
                         cursor: "pointer", textAlign: "left", transition: "all .15s",
                       }}
-                      onMouseEnter={(e) => { if (!active) { e.currentTarget.style.background = "rgba(255,255,255,.06)"; e.currentTarget.style.color = TEXT_BRIGHT; } }}
-                      onMouseLeave={(e) => { if (!active) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = TEXT_MUTED; } }}
+                      onMouseEnter={(e) => { if (!isActive) { e.currentTarget.style.background = "rgba(255,255,255,.06)"; e.currentTarget.style.color = TEXT_BRIGHT; } }}
+                      onMouseLeave={(e) => { if (!isActive) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = TEXT_MUTED; } }}
                     >
-                      <Icon name={icon} size={15} style={{ color: active ? "#FCA5A5" : "rgba(141,162,181,.65)" }} />
+                      <Icon name={icon} size={15} style={{ color: isActive ? "#C0DD97" : "rgba(137,168,128,.65)" }} />
                       {label}
                     </button>
                   );
@@ -143,12 +144,12 @@ const VendorHeader = ({ user, page, onNav, onLogout, isSmall, isDesktop }) => {
                     style={{
                       width: "100%", display: "flex", alignItems: "center", gap: 9,
                       padding: "9px 12px", border: "none", borderRadius: 9,
-                      background: "transparent", color: "rgba(141,162,181,.55)",
-                      fontFamily: "'Outfit',sans-serif", fontWeight: 500, fontSize: 14,
+                      background: "transparent", color: "rgba(137,168,128,.55)",
+                      fontFamily: "'Sora',sans-serif", fontWeight: 400, fontSize: 14,
                       cursor: "pointer", textAlign: "left", transition: "all .15s",
                     }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(220,38,38,.12)"; e.currentTarget.style.color = "#FCA5A5"; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "rgba(141,162,181,.55)"; }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(220,38,38,.12)"; e.currentTarget.style.color = "#fca5a5"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "rgba(137,168,128,.55)"; }}
                   >
                     <Icon name="logout" size={15} />
                     Cerrar sesión
@@ -166,11 +167,11 @@ const VendorHeader = ({ user, page, onNav, onLogout, isSmall, isDesktop }) => {
               onClick={() => setMenuOpen(!menuOpen)}
               style={{
                 display: "flex", alignItems: "center", gap: 8,
-                background: menuOpen ? "rgba(200,32,42,.18)" : "rgba(255,255,255,.07)",
-                border: `1px solid ${menuOpen ? "rgba(200,32,42,.4)" : BORDER}`,
+                background: menuOpen ? `rgba(99,153,34,.18)` : "rgba(255,255,255,.07)",
+                border: `1px solid ${menuOpen ? `rgba(99,153,34,.4)` : BORDER}`,
                 borderRadius: 10, padding: "7px 14px",
                 cursor: "pointer", transition: "all .15s",
-                fontFamily: "'Outfit',sans-serif", fontWeight: 600, fontSize: 13,
+                fontFamily: "'Sora',sans-serif", fontWeight: 600, fontSize: 13,
               }}
               onMouseEnter={(e) => { if (!menuOpen) e.currentTarget.style.background = "rgba(255,255,255,.11)"; }}
               onMouseLeave={(e) => { if (!menuOpen) e.currentTarget.style.background = "rgba(255,255,255,.07)"; }}
@@ -180,13 +181,14 @@ const VendorHeader = ({ user, page, onNav, onLogout, isSmall, isDesktop }) => {
                 background: "linear-gradient(135deg,#1D4ED8,#1e3a5f)",
                 borderRadius: "50%",
                 display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 12, fontWeight: 800, color: "#fff", flexShrink: 0,
+                fontSize: 12, fontWeight: 700, color: "#fff", flexShrink: 0,
                 border: "2px solid rgba(255,255,255,.1)",
+                fontFamily: "'Sora',sans-serif",
               }}>
                 {user?.nombre?.[0]?.toUpperCase()}
               </div>
               <span style={{
-                color: menuOpen ? "#FCA5A5" : TEXT_BRIGHT,
+                color: menuOpen ? "#C0DD97" : TEXT_BRIGHT,
                 maxWidth: 90, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
               }}>
                 {user?.nombre?.split(" ")[0]}
@@ -201,19 +203,20 @@ const VendorHeader = ({ user, page, onNav, onLogout, isSmall, isDesktop }) => {
             {menuOpen && (
               <div style={{
                 position: "absolute", top: "calc(100% + 8px)", right: 0,
-                background: "#162535", border: `1px solid ${BORDER}`,
+                background: BG_ALT, border: `1px solid ${BORDER}`,
                 borderRadius: 14, padding: 8, minWidth: 200,
                 boxShadow: "0 12px 40px rgba(0,0,0,.4)", zIndex: 9999,
                 animation: "fadeUp .2s ease",
               }}>
                 <div style={{ padding: "8px 12px 10px", borderBottom: `1px solid ${BORDER}`, marginBottom: 6 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: TEXT_BRIGHT }}>{user?.nombre}</div>
-                  <div style={{ fontSize: 11, color: TEXT_MUTED, marginTop: 1 }}>{user?.email}</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: TEXT_BRIGHT, fontFamily: "'Sora',sans-serif" }}>{user?.nombre}</div>
+                  <div style={{ fontSize: 11, color: TEXT_MUTED, marginTop: 1, fontFamily: "'Sora',sans-serif" }}>{user?.email}</div>
                   <span style={{
                     display: "inline-flex", marginTop: 6,
                     fontSize: 9, fontWeight: 700, letterSpacing: ".05em", textTransform: "uppercase",
                     background: "rgba(29,78,216,.3)", color: "#93C5FD",
                     padding: "2px 8px", borderRadius: 99,
+                    fontFamily: "'Sora',sans-serif",
                   }}>
                     Vendedor
                   </span>
@@ -224,12 +227,12 @@ const VendorHeader = ({ user, page, onNav, onLogout, isSmall, isDesktop }) => {
                     style={{
                       width: "100%", display: "flex", alignItems: "center", gap: 9,
                       padding: "9px 12px", border: "none", borderRadius: 9,
-                      background: "transparent", color: "rgba(141,162,181,.55)",
-                      fontFamily: "'Outfit',sans-serif", fontWeight: 500, fontSize: 14,
+                      background: "transparent", color: "rgba(137,168,128,.55)",
+                      fontFamily: "'Sora',sans-serif", fontWeight: 400, fontSize: 14,
                       cursor: "pointer", textAlign: "left", transition: "all .15s",
                     }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(220,38,38,.12)"; e.currentTarget.style.color = "#FCA5A5"; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "rgba(141,162,181,.55)"; }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(220,38,38,.12)"; e.currentTarget.style.color = "#fca5a5"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "rgba(137,168,128,.55)"; }}
                   >
                     <Icon name="logout" size={15} />
                     Cerrar sesión
@@ -251,7 +254,7 @@ const VendorHeader = ({ user, page, onNav, onLogout, isSmall, isDesktop }) => {
           padding: "0 clamp(20px, 3vw, 48px)", gap: 0,
         }}>
           {NAV.map(({ id, icon, label }) => {
-            const active = page === id;
+            const isActive = page === id;
             return (
               <button
                 key={id}
@@ -259,18 +262,18 @@ const VendorHeader = ({ user, page, onNav, onLogout, isSmall, isDesktop }) => {
                 style={{
                   padding: "0 20px", height: "100%", flexShrink: 0,
                   border: "none",
-                  borderBottom: active ? "2.5px solid var(--red)" : "2.5px solid transparent",
+                  borderBottom: isActive ? `2.5px solid ${ACCENT}` : "2.5px solid transparent",
                   background: "transparent",
-                  color: active ? "#FCA5A5" : TEXT_MUTED,
-                  fontFamily: "'Outfit',sans-serif",
-                  fontWeight: active ? 700 : 500, fontSize: 13,
+                  color: isActive ? "#C0DD97" : TEXT_MUTED,
+                  fontFamily: "'Sora',sans-serif",
+                  fontWeight: isActive ? 600 : 400, fontSize: 13,
                   cursor: "pointer", transition: "all .15s", whiteSpace: "nowrap",
                   display: "flex", alignItems: "center", gap: 7,
                 }}
-                onMouseEnter={(e) => { if (!active) e.currentTarget.style.color = TEXT_BRIGHT; }}
-                onMouseLeave={(e) => { if (!active) e.currentTarget.style.color = TEXT_MUTED; }}
+                onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.color = TEXT_BRIGHT; }}
+                onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.color = TEXT_MUTED; }}
               >
-                <Icon name={icon} size={14} style={{ opacity: active ? 1 : .6 }} />
+                <Icon name={icon} size={14} style={{ opacity: isActive ? 1 : .6 }} />
                 {label}
               </button>
             );

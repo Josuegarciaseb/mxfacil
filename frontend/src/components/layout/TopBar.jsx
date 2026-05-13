@@ -18,12 +18,18 @@ const PAGE_LABELS = {
   "vendedor-perfil":    "Mi Perfil",
 };
 
+const BG          = "#173404";
+const BORDER      = "rgba(255,255,255,.07)";
+const TEXT_MUTED  = "#89a880";
+const TEXT_BRIGHT = "#e0edd5";
+const ACCENT      = "#639922";
+
 const TopBar = ({ user, onMenuOpen, cartCount, onCartOpen, page }) => (
   <div style={{
     position: "fixed", top: 0, left: 0, right: 0,
     height: "var(--topbar-h)",
-    background: "#0D1B2A",
-    borderBottom: "1px solid rgba(255,255,255,.07)",
+    background: BG,
+    borderBottom: `1px solid ${BORDER}`,
     display: "flex", alignItems: "center",
     padding: "0 12px", gap: 10,
     zIndex: 150,
@@ -40,22 +46,23 @@ const TopBar = ({ user, onMenuOpen, cartCount, onCartOpen, page }) => (
       onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,.12)")}
       onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(255,255,255,.07)")}
     >
-      <Icon name="menu" size={20} style={{ color: "#E2EAF4" }} />
+      <Icon name="menu" size={20} style={{ color: TEXT_BRIGHT }} />
     </button>
 
     <div style={{ display: "flex", alignItems: "center", gap: 9, flex: 1, minWidth: 0 }}>
       <div style={{
         width: 28, height: 28, flexShrink: 0,
-        background: "linear-gradient(135deg,#E53935,#A01820)",
+        background: ACCENT,
         borderRadius: 8,
         display: "flex", alignItems: "center", justifyContent: "center",
-        boxShadow: "0 2px 8px rgba(200,32,42,.4)",
+        boxShadow: `0 2px 8px rgba(99,153,34,.4)`,
       }}>
         <Icon name="store" size={15} style={{ color: "#fff" }} />
       </div>
       <span style={{
-        fontWeight: 700, fontSize: 15, color: "#E2EAF4",
+        fontWeight: 600, fontSize: 15, color: TEXT_BRIGHT,
         whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+        fontFamily: "'Sora',sans-serif",
       }}>
         {PAGE_LABELS[page] || "Comercio Fácil"}
       </span>
@@ -73,8 +80,8 @@ const TopBar = ({ user, onMenuOpen, cartCount, onCartOpen, page }) => (
           padding: "8px 11px",
           cursor: "pointer",
           display: "flex", alignItems: "center", gap: 6,
-          color: cartCount > 0 ? "#fff" : "#8DA2B5",
-          fontFamily: "'Outfit',sans-serif", fontWeight: 700, fontSize: 13,
+          color: cartCount > 0 ? "#fff" : TEXT_MUTED,
+          fontFamily: "'Sora',sans-serif", fontWeight: 600, fontSize: 13,
           transition: "all .2s",
           boxShadow: cartCount > 0 ? "var(--shadow-gold)" : "none",
         }}

@@ -202,7 +202,7 @@ export default function App() {
             color: "#fff", border: "none",
             borderRadius: 16, padding: "13px 20px",
             display: "flex", alignItems: "center", gap: 10,
-            fontFamily: "'Outfit',sans-serif", fontWeight: 700, fontSize: 15,
+            fontFamily: "'Sora',sans-serif", fontWeight: 700, fontSize: 15,
             boxShadow: "var(--shadow-red)", cursor: "pointer",
             animation: "fadeUp .3s ease",
           }}

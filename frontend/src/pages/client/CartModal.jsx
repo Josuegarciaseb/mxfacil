@@ -100,7 +100,7 @@ const CartModal = ({ open, onClose, cart, setCart, token }) => {
 
             {/* Total */}
             <div style={{
-              background: "linear-gradient(135deg, #0D1B2A, #1a3048)",
+              background: "linear-gradient(135deg, #173404, #1e4205)",
               borderRadius: 12, padding: "14px 18px",
               display: "flex", justifyContent: "space-between", alignItems: "center",
             }}>

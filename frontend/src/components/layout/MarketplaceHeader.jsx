@@ -7,12 +7,12 @@ const NAV_ITEMS = [
   { icon: "user",        label: "Mi Perfil",       id: "mi-perfil"       },
 ];
 
-/* Mismos tokens del Sidebar oscuro */
-const BG         = "#0D1B2A";
-const BG_ALT     = "#0A1520";          /* segunda fila, un poco más oscura */
-const BORDER     = "rgba(255,255,255,.07)";
-const TEXT_MUTED = "#8DA2B5";
-const TEXT_BRIGHT= "#E2EAF4";
+const BG          = "#173404";
+const BG_ALT      = "#1e4205";
+const BORDER      = "rgba(255,255,255,.07)";
+const TEXT_MUTED  = "#89a880";
+const TEXT_BRIGHT = "#e0edd5";
+const ACCENT      = "#639922";
 
 const MarketplaceHeader = ({
   user, page, onNav, onLogout,
@@ -46,7 +46,7 @@ const MarketplaceHeader = ({
         boxShadow: "0 2px 16px rgba(0,0,0,.25)",
       }}>
 
-        {/* Logo — idéntico al del Sidebar */}
+        {/* Logo */}
         <button
           onClick={() => onNav("catalogo")}
           style={{
@@ -57,19 +57,19 @@ const MarketplaceHeader = ({
         >
           <div style={{
             width: isSmall ? 34 : 40, height: isSmall ? 34 : 40,
-            background: "linear-gradient(135deg,#E53935,#A01820)",
+            background: ACCENT,
             borderRadius: isSmall ? 9 : 11, flexShrink: 0,
             display: "flex", alignItems: "center", justifyContent: "center",
-            boxShadow: "0 4px 14px rgba(200,32,42,.38)",
+            boxShadow: "0 4px 14px rgba(99,153,34,.38)",
           }}>
             <Icon name="store" size={isSmall ? 17 : 21} style={{ color: "#fff" }} />
           </div>
           {!isSmall && (
             <div style={{ lineHeight: 1.2 }}>
-              <div style={{ fontWeight: 800, fontSize: 15, color: TEXT_BRIGHT, letterSpacing: "-.01em" }}>
+              <div style={{ fontWeight: 600, fontSize: 15, color: TEXT_BRIGHT, letterSpacing: "-.01em", fontFamily: "'Sora',sans-serif" }}>
                 Comercio Fácil
               </div>
-              <div style={{ fontSize: 9, color: TEXT_MUTED, fontWeight: 600, letterSpacing: ".06em", textTransform: "uppercase" }}>
+              <div style={{ fontSize: 9, color: TEXT_MUTED, fontWeight: 600, letterSpacing: ".06em", textTransform: "uppercase", fontFamily: "'Sora',sans-serif" }}>
                 Mayoreo · México
               </div>
             </div>
@@ -99,12 +99,12 @@ const MarketplaceHeader = ({
                 borderRight: isSmall ? "1.5px solid rgba(255,255,255,.1)" : "none",
                 background: "rgba(255,255,255,.07)",
                 color: TEXT_BRIGHT,
-                fontSize: 14, fontFamily: "'Outfit',sans-serif",
+                fontSize: 14, fontFamily: "'Sora',sans-serif",
                 outline: "none", transition: "all .2s", width: "100%",
               }}
               onFocus={(e) => {
                 e.target.style.background = "rgba(255,255,255,.11)";
-                e.target.style.borderColor = "rgba(200,32,42,.6)";
+                e.target.style.borderColor = `rgba(99,153,34,.6)`;
               }}
               onBlur={(e) => {
                 e.target.style.background = "rgba(255,255,255,.07)";
@@ -114,12 +114,12 @@ const MarketplaceHeader = ({
             {!isSmall && (
               <button style={{
                 height: 42, padding: "0 22px", flexShrink: 0,
-                background: "linear-gradient(135deg,var(--red-light),var(--red))",
+                background: ACCENT,
                 color: "#fff", border: "none",
                 borderRadius: "0 9px 9px 0",
-                fontFamily: "'Outfit',sans-serif", fontWeight: 700, fontSize: 14,
+                fontFamily: "'Sora',sans-serif", fontWeight: 600, fontSize: 14,
                 cursor: "pointer", display: "flex", alignItems: "center", gap: 7,
-                boxShadow: "0 2px 8px rgba(200,32,42,.25)",
+                boxShadow: `0 2px 8px rgba(99,153,34,.25)`,
                 transition: "filter .15s",
               }}
               onMouseEnter={(e) => (e.currentTarget.style.filter = "brightness(1.1)")}
@@ -146,7 +146,7 @@ const MarketplaceHeader = ({
             padding: isSmall ? "7px 11px" : "9px 18px",
             cursor: "pointer",
             color: cartCount > 0 ? "#fff" : TEXT_MUTED,
-            fontFamily: "'Outfit',sans-serif", fontWeight: 700, fontSize: 14,
+            fontFamily: "'Sora',sans-serif", fontWeight: 600, fontSize: 14,
             transition: "all .2s",
             boxShadow: cartCount > 0 ? "var(--shadow-gold)" : "none",
           }}
@@ -163,7 +163,7 @@ const MarketplaceHeader = ({
             <span style={{
               background: "rgba(255,255,255,.28)",
               borderRadius: 99, padding: "1px 8px",
-              fontSize: 12, fontWeight: 800,
+              fontSize: 12, fontWeight: 700,
             }}>
               {cartCount}
             </span>
@@ -176,12 +176,12 @@ const MarketplaceHeader = ({
             onClick={() => setMenuOpen(!menuOpen)}
             style={{
               display: "flex", alignItems: "center", gap: 8,
-              background: menuOpen ? "rgba(200,32,42,.18)" : "rgba(255,255,255,.07)",
-              border: `1px solid ${menuOpen ? "rgba(200,32,42,.4)" : BORDER}`,
+              background: menuOpen ? `rgba(99,153,34,.18)` : "rgba(255,255,255,.07)",
+              border: `1px solid ${menuOpen ? `rgba(99,153,34,.4)` : BORDER}`,
               borderRadius: 10,
               padding: isSmall ? "6px 10px" : "7px 14px",
               cursor: "pointer", transition: "all .15s",
-              fontFamily: "'Outfit',sans-serif", fontWeight: 600, fontSize: 13,
+              fontFamily: "'Sora',sans-serif", fontWeight: 600, fontSize: 13,
             }}
             onMouseEnter={(e) => {
               if (!menuOpen) e.currentTarget.style.background = "rgba(255,255,255,.11)";
@@ -192,11 +192,12 @@ const MarketplaceHeader = ({
           >
             <div style={{
               width: 26, height: 26,
-              background: "linear-gradient(135deg,var(--red-light),var(--red-dark))",
+              background: `linear-gradient(135deg,${ACCENT},#27500A)`,
               borderRadius: "50%",
               display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 12, fontWeight: 800, color: "#fff", flexShrink: 0,
+              fontSize: 12, fontWeight: 700, color: "#fff", flexShrink: 0,
               border: "2px solid rgba(255,255,255,.1)",
+              fontFamily: "'Sora',sans-serif",
             }}>
               {user?.nombre?.[0]?.toUpperCase()}
             </div>
@@ -222,7 +223,7 @@ const MarketplaceHeader = ({
           {menuOpen && (
             <div style={{
               position: "absolute", top: "calc(100% + 8px)", right: 0,
-              background: "#162535",
+              background: "#1e4205",
               border: `1px solid ${BORDER}`,
               borderRadius: 14, padding: 8, minWidth: 210,
               boxShadow: "0 12px 40px rgba(0,0,0,.4)",
@@ -235,20 +236,21 @@ const MarketplaceHeader = ({
                 borderBottom: `1px solid ${BORDER}`,
                 marginBottom: 6,
               }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: TEXT_BRIGHT }}>{user?.nombre}</div>
-                <div style={{ fontSize: 11, color: TEXT_MUTED, marginTop: 1 }}>{user?.email}</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: TEXT_BRIGHT, fontFamily: "'Sora',sans-serif" }}>{user?.nombre}</div>
+                <div style={{ fontSize: 11, color: TEXT_MUTED, marginTop: 1, fontFamily: "'Sora',sans-serif" }}>{user?.email}</div>
                 <span style={{
                   display: "inline-flex", marginTop: 6,
                   fontSize: 9, fontWeight: 700, letterSpacing: ".05em", textTransform: "uppercase",
-                  background: "rgba(200,32,42,.3)", color: "#FCA5A5",
+                  background: `rgba(99,153,34,.3)`, color: "#C0DD97",
                   padding: "2px 8px", borderRadius: 99,
+                  fontFamily: "'Sora',sans-serif",
                 }}>
                   Cliente Mayorista
                 </span>
               </div>
 
               {NAV_ITEMS.map(({ icon, label, id }) => {
-                const active = page === id;
+                const isActive = page === id;
                 return (
                   <button
                     key={id}
@@ -256,17 +258,17 @@ const MarketplaceHeader = ({
                     style={{
                       width: "100%", display: "flex", alignItems: "center", gap: 9,
                       padding: "9px 12px", border: "none", borderRadius: 9,
-                      paddingLeft: active ? "9px" : "12px",
-                      borderLeft: active ? "3px solid var(--red)" : "3px solid transparent",
-                      background: active ? "rgba(200,32,42,.18)" : "transparent",
-                      color: active ? "#FCA5A5" : TEXT_MUTED,
-                      fontFamily: "'Outfit',sans-serif", fontWeight: active ? 700 : 500, fontSize: 14,
+                      paddingLeft: isActive ? "9px" : "12px",
+                      borderLeft: isActive ? `3px solid ${ACCENT}` : "3px solid transparent",
+                      background: isActive ? `rgba(99,153,34,.18)` : "transparent",
+                      color: isActive ? "#C0DD97" : TEXT_MUTED,
+                      fontFamily: "'Sora',sans-serif", fontWeight: isActive ? 600 : 400, fontSize: 14,
                       cursor: "pointer", textAlign: "left", transition: "all .15s",
                     }}
-                    onMouseEnter={(e) => { if (!active) { e.currentTarget.style.background = "rgba(255,255,255,.06)"; e.currentTarget.style.color = TEXT_BRIGHT; } }}
-                    onMouseLeave={(e) => { if (!active) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = TEXT_MUTED; } }}
+                    onMouseEnter={(e) => { if (!isActive) { e.currentTarget.style.background = "rgba(255,255,255,.06)"; e.currentTarget.style.color = TEXT_BRIGHT; } }}
+                    onMouseLeave={(e) => { if (!isActive) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = TEXT_MUTED; } }}
                   >
-                    <Icon name={icon} size={15} style={{ color: active ? "#FCA5A5" : "rgba(141,162,181,.65)" }} />
+                    <Icon name={icon} size={15} style={{ color: isActive ? "#C0DD97" : "rgba(137,168,128,.65)" }} />
                     {label}
                   </button>
                 );
@@ -278,12 +280,12 @@ const MarketplaceHeader = ({
                   style={{
                     width: "100%", display: "flex", alignItems: "center", gap: 9,
                     padding: "9px 12px", border: "none", borderRadius: 9,
-                    background: "transparent", color: "rgba(141,162,181,.55)",
-                    fontFamily: "'Outfit',sans-serif", fontWeight: 500, fontSize: 14,
+                    background: "transparent", color: "rgba(137,168,128,.55)",
+                    fontFamily: "'Sora',sans-serif", fontWeight: 400, fontSize: 14,
                     cursor: "pointer", textAlign: "left", transition: "all .15s",
                   }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(220,38,38,.12)"; e.currentTarget.style.color = "#FCA5A5"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "rgba(141,162,181,.55)"; }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(220,38,38,.12)"; e.currentTarget.style.color = "#fca5a5"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "rgba(137,168,128,.55)"; }}
                 >
                   <Icon name="logout" size={15} />
                   Cerrar sesión
@@ -305,26 +307,26 @@ const MarketplaceHeader = ({
           overflowX: "auto",
         }}>
           {[{ id: "", nombre: "Todos" }, ...categorias].map((c) => {
-            const active = catFilter == c.id || (!catFilter && c.id === "");
+            const isActive = catFilter == c.id || (!catFilter && c.id === "");
             return (
               <button
                 key={c.id}
                 onClick={() => {
-                  onCatFilter(active && c.id !== "" ? "" : String(c.id));
+                  onCatFilter(isActive && c.id !== "" ? "" : String(c.id));
                   onNav("catalogo");
                 }}
                 style={{
                   padding: "0 18px", height: "100%", flexShrink: 0,
                   border: "none",
-                  borderBottom: active ? "2.5px solid var(--red)" : "2.5px solid transparent",
+                  borderBottom: isActive ? `2.5px solid ${ACCENT}` : "2.5px solid transparent",
                   background: "transparent",
-                  color: active ? "#FCA5A5" : TEXT_MUTED,
-                  fontFamily: "'Outfit',sans-serif",
-                  fontWeight: active ? 700 : 500, fontSize: 13,
+                  color: isActive ? "#C0DD97" : TEXT_MUTED,
+                  fontFamily: "'Sora',sans-serif",
+                  fontWeight: isActive ? 600 : 400, fontSize: 13,
                   cursor: "pointer", transition: "all .15s", whiteSpace: "nowrap",
                 }}
-                onMouseEnter={(e) => { if (!active) e.currentTarget.style.color = TEXT_BRIGHT; }}
-                onMouseLeave={(e) => { if (!active) e.currentTarget.style.color = TEXT_MUTED; }}
+                onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.color = TEXT_BRIGHT; }}
+                onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.color = TEXT_MUTED; }}
               >
                 {c.nombre}
               </button>
