@@ -1,7 +1,27 @@
 FROM node:20-alpine
+
+# Instalar openssl para generar certificado auto-firmado en desarrollo
+RUN apk add --no-cache openssl
+
 WORKDIR /app
+
 COPY package*.json ./
-RUN npm install
-COPY . .
-EXPOSE 3000
+RUN npm ci --omit=dev
+
+COPY src/ ./src/
+
+
+RUN mkdir -p /app/certs && \
+    openssl req -x509 -newkey rsa:4096 -nodes \
+      -keyout /app/certs/privkey.pem \
+      -out    /app/certs/cert.pem \
+      -days   365 \
+      -subj   "/C=MX/ST=Colima/L=Colima/O=ComercioFacilMX/CN=localhost"
+
+EXPOSE 3000 3443
+
+ENV NODE_ENV=production \
+    PORT=3000 \
+    HTTPS_PORT=3443
+
 CMD ["node", "src/server.js"]
