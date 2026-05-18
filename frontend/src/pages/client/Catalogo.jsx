@@ -15,6 +15,7 @@ const ClientCatalogo = ({
   const [categorias, setCategorias] = useState([]);
   const [loading,    setLoading]    = useState(true);
   const [viewMode,   setViewMode]   = useState("grid");
+  const [sortOrder,  setSortOrder]  = useState("relevantes");
 
   const [localSearch,    setLocalSearch]    = useState("");
   const [localCatFilter, setLocalCatFilter] = useState("");
@@ -49,11 +50,17 @@ const ClientCatalogo = ({
     toast(`${p.nombre} agregado al carrito`);
   };
 
-  const filtered = productos.filter(
-    (p) =>
-      (!catFilter || p.categoria_id == catFilter) &&
-      p.nombre.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = productos
+    .filter(
+      (p) =>
+        (!catFilter || p.categoria_id == catFilter) &&
+        p.nombre.toLowerCase().includes(search.toLowerCase())
+    )
+    .sort((a, b) => {
+      if (sortOrder === "menor") return parseFloat(a.precio) - parseFloat(b.precio);
+      if (sortOrder === "mayor") return parseFloat(b.precio) - parseFloat(a.precio);
+      return 0;
+    });
 
   const cols = isMobile
     ? "repeat(2, 1fr)"
@@ -87,15 +94,18 @@ const ClientCatalogo = ({
 
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {!isMobile && (
-            <select style={{
+            <select
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value)}
+                style={{
               fontSize: 13, padding: "7px 12px", borderRadius: 9,
               border: "1.5px solid var(--gray-200)", color: "var(--gray-700)",
               fontFamily: "'Sora',sans-serif", fontWeight: 500,
               background: "#fff", cursor: "pointer",
             }}>
-              <option>Más relevantes</option>
-              <option>Menor precio</option>
-              <option>Mayor precio</option>
+              <option value="relevantes">Más relevantes</option>
+              <option value="menor">Menor precio</option>
+              <option value="mayor">Mayor precio</option>
             </select>
           )}
           <div style={{
@@ -193,10 +203,19 @@ const ClientCatalogo = ({
                 <div style={{ fontWeight: 700, fontSize: 14, color: "var(--gray-900)", marginBottom: 3 }}>
                   {p.nombre}
                 </div>
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 4 }}>
                   <span className="badge badge-blue" style={{ fontSize: 10 }}>{p.categoria_nombre}</span>
+                  {p.presentacion && (
+                    <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 99, background: "var(--gray-100)", color: "var(--gray-500)" }}>
+                      {p.presentacion}
+                    </span>
+                  )}
                   {p.stock === 0 && <span className="badge badge-red" style={{ fontSize: 10 }}>Agotado</span>}
                   {p.stock > 0 && p.stock <= 5 && <span className="badge badge-amber" style={{ fontSize: 10 }}>Últimas unidades</span>}
+                </div>
+                <div style={{ fontSize: 10, color: "var(--gray-400)", display: "flex", alignItems: "center", gap: 3 }}>
+                  <Icon name="store" size={10} />
+                  {p.proveedor_nombre}
                 </div>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 16, flexShrink: 0 }}>
@@ -224,7 +243,15 @@ const ClientCatalogo = ({
   );
 };
 
-const ProductCard = ({ p, i, isMobile, onAdd }) => (
+const IMG_BASE = "http://localhost:3000";
+
+const ProductCard = ({ p, i, isMobile, onAdd }) => {
+  const [imgErr, setImgErr] = useState(false);
+  const imgSrc = p.image_url && !imgErr
+    ? (p.image_url.startsWith("http") ? p.image_url : IMG_BASE + p.image_url)
+    : null;
+
+  return (
   <div
     className="product-card fade-up"
     style={{ animationDelay: Math.min(i * 0.04, 0.32) + "s" }}
@@ -234,8 +261,18 @@ const ProductCard = ({ p, i, isMobile, onAdd }) => (
       background: "linear-gradient(145deg,#FFF1F2 0%,#FEF2F2 60%,#FFF5F5 100%)",
       display: "flex", alignItems: "center", justifyContent: "center",
       position: "relative", borderBottom: "1px solid var(--gray-100)",
+      overflow: "hidden",
     }}>
-      <Icon name="package" size={isMobile ? 48 : 60} style={{ color: "var(--red)", opacity: .18 }} />
+      {imgSrc ? (
+        <img
+          src={imgSrc}
+          alt={p.nombre}
+          onError={() => setImgErr(true)}
+          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+        />
+      ) : (
+        <Icon name="package" size={isMobile ? 48 : 60} style={{ color: "var(--red)", opacity: .18 }} />
+      )}
       {p.stock === 0 && (
         <div style={{ position: "absolute", top: 8, left: 8 }}>
           <span className="badge badge-red" style={{ fontSize: 10 }}>Agotado</span>
@@ -252,9 +289,14 @@ const ProductCard = ({ p, i, isMobile, onAdd }) => (
     </div>
 
     <div style={{ padding: isMobile ? "10px 12px 12px" : "12px 14px 14px" }}>
-      <span className="badge badge-blue" style={{ fontSize: 10, marginBottom: 6 }}>
-        {p.categoria_nombre}
-      </span>
+      <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 6 }}>
+        <span className="badge badge-blue" style={{ fontSize: 10 }}>{p.categoria_nombre}</span>
+        {p.presentacion && (
+          <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 99, background: "var(--gray-100)", color: "var(--gray-500)" }}>
+            {p.presentacion}
+          </span>
+        )}
+      </div>
       <h4 style={{
         fontSize: isMobile ? 13 : 14, fontWeight: 700, color: "var(--gray-900)",
         marginBottom: 4, lineHeight: 1.35,
@@ -265,14 +307,18 @@ const ProductCard = ({ p, i, isMobile, onAdd }) => (
       </h4>
       {!isMobile && p.descripcion && (
         <p style={{
-          fontSize: 11, color: "var(--gray-500)", lineHeight: 1.5, marginBottom: 8,
+          fontSize: 11, color: "var(--gray-500)", lineHeight: 1.5, marginBottom: 6,
           display: "-webkit-box", WebkitLineClamp: 2,
           WebkitBoxOrient: "vertical", overflow: "hidden",
         }}>
           {p.descripcion}
         </p>
       )}
-      <div style={{ marginTop: isMobile ? 8 : 10 }}>
+      <div style={{ fontSize: 10, color: "var(--gray-400)", marginBottom: isMobile ? 6 : 8, display: "flex", alignItems: "center", gap: 3 }}>
+        <Icon name="store" size={10} />
+        {p.proveedor_nombre}
+      </div>
+      <div style={{ marginTop: isMobile ? 6 : 8 }}>
         <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 6 }}>
           <div>
             <div style={{
@@ -298,6 +344,7 @@ const ProductCard = ({ p, i, isMobile, onAdd }) => (
       </div>
     </div>
   </div>
-);
+  );
+};
 
 export default ClientCatalogo;

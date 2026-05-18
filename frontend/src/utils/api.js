@@ -8,3 +8,13 @@ export const http = async (path, opts = {}, token = null) => {
   if (!res.ok) throw new Error(data.message || "Error en la petición");
   return data;
 };
+
+// Para subir archivos (multipart/form-data) — NO se añade Content-Type, el browser lo gestiona
+export const httpUpload = async (path, formData, token = null) => {
+  const headers = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const res = await fetch(`${API}${path}`, { method: "POST", body: formData, headers });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.message || "Error al subir archivo");
+  return data;
+};

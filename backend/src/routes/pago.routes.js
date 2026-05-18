@@ -4,10 +4,21 @@ const pagoCtrl = require('../controllers/pago.controller');
 const auth = require('../middlewares/auth');
 const isAdmin = require('../middlewares/admin');
 
-// Cliente/admin: ver pago de un pedido
-router.get('/pedido/:pedidoId', auth, pagoCtrl.getPagoByPedido);
+// Stripe webhook necesita raw body — se registra en app.js antes del json parser
 
-// Admin: actualizar estado de pago
+// Stripe
+router.post('/stripe/intent', auth, pagoCtrl.createStripeIntent);
+
+// PayPal
+router.post('/paypal/create', auth, pagoCtrl.createPaypalOrder);
+router.post('/paypal/capture', auth, pagoCtrl.capturePaypalOrder);
+
+// MercadoPago
+router.post('/mercadopago/preference', auth, pagoCtrl.createMercadoPagoPreference);
+router.post('/mercadopago/webhook', pagoCtrl.handleMercadoPagoWebhook);
+
+// General
+router.get('/pedido/:pedidoId', auth, pagoCtrl.getPagoByPedido);
 router.patch('/:id/estado', auth, isAdmin, pagoCtrl.updateEstadoPago);
 
 module.exports = router;

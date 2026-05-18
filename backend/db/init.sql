@@ -12,9 +12,12 @@ CREATE TABLE usuario (
   id INT AUTO_INCREMENT PRIMARY KEY,
   nombre VARCHAR(120) NOT NULL,
   email VARCHAR(180) NOT NULL UNIQUE,
+  email_hash VARCHAR(64) NULL,
   password_hash VARCHAR(255) NOT NULL,
   telefono VARCHAR(30),
-  rol ENUM('cliente','admin','vendedor' ) NOT NULL DEFAULT 'cliente',
+  rol ENUM('cliente','admin','vendedor') NOT NULL DEFAULT 'cliente',
+  mfa_secret TEXT NULL,
+  mfa_enabled TINYINT(1) NOT NULL DEFAULT 0,
   creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
@@ -55,7 +58,9 @@ CREATE TABLE producto (
   nombre VARCHAR(150) NOT NULL,
   descripcion TEXT,
   precio DECIMAL(10,2) NOT NULL,
+  presentacion VARCHAR(100) NULL,
   activo TINYINT(1) DEFAULT 1,
+  image_url VARCHAR(500) NULL,
   FOREIGN KEY (proveedor_id) REFERENCES proveedor(id)
     ON DELETE RESTRICT ON UPDATE CASCADE,
   FOREIGN KEY (categoria_id) REFERENCES categoria(id)
