@@ -32,7 +32,17 @@ export const STATUS_ICONS = {
   cancelado: "x",
 };
 
-export const PAYMENT_METHODS = ["tarjeta", "transferencia", "contra_entrega", "plataforma"];
+export const PAYMENT_METHODS = [
+  { value: "tarjeta",       label: "Tarjeta de crédito/débito" },
+  { value: "paypal",        label: "PayPal"                    },
+  { value: "mercadopago",   label: "MercadoPago"               },
+  { value: "transferencia", label: "Transferencia bancaria"    },
+  { value: "contra_entrega",label: "Pago contra entrega"       },
+];
+
+export const PAYMENT_METHOD_LABELS = Object.fromEntries(
+  PAYMENT_METHODS.map((m) => [m.value, m.label])
+);
 export const ORDER_STATES    = ["pendiente", "en_proceso", "enviado", "entregado", "cancelado"];
 
 export const ICON_PATHS = {

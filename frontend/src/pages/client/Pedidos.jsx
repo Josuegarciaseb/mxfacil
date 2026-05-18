@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { http } from "../../utils/api";
 import { toast } from "../../utils/toast";
 import { useBreakpoint } from "../../hooks/useBreakpoint";
+import { PAYMENT_METHOD_LABELS } from "../../constants";
 import { STATUS_ICONS } from "../../constants";
 import Spinner from "../../components/ui/Spinner";
 import EmptyState from "../../components/ui/EmptyState";
@@ -33,7 +34,7 @@ const DetalleContent = ({ detalle }) => (
     {detalle.pago && (
       <div style={{ background: "var(--gray-50)", borderRadius: 9, padding: 10, border: "1px solid var(--gray-100)", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13 }}>
         <span style={{ color: "var(--gray-700)", display: "flex", alignItems: "center", gap: 6 }}>
-          <Icon name="creditCard" size={13} style={{ color: "var(--gray-400)" }} />{detalle.pago.metodo}
+          <Icon name="creditCard" size={13} style={{ color: "var(--gray-400)" }} />{PAYMENT_METHOD_LABELS[detalle.pago.metodo] || detalle.pago.metodo}
         </span>
         <StatusBadge estado={detalle.pago.estado} />
       </div>

@@ -23,21 +23,47 @@ const envioRoutes     = require('./routes/envio.routes');
 
 const app = express();
 
+// Stripe webhook necesita raw body antes del json parser
+app.post(
+  '/api/pagos/stripe/webhook',
+  express.raw({ type: 'application/json' }),
+  require('./controllers/pago.controller').handleStripeWebhook
+);
+
 // 1. ENCABEZADOS DE SEGURIDAD (Helmet)
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc:  ["'self'"],
-      scriptSrc:   ["'self'"],
+      scriptSrc:   [
+        "'self'",
+        'https://js.stripe.com',
+        'https://www.paypal.com',
+        'https://www.paypalobjects.com',
+        'https://sdk.mercadopago.com',
+      ],
       styleSrc:    ["'self'", "'unsafe-inline'"],
       imgSrc:      ["'self'", 'data:', 'https:'],
-      connectSrc:  ["'self'"],
-      frameSrc:    ["'none'"],
+      connectSrc:  [
+        "'self'",
+        'https://api.stripe.com',
+        'https://www.paypal.com',
+        'https://api-m.paypal.com',
+        'https://api-m.sandbox.paypal.com',
+        'https://api.mercadopago.com',
+      ],
+      frameSrc:    [
+        "'self'",
+        'https://js.stripe.com',
+        'https://hooks.stripe.com',
+        'https://www.paypal.com',
+        'https://www.sandbox.paypal.com',
+      ],
       objectSrc:   ["'none'"],
       upgradeInsecureRequests: [],
     },
   },
-  frameguard:    { action: 'deny' },
+  frameguard:    { action: 'sameorigin' },
   xssFilter:     true,
   hsts:          { maxAge: 31536000, includeSubDomains: true, preload: true },
   referrerPolicy:{ policy: 'strict-origin-when-cross-origin' },
@@ -45,7 +71,7 @@ app.use(helmet({
 }));
 
 app.use((req, res, next) => {
-  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(self "https://js.stripe.com" "https://www.paypal.com")');
   next();
 });
 
@@ -57,7 +83,7 @@ app.use(cors({
     cb(new Error('Origen no permitido por CORS'));
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token', 'X-Data-Signature'],
 }));
 

@@ -161,7 +161,7 @@ exports.createPedido = async (req, res) => {
     });
   }
 
-  const metodosValidos = ['tarjeta', 'transferencia', 'contra_entrega', 'plataforma'];
+  const metodosValidos = ['tarjeta', 'paypal', 'mercadopago', 'transferencia', 'contra_entrega', 'plataforma'];
   if (!metodosValidos.includes(metodo_pago)) {
     return res.status(400).json({
       message: `Metodo de pago inválido. Opciones: ${metodosValidos.join(', ')}`
