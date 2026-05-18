@@ -15,6 +15,7 @@ const ClientCatalogo = ({
   const [categorias, setCategorias] = useState([]);
   const [loading,    setLoading]    = useState(true);
   const [viewMode,   setViewMode]   = useState("grid");
+  const [sortOrder,  setSortOrder]  = useState("relevantes");
 
   const [localSearch,    setLocalSearch]    = useState("");
   const [localCatFilter, setLocalCatFilter] = useState("");
@@ -49,11 +50,17 @@ const ClientCatalogo = ({
     toast(`${p.nombre} agregado al carrito`);
   };
 
-  const filtered = productos.filter(
-    (p) =>
-      (!catFilter || p.categoria_id == catFilter) &&
-      p.nombre.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = productos
+    .filter(
+      (p) =>
+        (!catFilter || p.categoria_id == catFilter) &&
+        p.nombre.toLowerCase().includes(search.toLowerCase())
+    )
+    .sort((a, b) => {
+      if (sortOrder === "menor") return parseFloat(a.precio) - parseFloat(b.precio);
+      if (sortOrder === "mayor") return parseFloat(b.precio) - parseFloat(a.precio);
+      return 0;
+    });
 
   const cols = isMobile
     ? "repeat(2, 1fr)"
@@ -87,15 +94,18 @@ const ClientCatalogo = ({
 
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {!isMobile && (
-            <select style={{
+            <select
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value)}
+                style={{
               fontSize: 13, padding: "7px 12px", borderRadius: 9,
               border: "1.5px solid var(--gray-200)", color: "var(--gray-700)",
               fontFamily: "'Sora',sans-serif", fontWeight: 500,
               background: "#fff", cursor: "pointer",
             }}>
-              <option>Más relevantes</option>
-              <option>Menor precio</option>
-              <option>Mayor precio</option>
+              <option value="relevantes">Más relevantes</option>
+              <option value="menor">Menor precio</option>
+              <option value="mayor">Mayor precio</option>
             </select>
           )}
           <div style={{
