@@ -4,6 +4,7 @@ const helmet       = require('helmet');
 const cookieParser = require('cookie-parser');
 const csrf         = require('csurf');
 const rateLimit    = require('express-rate-limit');
+const path         = require('path');
 const passport     = require('./config/passport');
 const sanitize     = require('./middlewares/sanitize');
 const { addResponseIntegrity } = require('./middlewares/integrity');
@@ -64,6 +65,9 @@ app.use(cors({
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 app.use(cookieParser());
+
+// 3b. ARCHIVOS ESTÁTICOS — imágenes de productos
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // 4. RATE LIMITING
 app.use('/api/', rateLimit({ windowMs: 15*60*1000, max: 100, standardHeaders: true, legacyHeaders: false }));

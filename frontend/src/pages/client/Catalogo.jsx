@@ -224,7 +224,15 @@ const ClientCatalogo = ({
   );
 };
 
-const ProductCard = ({ p, i, isMobile, onAdd }) => (
+const IMG_BASE = "http://localhost:3000";
+
+const ProductCard = ({ p, i, isMobile, onAdd }) => {
+  const [imgErr, setImgErr] = useState(false);
+  const imgSrc = p.image_url && !imgErr
+    ? (p.image_url.startsWith("http") ? p.image_url : IMG_BASE + p.image_url)
+    : null;
+
+  return (
   <div
     className="product-card fade-up"
     style={{ animationDelay: Math.min(i * 0.04, 0.32) + "s" }}
@@ -234,8 +242,18 @@ const ProductCard = ({ p, i, isMobile, onAdd }) => (
       background: "linear-gradient(145deg,#FFF1F2 0%,#FEF2F2 60%,#FFF5F5 100%)",
       display: "flex", alignItems: "center", justifyContent: "center",
       position: "relative", borderBottom: "1px solid var(--gray-100)",
+      overflow: "hidden",
     }}>
-      <Icon name="package" size={isMobile ? 48 : 60} style={{ color: "var(--red)", opacity: .18 }} />
+      {imgSrc ? (
+        <img
+          src={imgSrc}
+          alt={p.nombre}
+          onError={() => setImgErr(true)}
+          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+        />
+      ) : (
+        <Icon name="package" size={isMobile ? 48 : 60} style={{ color: "var(--red)", opacity: .18 }} />
+      )}
       {p.stock === 0 && (
         <div style={{ position: "absolute", top: 8, left: 8 }}>
           <span className="badge badge-red" style={{ fontSize: 10 }}>Agotado</span>
@@ -298,6 +316,7 @@ const ProductCard = ({ p, i, isMobile, onAdd }) => (
       </div>
     </div>
   </div>
-);
+  );
+};
 
 export default ClientCatalogo;

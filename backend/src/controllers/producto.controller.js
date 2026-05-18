@@ -1,5 +1,7 @@
 // src/controllers/producto.controller.js
 const pool = require('../config/db');
+const path = require('path');
+const fs   = require('fs');
 const { isPositiveNumber, isPositiveInteger } = require('../utils/validators');
 
 
@@ -19,6 +21,7 @@ async function getProductoCompletoById(id, conn = null) {
       p.descripcion,
       p.precio,
       p.activo,
+      p.image_url,
       IFNULL(i.stock, 0) AS stock
     FROM producto p
     JOIN proveedor pr ON pr.id = p.proveedor_id
@@ -73,6 +76,7 @@ exports.listProductos = async (req, res) => {
         p.descripcion,
         p.precio,
         p.activo,
+        p.image_url,
         IFNULL(i.stock, 0) AS stock
       FROM producto p
       JOIN proveedor pr ON pr.id = p.proveedor_id
@@ -127,7 +131,8 @@ exports.createProducto = async (req, res) => {
     descripcion,
     precio,
     activo,
-    stock_inicial
+    stock_inicial,
+    image_url,
   } = req.body;
 
   // Si es vendedor, obtener su proveedor_id automáticamente
@@ -207,12 +212,20 @@ exports.createProducto = async (req, res) => {
       return res.status(400).json({ message: 'Categoría no existe' });
     }
 
+    // Validar image_url si viene como texto
+    if (image_url != null && image_url !== '') {
+      try { new URL(image_url); } catch {
+        await conn.rollback();
+        return res.status(400).json({ message: 'image_url debe ser una URL válida' });
+      }
+    }
+
     // Insertar producto
     const [result] = await conn.query(
       `
       INSERT INTO producto
-        (proveedor_id, categoria_id, nombre, descripcion, precio, activo)
-      VALUES (?, ?, ?, ?, ?, ?)
+        (proveedor_id, categoria_id, nombre, descripcion, precio, activo, image_url)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
       `,
       [
         proveedor_id,
@@ -220,7 +233,8 @@ exports.createProducto = async (req, res) => {
         nombre.trim(),
         descripcion || null,
         precio,
-        (activo === 0 || activo === '0') ? 0 : 1
+        (activo === 0 || activo === '0') ? 0 : 1,
+        image_url || null,
       ]
     );
     const productoId = result.insertId;
@@ -258,7 +272,8 @@ exports.updateProducto = async (req, res) => {
     nombre,
     descripcion,
     precio,
-    activo
+    activo,
+    image_url,
   } = req.body;
 
   // Validar que el id del producto sea numérico entero
@@ -362,6 +377,26 @@ exports.updateProducto = async (req, res) => {
       activoFinal = 1;
     }
 
+    // Validar image_url si se proporciona como texto
+    if (image_url != null && image_url !== '') {
+      try { new URL(image_url); } catch {
+        await conn.rollback();
+        return res.status(400).json({ message: 'image_url debe ser una URL válida' });
+      }
+    }
+
+    // Si la imagen anterior era un archivo local y se reemplaza, eliminar el archivo viejo
+    const imageUrlFinal = image_url !== undefined ? (image_url || null) : actual.image_url;
+    if (
+      image_url !== undefined &&
+      actual.image_url &&
+      actual.image_url !== image_url &&
+      actual.image_url.startsWith('/uploads/')
+    ) {
+      const oldFile = path.join(__dirname, '../../', actual.image_url);
+      fs.unlink(oldFile, () => {});
+    }
+
     await conn.query(
       `
       UPDATE producto
@@ -370,7 +405,8 @@ exports.updateProducto = async (req, res) => {
           nombre = ?,
           descripcion = ?,
           precio = ?,
-          activo = ?
+          activo = ?,
+          image_url = ?
       WHERE id = ?
       `,
       [
@@ -380,6 +416,7 @@ exports.updateProducto = async (req, res) => {
         descripcion != null ? descripcion : actual.descripcion,
         precio != null ? precio : actual.precio,
         activoFinal,
+        imageUrlFinal,
         id
       ]
     );
@@ -395,6 +432,17 @@ exports.updateProducto = async (req, res) => {
   } finally {
     conn.release();
   }
+};
+
+
+// POST /api/productos/imagen (admin o vendedor)
+// Recibe multipart/form-data con campo "imagen" y devuelve la URL relativa del archivo
+exports.uploadImagen = (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ message: 'No se recibió ningún archivo' });
+  }
+  const url = `/uploads/productos/${req.file.filename}`;
+  return res.status(201).json({ url });
 };
 
 
