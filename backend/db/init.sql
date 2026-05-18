@@ -58,6 +58,7 @@ CREATE TABLE producto (
   nombre VARCHAR(150) NOT NULL,
   descripcion TEXT,
   precio DECIMAL(10,2) NOT NULL,
+  presentacion VARCHAR(100) NULL,
   activo TINYINT(1) DEFAULT 1,
   image_url VARCHAR(500) NULL,
   FOREIGN KEY (proveedor_id) REFERENCES proveedor(id)

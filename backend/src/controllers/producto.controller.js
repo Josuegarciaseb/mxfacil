@@ -20,6 +20,7 @@ async function getProductoCompletoById(id, conn = null) {
       p.nombre,
       p.descripcion,
       p.precio,
+      p.presentacion,
       p.activo,
       p.image_url,
       IFNULL(i.stock, 0) AS stock
@@ -75,6 +76,7 @@ exports.listProductos = async (req, res) => {
         p.nombre,
         p.descripcion,
         p.precio,
+        p.presentacion,
         p.activo,
         p.image_url,
         IFNULL(i.stock, 0) AS stock
@@ -111,17 +113,6 @@ exports.getProducto = async (req, res) => {
   }
 };
 
-// POST /api/productos (admin)
-// Body:
-// {
-//   "proveedor_id": 1,
-//   "categoria_id": 2,
-//   "nombre": "Caja de mangos",
-//   "descripcion": "Mangos frescos",
-//   "precio": 350.00,
-//   "activo": 1,
-//   "stock_inicial": 100
-// }
 // POST /api/productos (admin o vendedor)
 exports.createProducto = async (req, res) => {
   let {
@@ -130,6 +121,7 @@ exports.createProducto = async (req, res) => {
     nombre,
     descripcion,
     precio,
+    presentacion,
     activo,
     stock_inicial,
     image_url,
@@ -147,72 +139,52 @@ exports.createProducto = async (req, res) => {
     proveedor_id = provRows[0].id;
   }
 
-  // 1) Campos obligatorios
   if (!proveedor_id || !categoria_id || !nombre || precio == null) {
     return res.status(400).json({
       message: 'proveedor_id, categoria_id, nombre y precio son obligatorios'
     });
   }
 
-  // 2) Validar tipos numéricos básicos
   if (!isPositiveInteger(proveedor_id)) {
-    return res.status(400).json({
-      message: 'proveedor_id debe ser un número entero mayor o igual a 0'
-    });
+    return res.status(400).json({ message: 'proveedor_id debe ser un número entero mayor o igual a 0' });
   }
 
   if (!isPositiveInteger(categoria_id)) {
-    return res.status(400).json({
-      message: 'categoria_id debe ser un número entero mayor o igual a 0'
-    });
+    return res.status(400).json({ message: 'categoria_id debe ser un número entero mayor o igual a 0' });
   }
 
-  // 3) Validar nombre (no vacío)
   if (typeof nombre !== 'string' || !nombre.trim()) {
-    return res.status(400).json({
-      message: 'El nombre del producto no puede estar vacío'
-    });
+    return res.status(400).json({ message: 'El nombre del producto no puede estar vacío' });
   }
 
-  // 4) Validar precio: solo números (y positivo)
   if (!isPositiveNumber(precio)) {
-    return res.status(400).json({
-      message: 'El precio debe ser un número mayor o igual a 0'
-    });
+    return res.status(400).json({ message: 'El precio debe ser un número mayor o igual a 0' });
   }
 
-  // 5) Validar stock inicial: solo números enteros
   if (stock_inicial != null && !isPositiveInteger(stock_inicial)) {
-    return res.status(400).json({
-      message: 'stock_inicial debe ser un número entero mayor o igual a 0'
-    });
+    return res.status(400).json({ message: 'stock_inicial debe ser un número entero mayor o igual a 0' });
+  }
+
+  if (presentacion != null && (typeof presentacion !== 'string' || presentacion.trim().length > 100)) {
+    return res.status(400).json({ message: 'La presentación no puede superar 100 caracteres' });
   }
 
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
 
-    // Verificar proveedor
-    const [prov] = await conn.query(
-      'SELECT id FROM proveedor WHERE id = ?',
-      [proveedor_id]
-    );
+    const [prov] = await conn.query('SELECT id FROM proveedor WHERE id = ?', [proveedor_id]);
     if (!prov.length) {
       await conn.rollback();
       return res.status(400).json({ message: 'Proveedor no existe' });
     }
 
-    // Verificar categoria
-    const [cat] = await conn.query(
-      'SELECT id FROM categoria WHERE id = ?',
-      [categoria_id]
-    );
+    const [cat] = await conn.query('SELECT id FROM categoria WHERE id = ?', [categoria_id]);
     if (!cat.length) {
       await conn.rollback();
       return res.status(400).json({ message: 'Categoría no existe' });
     }
 
-    // Validar image_url si viene como texto
     if (image_url != null && image_url !== '') {
       try { new URL(image_url); } catch {
         await conn.rollback();
@@ -220,12 +192,11 @@ exports.createProducto = async (req, res) => {
       }
     }
 
-    // Insertar producto
     const [result] = await conn.query(
       `
       INSERT INTO producto
-        (proveedor_id, categoria_id, nombre, descripcion, precio, activo, image_url)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+        (proveedor_id, categoria_id, nombre, descripcion, precio, presentacion, activo, image_url)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `,
       [
         proveedor_id,
@@ -233,19 +204,16 @@ exports.createProducto = async (req, res) => {
         nombre.trim(),
         descripcion || null,
         precio,
+        presentacion ? presentacion.trim() : null,
         (activo === 0 || activo === '0') ? 0 : 1,
         image_url || null,
       ]
     );
     const productoId = result.insertId;
 
-    // Insertar inventario con stock inicial (o 0 por defecto)
     const stock = stock_inicial != null ? stock_inicial : 0;
     await conn.query(
-      `
-      INSERT INTO inventario (producto_id, stock)
-      VALUES (?, ?)
-      `,
+      'INSERT INTO inventario (producto_id, stock) VALUES (?, ?)',
       [productoId, stock]
     );
 
@@ -272,64 +240,44 @@ exports.updateProducto = async (req, res) => {
     nombre,
     descripcion,
     precio,
+    presentacion,
     activo,
     image_url,
   } = req.body;
 
-  // Validar que el id del producto sea numérico entero
   if (!isPositiveInteger(id)) {
-    return res.status(400).json({
-      message: 'El id del producto debe ser un número entero válido'
-    });
+    return res.status(400).json({ message: 'El id del producto debe ser un número entero válido' });
   }
 
-  // VALIDACIONES sobre lo que llega (solo si lo mandan)
-
-  // proveedor_id/categoria_id si vienen → tienen que ser enteros
   if (proveedor_id != null && !isPositiveInteger(proveedor_id)) {
-    return res.status(400).json({
-      message: 'proveedor_id debe ser un número entero mayor o igual a 0'
-    });
+    return res.status(400).json({ message: 'proveedor_id debe ser un número entero mayor o igual a 0' });
   }
 
   if (categoria_id != null && !isPositiveInteger(categoria_id)) {
-    return res.status(400).json({
-      message: 'categoria_id debe ser un número entero mayor o igual a 0'
-    });
+    return res.status(400).json({ message: 'categoria_id debe ser un número entero mayor o igual a 0' });
   }
 
-  // nombre si viene → que no esté vacío
   if (nombre != null && (typeof nombre !== 'string' || !nombre.trim())) {
-    return res.status(400).json({
-      message: 'El nombre del producto no puede estar vacío'
-    });
+    return res.status(400).json({ message: 'El nombre del producto no puede estar vacío' });
   }
 
-  // precio si viene → debe ser número >= 0
   if (precio != null && !isPositiveNumber(precio)) {
-    return res.status(400).json({
-      message: 'El precio debe ser un número mayor o igual a 0'
-    });
+    return res.status(400).json({ message: 'El precio debe ser un número mayor o igual a 0' });
   }
 
-  // activo si viene → solo acepta 0 o 1
-  if (
-    activo != null &&
-    ![0, 1, '0', '1', true, false].includes(activo)
-  ) {
-    return res.status(400).json({
-      message: 'activo solo puede ser 0 o 1'
-    });
+  if (activo != null && ![0, 1, '0', '1', true, false].includes(activo)) {
+    return res.status(400).json({ message: 'activo solo puede ser 0 o 1' });
+  }
+
+  if (presentacion != null && (typeof presentacion !== 'string' || presentacion.trim().length > 100)) {
+    return res.status(400).json({ message: 'La presentación no puede superar 100 caracteres' });
   }
 
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
 
-    const [existentes] = await conn.query(
-      'SELECT * FROM producto WHERE id = ?',
-      [id]
-    );
+    const [existentes] = await conn.query('SELECT * FROM producto WHERE id = ?', [id]);
     if (!existentes.length) {
       await conn.rollback();
       return res.status(404).json({ message: 'Producto no encontrado' });
@@ -337,7 +285,6 @@ exports.updateProducto = async (req, res) => {
 
     const actual = existentes[0];
 
-    // Vendedor solo puede editar sus propios productos
     if (req.user.rol === 'vendedor') {
       const [provRows] = await conn.query('SELECT id FROM proveedor WHERE usuario_id = ?', [req.user.id]);
       if (!provRows.length || actual.proveedor_id !== provRows[0].id) {
@@ -346,12 +293,8 @@ exports.updateProducto = async (req, res) => {
       }
     }
 
-    // Si cambian proveedor/categoría, validar que existan
     if (proveedor_id != null) {
-      const [prov] = await conn.query(
-        'SELECT id FROM proveedor WHERE id = ?',
-        [proveedor_id]
-      );
+      const [prov] = await conn.query('SELECT id FROM proveedor WHERE id = ?', [proveedor_id]);
       if (!prov.length) {
         await conn.rollback();
         return res.status(400).json({ message: 'Proveedor no existe' });
@@ -359,25 +302,17 @@ exports.updateProducto = async (req, res) => {
     }
 
     if (categoria_id != null) {
-      const [cat] = await conn.query(
-        'SELECT id FROM categoria WHERE id = ?',
-        [categoria_id]
-      );
+      const [cat] = await conn.query('SELECT id FROM categoria WHERE id = ?', [categoria_id]);
       if (!cat.length) {
         await conn.rollback();
         return res.status(400).json({ message: 'Categoría no existe' });
       }
     }
 
-    // Determinar valor final de "activo"
     let activoFinal = actual.activo;
-    if (activo === 0 || activo === '0' || activo === false) {
-      activoFinal = 0;
-    } else if (activo === 1 || activo === '1' || activo === true) {
-      activoFinal = 1;
-    }
+    if (activo === 0 || activo === '0' || activo === false) activoFinal = 0;
+    else if (activo === 1 || activo === '1' || activo === true) activoFinal = 1;
 
-    // Validar image_url si se proporciona como texto
     if (image_url != null && image_url !== '') {
       try { new URL(image_url); } catch {
         await conn.rollback();
@@ -385,7 +320,6 @@ exports.updateProducto = async (req, res) => {
       }
     }
 
-    // Si la imagen anterior era un archivo local y se reemplaza, eliminar el archivo viejo
     const imageUrlFinal = image_url !== undefined ? (image_url || null) : actual.image_url;
     if (
       image_url !== undefined &&
@@ -405,6 +339,7 @@ exports.updateProducto = async (req, res) => {
           nombre = ?,
           descripcion = ?,
           precio = ?,
+          presentacion = ?,
           activo = ?,
           image_url = ?
       WHERE id = ?
@@ -415,6 +350,7 @@ exports.updateProducto = async (req, res) => {
         nombre != null ? nombre.trim() : actual.nombre,
         descripcion != null ? descripcion : actual.descripcion,
         precio != null ? precio : actual.precio,
+        presentacion !== undefined ? (presentacion ? presentacion.trim() : null) : actual.presentacion,
         activoFinal,
         imageUrlFinal,
         id
@@ -436,7 +372,6 @@ exports.updateProducto = async (req, res) => {
 
 
 // POST /api/productos/imagen (admin o vendedor)
-// Recibe multipart/form-data con campo "imagen" y devuelve la URL relativa del archivo
 exports.uploadImagen = (req, res) => {
   if (!req.file) {
     return res.status(400).json({ message: 'No se recibió ningún archivo' });
@@ -459,7 +394,6 @@ exports.deleteProducto = async (req, res) => {
       return res.status(404).json({ message: 'Producto no encontrado' });
     }
 
-    // Vendedor solo puede desactivar sus propios productos
     if (req.user.rol === 'vendedor') {
       const [provRows] = await pool.query('SELECT id FROM proveedor WHERE usuario_id = ?', [req.user.id]);
       if (!provRows.length || existentes[0].proveedor_id !== provRows[0].id) {
@@ -467,10 +401,7 @@ exports.deleteProducto = async (req, res) => {
       }
     }
 
-    await pool.query(
-      'UPDATE producto SET activo = 0 WHERE id = ?',
-      [id]
-    );
+    await pool.query('UPDATE producto SET activo = 0 WHERE id = ?', [id]);
 
     return res.json({ message: 'Producto desactivado correctamente' });
   } catch (err) {

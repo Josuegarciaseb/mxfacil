@@ -193,10 +193,19 @@ const ClientCatalogo = ({
                 <div style={{ fontWeight: 700, fontSize: 14, color: "var(--gray-900)", marginBottom: 3 }}>
                   {p.nombre}
                 </div>
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 4 }}>
                   <span className="badge badge-blue" style={{ fontSize: 10 }}>{p.categoria_nombre}</span>
+                  {p.presentacion && (
+                    <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 99, background: "var(--gray-100)", color: "var(--gray-500)" }}>
+                      {p.presentacion}
+                    </span>
+                  )}
                   {p.stock === 0 && <span className="badge badge-red" style={{ fontSize: 10 }}>Agotado</span>}
                   {p.stock > 0 && p.stock <= 5 && <span className="badge badge-amber" style={{ fontSize: 10 }}>Últimas unidades</span>}
+                </div>
+                <div style={{ fontSize: 10, color: "var(--gray-400)", display: "flex", alignItems: "center", gap: 3 }}>
+                  <Icon name="store" size={10} />
+                  {p.proveedor_nombre}
                 </div>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 16, flexShrink: 0 }}>
@@ -270,9 +279,14 @@ const ProductCard = ({ p, i, isMobile, onAdd }) => {
     </div>
 
     <div style={{ padding: isMobile ? "10px 12px 12px" : "12px 14px 14px" }}>
-      <span className="badge badge-blue" style={{ fontSize: 10, marginBottom: 6 }}>
-        {p.categoria_nombre}
-      </span>
+      <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 6 }}>
+        <span className="badge badge-blue" style={{ fontSize: 10 }}>{p.categoria_nombre}</span>
+        {p.presentacion && (
+          <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 99, background: "var(--gray-100)", color: "var(--gray-500)" }}>
+            {p.presentacion}
+          </span>
+        )}
+      </div>
       <h4 style={{
         fontSize: isMobile ? 13 : 14, fontWeight: 700, color: "var(--gray-900)",
         marginBottom: 4, lineHeight: 1.35,
@@ -283,14 +297,18 @@ const ProductCard = ({ p, i, isMobile, onAdd }) => {
       </h4>
       {!isMobile && p.descripcion && (
         <p style={{
-          fontSize: 11, color: "var(--gray-500)", lineHeight: 1.5, marginBottom: 8,
+          fontSize: 11, color: "var(--gray-500)", lineHeight: 1.5, marginBottom: 6,
           display: "-webkit-box", WebkitLineClamp: 2,
           WebkitBoxOrient: "vertical", overflow: "hidden",
         }}>
           {p.descripcion}
         </p>
       )}
-      <div style={{ marginTop: isMobile ? 8 : 10 }}>
+      <div style={{ fontSize: 10, color: "var(--gray-400)", marginBottom: isMobile ? 6 : 8, display: "flex", alignItems: "center", gap: 3 }}>
+        <Icon name="store" size={10} />
+        {p.proveedor_nombre}
+      </div>
+      <div style={{ marginTop: isMobile ? 6 : 8 }}>
         <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 6 }}>
           <div>
             <div style={{

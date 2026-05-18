@@ -17,8 +17,13 @@ const VendedorDashboard = ({ token, user }) => {
   useEffect(() => {
     (async () => {
       try {
+        let provId = user.proveedor_id;
+        if (!provId) {
+          const prov = await http("/proveedores/me", {}, token);
+          provId = prov.id;
+        }
         const [prods, peds] = await Promise.all([
-          http("/productos?activo=&proveedor_id=" + user.proveedor_id, {}, token),
+          http("/productos?activo=&proveedor_id=" + provId, {}, token),
           http("/pedidos/admin", {}, token),
         ]);
         const ingresos = peds.reduce((s, p) => s + parseFloat(p.total || 0), 0);

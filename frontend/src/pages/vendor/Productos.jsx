@@ -12,7 +12,7 @@ import Icon from "../../components/ui/Icon";
 
 const EMPTY_FORM = {
   categoria_id: "", nombre: "", descripcion: "", precio: "",
-  activo: 1, stock_inicial: "", image_url: "", imagen_modo: "url",
+  presentacion: "", activo: 1, stock_inicial: "", image_url: "", imagen_modo: "url",
 };
 
 const IMG_BASE = "http://localhost:3000";
@@ -54,8 +54,14 @@ const VendedorProductos = ({ token, user }) => {
   const load = useCallback(async () => {
     setLoading(true);
     try {
+      // Si el user no trae proveedor_id (sesión antigua), lo resolvemos desde /proveedores/me
+      let provId = user.proveedor_id;
+      if (!provId) {
+        const prov = await http("/proveedores/me", {}, token);
+        provId = prov.id;
+      }
       const [p, c] = await Promise.all([
-        http("/productos?activo=&proveedor_id=" + user.proveedor_id, {}, token),
+        http("/productos?activo=&proveedor_id=" + provId, {}, token),
         http("/categorias", {}, token),
       ]);
       setProductos(p); setCategorias(c);
@@ -77,6 +83,7 @@ const VendedorProductos = ({ token, user }) => {
     setForm({
       categoria_id: p.categoria_id, nombre: p.nombre,
       descripcion: p.descripcion || "", precio: p.precio,
+      presentacion: p.presentacion || "",
       activo: p.activo, image_url: p.image_url || "",
       imagen_modo: "url",
     });
@@ -194,7 +201,10 @@ const VendedorProductos = ({ token, user }) => {
                     </td>
                     {!isMobile && <td data-label="Categoria"><span className="badge badge-blue">{p.categoria_nombre}</span></td>}
                     <td data-label="Precio" style={{ fontWeight: 700 }}>${parseFloat(p.precio).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</td>
-                    <td data-label="Stock"><span className={"badge " + (p.stock > 10 ? "badge-green" : p.stock > 0 ? "badge-amber" : "badge-red")}>{p.stock}</span></td>
+                    <td data-label="Stock">
+                      <span className={"badge " + (p.stock > 10 ? "badge-green" : p.stock > 0 ? "badge-amber" : "badge-red")}>{p.stock}</span>
+                      {p.presentacion && <span style={{ fontSize: 11, color: "var(--gray-400)", marginLeft: 4 }}>{p.presentacion}</span>}
+                    </td>
                     {!isMobile && <td data-label="Estado">{p.activo ? <span className="badge badge-green">Activo</span> : <span className="badge badge-red">Inactivo</span>}</td>}
                     <td data-label="Acciones">
                       <div style={{ display: "flex", gap: 6 }}>
@@ -221,6 +231,7 @@ const VendedorProductos = ({ token, user }) => {
             <option value="">Selecciona...</option>
             {categorias.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
           </SelectField>
+          <InputField label="Presentación" value={form.presentacion} onChange={set("presentacion")} placeholder="ej. Caja de 20 kg, Botella de 1 L, Paquete de 24 pzas" />
           {modal === "create" ? (
             <div className="form-grid">
               <InputField label="Precio (MXN)" type="number" min="0" step="0.01" value={form.precio} onChange={set("precio")} placeholder="0.00" />

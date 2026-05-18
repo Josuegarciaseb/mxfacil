@@ -124,8 +124,18 @@ exports.login = async (req, res) => {
 
     const token = generarToken(usuario);
 
+    // Para vendedores, incluir su proveedor_id en el payload
+    let proveedor_id = null;
+    if (usuario.rol === 'vendedor') {
+      const [provRows] = await pool.query(
+        'SELECT id FROM proveedor WHERE usuario_id = ?',
+        [usuario.id]
+      );
+      if (provRows.length) proveedor_id = provRows[0].id;
+    }
+
     // Firmar los datos de respuesta (integridad + autenticidad)
-    const payload = { id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol };
+    const payload = { id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol, proveedor_id };
     const signature = signData(payload);
 
     // JWT en cookie HttpOnly segura
