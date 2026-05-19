@@ -152,9 +152,9 @@ exports.updateUsuarioAdmin = async (req, res) => {
       }
     }
 
-    // Rol (opcional): solo permitir 'cliente' o 'admin'
+    // Rol (opcional): cliente, admin o vendedor
     let rolFinal = actual.rol;
-    if (rol === 'cliente' || rol === 'admin') {
+    if (rol === 'cliente' || rol === 'admin' || rol === 'vendedor') {
       rolFinal = rol;
     }
 
@@ -173,6 +173,20 @@ exports.updateUsuarioAdmin = async (req, res) => {
       'UPDATE usuario SET nombre = ?, email = ?, telefono = ?, rol = ? WHERE id = ?',
       [nombreFinal, emailFinal, telefonoFinal, rolFinal, usuarioId]
     );
+
+    // Si se asigna rol vendedor, crear registro en proveedor si no existe
+    if (rolFinal === 'vendedor') {
+      const [provExiste] = await pool.query(
+        'SELECT id FROM proveedor WHERE usuario_id = ?',
+        [usuarioId]
+      );
+      if (!provExiste.length) {
+        await pool.query(
+          'INSERT INTO proveedor (usuario_id, nombre) VALUES (?, ?)',
+          [usuarioId, nombreFinal]
+        );
+      }
+    }
 
     const [rows] = await pool.query(
       'SELECT id, nombre, email, telefono, rol, creado_en FROM usuario WHERE id = ?',

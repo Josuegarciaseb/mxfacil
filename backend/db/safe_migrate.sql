@@ -89,8 +89,26 @@ CALL _add_col('proveedor', 'motivo_rechazo', 'TEXT DEFAULT NULL');
 -- ── categoria ─────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS categoria (
   id     INT AUTO_INCREMENT PRIMARY KEY,
-  nombre VARCHAR(100) NOT NULL UNIQUE
+  nombre VARCHAR(100) NOT NULL UNIQUE,
+  tipo   ENUM('perecedero','no_perecedero') NOT NULL DEFAULT 'perecedero'
 ) ENGINE=InnoDB;
+
+CALL _add_col('categoria', 'tipo', "ENUM('perecedero','no_perecedero') NOT NULL DEFAULT 'perecedero'");
+
+-- Seed de categorías para mayoreo (no sobreescribe existentes)
+INSERT IGNORE INTO categoria (nombre, tipo) VALUES
+  ('Frutas y verduras',       'perecedero'),
+  ('Lácteos y huevos',        'perecedero'),
+  ('Carnes y embutidos',      'perecedero'),
+  ('Mariscos y pescados',     'perecedero'),
+  ('Pan y tortillas',         'perecedero'),
+  ('Granos y legumbres',      'no_perecedero'),
+  ('Aceites y grasas',        'no_perecedero'),
+  ('Enlatados y conservas',   'no_perecedero'),
+  ('Bebidas',                 'no_perecedero'),
+  ('Condimentos y especias',  'no_perecedero'),
+  ('Harinas, azúcar y sal',   'no_perecedero'),
+  ('Dulces y botanas',        'no_perecedero');
 
 -- ── producto ──────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS producto (

@@ -1,12 +1,21 @@
 // src/controllers/categoria.controller.js
 const pool = require('../config/db');
 
-// GET /api/categorias
+// GET /api/categorias?tipo=perecedero|no_perecedero
 exports.listCategorias = async (req, res) => {
   try {
-    const [rows] = await pool.query(
-      'SELECT id, nombre FROM categoria ORDER BY nombre ASC'
-    );
+    const { tipo } = req.query;
+    let query = 'SELECT id, nombre, tipo FROM categoria';
+    const params = [];
+
+    if (tipo === 'perecedero' || tipo === 'no_perecedero') {
+      query += ' WHERE tipo = ?';
+      params.push(tipo);
+    }
+
+    query += ' ORDER BY tipo ASC, nombre ASC';
+
+    const [rows] = await pool.query(query, params);
     return res.json(rows);
   } catch (err) {
     console.error('Error listCategorias:', err);
@@ -15,21 +24,26 @@ exports.listCategorias = async (req, res) => {
 };
 
 // POST /api/categorias (admin)
+// Body: { "nombre": "...", "tipo": "perecedero"|"no_perecedero" }
 exports.createCategoria = async (req, res) => {
-  const { nombre } = req.body;
+  const { nombre, tipo } = req.body;
 
   if (!nombre) {
     return res.status(400).json({ message: 'nombre es obligatorio' });
   }
 
+  if (tipo && tipo !== 'perecedero' && tipo !== 'no_perecedero') {
+    return res.status(400).json({ message: 'tipo debe ser "perecedero" o "no_perecedero"' });
+  }
+
   try {
     const [result] = await pool.query(
-      'INSERT INTO categoria (nombre) VALUES (?)',
-      [nombre]
+      'INSERT INTO categoria (nombre, tipo) VALUES (?, ?)',
+      [nombre, tipo || 'perecedero']
     );
 
     const [rows] = await pool.query(
-      'SELECT id, nombre FROM categoria WHERE id = ?',
+      'SELECT id, nombre, tipo FROM categoria WHERE id = ?',
       [result.insertId]
     );
 
@@ -46,13 +60,17 @@ exports.createCategoria = async (req, res) => {
 };
 
 // PUT /api/categorias/:id (admin)
-// Body: { "nombre": "Nuevo nombre" }
+// Body: { "nombre": "...", "tipo": "perecedero"|"no_perecedero" }
 exports.updateCategoria = async (req, res) => {
   const id = req.params.id;
-  const { nombre } = req.body;
+  const { nombre, tipo } = req.body;
 
   if (!nombre) {
     return res.status(400).json({ message: 'nombre es obligatorio' });
+  }
+
+  if (tipo && tipo !== 'perecedero' && tipo !== 'no_perecedero') {
+    return res.status(400).json({ message: 'tipo debe ser "perecedero" o "no_perecedero"' });
   }
 
   try {
@@ -64,13 +82,22 @@ exports.updateCategoria = async (req, res) => {
       return res.status(404).json({ message: 'Categoría no encontrada' });
     }
 
+    const fields = ['nombre = ?'];
+    const params = [nombre];
+
+    if (tipo) {
+      fields.push('tipo = ?');
+      params.push(tipo);
+    }
+
+    params.push(id);
     await pool.query(
-      'UPDATE categoria SET nombre = ? WHERE id = ?',
-      [nombre, id]
+      `UPDATE categoria SET ${fields.join(', ')} WHERE id = ?`,
+      params
     );
 
     const [rows] = await pool.query(
-      'SELECT id, nombre FROM categoria WHERE id = ?',
+      'SELECT id, nombre, tipo FROM categoria WHERE id = ?',
       [id]
     );
 
@@ -99,7 +126,6 @@ exports.deleteCategoria = async (req, res) => {
       return res.status(404).json({ message: 'Categoría no encontrada' });
     }
 
-    // Verificar que no tenga productos asociados
     const [productos] = await pool.query(
       'SELECT COUNT(*) AS total FROM producto WHERE categoria_id = ?',
       [id]
@@ -110,10 +136,7 @@ exports.deleteCategoria = async (req, res) => {
       });
     }
 
-    await pool.query(
-      'DELETE FROM categoria WHERE id = ?',
-      [id]
-    );
+    await pool.query('DELETE FROM categoria WHERE id = ?', [id]);
 
     return res.json({ message: 'Categoría eliminada correctamente' });
   } catch (err) {

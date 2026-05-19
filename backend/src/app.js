@@ -96,9 +96,28 @@ app.use(cookieParser());
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // 4. RATE LIMITING
-app.use('/api/', rateLimit({ windowMs: 15*60*1000, max: 100, standardHeaders: true, legacyHeaders: false }));
-app.use('/api/auth/login',    rateLimit({ windowMs: 15*60*1000, max: 10, standardHeaders: true, legacyHeaders: false }));
-app.use('/api/auth/register', rateLimit({ windowMs: 15*60*1000, max: 5,  standardHeaders: true, legacyHeaders: false }));
+const isProd = process.env.NODE_ENV === 'production';
+app.use('/api/', rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: isProd ? 100 : 1000,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Demasiadas peticiones, intenta de nuevo más tarde' },
+}));
+app.use('/api/auth/login', rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: isProd ? 10 : 50,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Demasiados intentos de inicio de sesión, espera 15 minutos' },
+}));
+app.use('/api/auth/register', rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: isProd ? 5 : 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Demasiados registros desde esta IP, espera 15 minutos' },
+}));
 
 // 5. SANITIZACIÓN — Prevención XSS / inyección de código
 app.use(sanitize);
