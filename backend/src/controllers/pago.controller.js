@@ -4,6 +4,31 @@ const stripeService = require('../services/stripe.service');
 const paypalService = require('../services/paypal.service');
 const mpService = require('../services/mercadopago.service');
 
+// Descuenta stock, crea envío y marca el pedido como en_proceso.
+// Sólo aplica cuando el pedido estaba en 'esperando_pago'.
+async function confirmarPedidoPagado(conn, pedidoId) {
+  const [pedidos] = await conn.query('SELECT estado FROM pedido WHERE id = ?', [pedidoId]);
+  if (!pedidos.length || pedidos[0].estado !== 'esperando_pago') return;
+
+  const [items] = await conn.query(
+    'SELECT producto_id, cantidad FROM pedido_item WHERE pedido_id = ?',
+    [pedidoId]
+  );
+  for (const item of items) {
+    await conn.query(
+      'UPDATE inventario SET stock = stock - ? WHERE producto_id = ?',
+      [item.cantidad, item.producto_id]
+    );
+  }
+
+  await conn.query(
+    'INSERT INTO envio (pedido_id, estado) VALUES (?, "preparando")',
+    [pedidoId]
+  );
+
+  await conn.query('UPDATE pedido SET estado = "en_proceso" WHERE id = ?', [pedidoId]);
+}
+
 // GET /api/pagos/pedido/:pedidoId
 exports.getPagoByPedido = async (req, res) => {
   const pedidoId = req.params.pedidoId;
@@ -57,7 +82,13 @@ exports.updateEstadoPago = async (req, res) => {
     await conn.query('UPDATE pago SET estado = ?, referencia = ? WHERE id = ?', [estado, referencia || null, pagoId]);
 
     if (estado === 'aprobado') {
-      await conn.query('UPDATE pedido SET estado = "en_proceso" WHERE id = ?', [pagos[0].pedido_id]);
+      // Si estaba esperando pago online, descuenta stock y crea envío
+      await confirmarPedidoPagado(conn, pagos[0].pedido_id);
+      // Si ya estaba en otro estado (ej. pendiente por transferencia), solo lo pasa a en_proceso
+      await conn.query(
+        'UPDATE pedido SET estado = "en_proceso" WHERE id = ? AND estado != "en_proceso"',
+        [pagos[0].pedido_id]
+      );
     } else if (estado === 'rechazado') {
       await conn.query('UPDATE pedido SET estado = "cancelado" WHERE id = ?', [pagos[0].pedido_id]);
     }
@@ -129,7 +160,7 @@ exports.handleStripeWebhook = async (req, res) => {
       await conn.query('UPDATE pago SET estado = "aprobado" WHERE referencia = ?', [intentId]);
       const [rows] = await conn.query('SELECT pedido_id FROM pago WHERE referencia = ?', [intentId]);
       if (rows.length) {
-        await conn.query('UPDATE pedido SET estado = "en_proceso" WHERE id = ?', [rows[0].pedido_id]);
+        await confirmarPedidoPagado(conn, rows[0].pedido_id);
       }
       await conn.commit();
     } catch (err) {
@@ -233,7 +264,7 @@ exports.capturePaypalOrder = async (req, res) => {
         'UPDATE pago SET estado = "aprobado", referencia = ? WHERE pedido_id = ?',
         [`paypal_${paypal_order_id}`, pedido_id]
       );
-      await conn.query('UPDATE pedido SET estado = "en_proceso" WHERE id = ?', [pedido_id]);
+      await confirmarPedidoPagado(conn, pedido_id);
       await conn.commit();
     } catch (err) {
       await conn.rollback();
@@ -326,7 +357,7 @@ exports.handleMercadoPagoWebhook = async (req, res) => {
 
       if (status === 'approved') {
         await conn.query('UPDATE pago SET estado = "aprobado" WHERE pedido_id = ?', [pedidoId]);
-        await conn.query('UPDATE pedido SET estado = "en_proceso" WHERE id = ?', [pedidoId]);
+        await confirmarPedidoPagado(conn, pedidoId);
       } else if (status === 'rejected' || status === 'cancelled') {
         await conn.query('UPDATE pago SET estado = "rechazado" WHERE pedido_id = ?', [pedidoId]);
         await conn.query('UPDATE pedido SET estado = "cancelado" WHERE id = ?', [pedidoId]);

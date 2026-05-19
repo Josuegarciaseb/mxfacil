@@ -143,6 +143,9 @@ exports.getPedidoDetalle = async (req, res) => {
   }
 };
 
+// Métodos que requieren confirmación de pago antes de procesar el pedido
+const METODOS_PAGO_ONLINE = new Set(['tarjeta', 'paypal', 'mercadopago']);
+
 // POST /api/pedidos (cliente)
 exports.createPedido = async (req, res) => {
   const userId = req.user.id;
@@ -167,6 +170,8 @@ exports.createPedido = async (req, res) => {
       message: `Metodo de pago inválido. Opciones: ${metodosValidos.join(', ')}`
     });
   }
+
+  const esPagoOnline = METODOS_PAGO_ONLINE.has(metodo_pago);
 
   const conn = await pool.getConnection();
   try {
@@ -238,54 +243,44 @@ exports.createPedido = async (req, res) => {
       });
     }
 
-    // Insertar pedido
+    // Pedidos online quedan en 'esperando_pago' hasta que se confirme el pago.
+    // Transferencia y contra entrega se confirman de inmediato con 'pendiente'.
+    const estadoInicial = esPagoOnline ? 'esperando_pago' : 'pendiente';
+
     const [resultPedido] = await conn.query(
-      `
-      INSERT INTO pedido (usuario_id, direccion_id, total, estado)
-      VALUES (?, ?, ?, 'pendiente')
-      `,
-      [userId, direccion_id, total]
+      `INSERT INTO pedido (usuario_id, direccion_id, total, estado) VALUES (?, ?, ?, ?)`,
+      [userId, direccion_id, total, estadoInicial]
     );
     const pedidoId = resultPedido.insertId;
 
-    // Items + descuento de inventario
+    // Items — solo descuenta inventario si el pago no es online
     for (const det of detalles) {
       await conn.query(
-        `
-        INSERT INTO pedido_item
-          (pedido_id, producto_id, cantidad, precio_unitario)
-        VALUES (?, ?, ?, ?)
-        `,
+        `INSERT INTO pedido_item (pedido_id, producto_id, cantidad, precio_unitario) VALUES (?, ?, ?, ?)`,
         [pedidoId, det.producto_id, det.cantidad, det.precio_unitario]
       );
 
-      await conn.query(
-        `
-        UPDATE inventario
-        SET stock = stock - ?
-        WHERE producto_id = ?
-        `,
-        [det.cantidad, det.producto_id]
-      );
+      if (!esPagoOnline) {
+        await conn.query(
+          'UPDATE inventario SET stock = stock - ? WHERE producto_id = ?',
+          [det.cantidad, det.producto_id]
+        );
+      }
     }
 
     // Pago
     await conn.query(
-      `
-      INSERT INTO pago (pedido_id, metodo, monto, estado)
-      VALUES (?, ?, ?, 'pendiente')
-      `,
+      `INSERT INTO pago (pedido_id, metodo, monto, estado) VALUES (?, ?, ?, 'pendiente')`,
       [pedidoId, metodo_pago, total]
     );
 
-    // Envío
-    await conn.query(
-      `
-      INSERT INTO envio (pedido_id, estado)
-      VALUES (?, 'preparando')
-      `,
-      [pedidoId]
-    );
+    // Envío — solo se crea si el pago no es online (para online se crea al confirmar el pago)
+    if (!esPagoOnline) {
+      await conn.query(
+        `INSERT INTO envio (pedido_id, estado) VALUES (?, 'preparando')`,
+        [pedidoId]
+      );
+    }
 
     await conn.commit();
 
@@ -309,7 +304,7 @@ exports.updateEstadoPedido = async (req, res) => {
     return res.status(400).json({ message: 'ID de pedido inválido' });
   }
 
-  const estadosValidos = ['pendiente', 'en_proceso', 'enviado', 'entregado', 'cancelado'];
+  const estadosValidos = ['esperando_pago', 'pendiente', 'en_proceso', 'enviado', 'entregado', 'cancelado'];
   if (!estadosValidos.includes(estado)) {
     return res.status(400).json({
       message: `Estado inválido. Opciones: ${estadosValidos.join(', ')}`
@@ -344,7 +339,7 @@ exports.listPedidosAdmin = async (req, res) => {
 
   try {
     const params = [];
-    const estadosValidos = ['pendiente', 'en_proceso', 'enviado', 'entregado', 'cancelado'];
+    const estadosValidos = ['esperando_pago', 'pendiente', 'en_proceso', 'enviado', 'entregado', 'cancelado'];
 
     if (estado) {
       if (!estadosValidos.includes(estado)) {

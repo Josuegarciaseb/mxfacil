@@ -104,7 +104,7 @@ CREATE TABLE pedido (
   usuario_id   INT NOT NULL,
   direccion_id INT NOT NULL,
   fecha        DATETIME DEFAULT CURRENT_TIMESTAMP,
-  estado       ENUM('pendiente','en_proceso','enviado','entregado','cancelado') DEFAULT 'pendiente',
+  estado       ENUM('esperando_pago','pendiente','en_proceso','enviado','entregado','cancelado') DEFAULT 'pendiente',
   total        DECIMAL(12,2) NOT NULL,
   FOREIGN KEY (usuario_id)   REFERENCES usuario(id)   ON DELETE RESTRICT ON UPDATE CASCADE,
   FOREIGN KEY (direccion_id) REFERENCES direccion(id) ON DELETE RESTRICT ON UPDATE CASCADE
