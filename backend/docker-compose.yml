@@ -13,6 +13,7 @@ services:
       MYSQL_PASSWORD:      ${MYSQL_PASSWORD:-mxfacil_pass}
     volumes:
       - db_data:/var/lib/mysql
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
       - mxfacil_net
     healthcheck:
@@ -29,27 +30,34 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    env_file:
+      - .env
     environment:
-      NODE_ENV:       production
-      PORT:           3000
-      HTTPS_PORT:     3443
-      DB_HOST:        db
-      DB_PORT:        3306
-      DB_NAME:        ${MYSQL_DATABASE:-mxfacil}
-      DB_USER:        ${MYSQL_USER:-mxfacil_user}
-      DB_PASS:        ${MYSQL_PASSWORD:-mxfacil_pass}
-      JWT_SECRET:     ${JWT_SECRET:-cambia_este_secreto_jwt_en_produccion}
-      JWT_EXPIRES_IN: 7d
-      # Clave AES-256 (64 chars hex) para cifrado simétrico
-      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2}
-      # Clave HMAC para firmas digitales
-      HMAC_SECRET:    ${HMAC_SECRET:-cambia_este_hmac_secret_en_produccion_minimo_32}
-      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://localhost:5173}
+      NODE_ENV: production
+      DB_HOST:  db
     ports:
       - "3000:3000"   # HTTP (redirige a HTTPS)
       - "3443:3443"   # HTTPS
     volumes:
       - ./certs:/app/certs:ro   # Montar certificados externos en producción
+    networks:
+      - mxfacil_net
+
+  # ─── phpMyAdmin ────────────────────────────────────────────────────────────
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: mxfacil_pma
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PMA_HOST:     db
+      PMA_PORT:     3306
+      PMA_USER:     root
+      PMA_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootsecret}
+    ports:
+      - "8081:80"
     networks:
       - mxfacil_net
 

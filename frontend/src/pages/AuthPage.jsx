@@ -62,6 +62,40 @@ const Spin = () => (
   }} />
 );
 
+/* ── Input con icono izquierdo ── */
+const Field = ({ label, hint, icon, type = "text", value, onChange, onKeyDown, placeholder, extra = {}, right = null }) => (
+  <div style={{ marginBottom: 14 }}>
+    <label style={{ display: "block", fontSize: "0.78rem", fontWeight: 500, color: MUTED, marginBottom: 6, letterSpacing: "0.02em", fontFamily: "'Sora', sans-serif" }}>
+      {label}
+    </label>
+    <div style={{ position: "relative" }}>
+      <Icon name={icon} size={16} style={{
+        position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)",
+        color: BORDER, pointerEvents: "none", zIndex: 1, transition: "color .2s",
+      }} />
+      <input
+        type={type}
+        value={value}
+        onChange={onChange}
+        onKeyDown={onKeyDown}
+        placeholder={placeholder}
+        style={{
+          width: "100%", height: 48,
+          background: "#fff", border: `1.5px solid ${BORDER}`,
+          borderRadius: 10, padding: "0 14px 0 42px",
+          fontFamily: "'Sora', sans-serif", fontSize: "0.9rem", color: TEXT,
+          outline: "none", transition: "border-color .2s, box-shadow .2s",
+          ...extra,
+        }}
+        onFocus={(e) => { e.target.style.borderColor = G400; e.target.style.boxShadow = "0 0 0 3px rgba(99,153,34,.12)"; }}
+        onBlur={(e)  => { e.target.style.borderColor = BORDER; e.target.style.boxShadow = "none"; }}
+      />
+      {right}
+    </div>
+    {hint && <p style={{ fontSize: "0.72rem", color: MUTED, marginTop: 4, fontFamily: "'Sora',sans-serif" }}>{hint}</p>}
+  </div>
+);
+
 /* ─────────────────────────────────────────── */
 const AuthPage = ({ onLogin }) => {
   const [mode,    setMode]    = useState("login");
@@ -102,40 +136,6 @@ const AuthPage = ({ onLogin }) => {
   };
 
   const onKey = (e) => { if (e.key === "Enter") submit(); };
-
-  /* ── Input con icono izquierdo ── */
-  const Field = ({ label, hint, icon, type = "text", value, onChange, placeholder, extra = {}, right = null }) => (
-    <div style={{ marginBottom: 14 }}>
-      <label style={{ display: "block", fontSize: "0.78rem", fontWeight: 500, color: MUTED, marginBottom: 6, letterSpacing: "0.02em", fontFamily: "'Sora', sans-serif" }}>
-        {label}
-      </label>
-      <div style={{ position: "relative" }}>
-        <Icon name={icon} size={16} style={{
-          position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)",
-          color: BORDER, pointerEvents: "none", zIndex: 1, transition: "color .2s",
-        }} />
-        <input
-          type={type}
-          value={value}
-          onChange={onChange}
-          onKeyDown={onKey}
-          placeholder={placeholder}
-          style={{
-            width: "100%", height: 48,
-            background: "#fff", border: `1.5px solid ${BORDER}`,
-            borderRadius: 10, padding: "0 14px 0 42px",
-            fontFamily: "'Sora', sans-serif", fontSize: "0.9rem", color: TEXT,
-            outline: "none", transition: "border-color .2s, box-shadow .2s",
-            ...extra,
-          }}
-          onFocus={(e) => { e.target.style.borderColor = G400; e.target.style.boxShadow = "0 0 0 3px rgba(99,153,34,.12)"; }}
-          onBlur={(e)  => { e.target.style.borderColor = BORDER; e.target.style.boxShadow = "none"; }}
-        />
-        {right}
-      </div>
-      {hint && <p style={{ fontSize: "0.72rem", color: MUTED, marginTop: 4, fontFamily: "'Sora',sans-serif" }}>{hint}</p>}
-    </div>
-  );
 
   /* ── Panel izquierdo ── */
   const LeftPanel = () => (
@@ -297,16 +297,16 @@ const AuthPage = ({ onLogin }) => {
               {/* Nombre + Teléfono en fila */}
               <div style={{ display: "flex", gap: "0.75rem" }}>
                 <div style={{ flex: 1 }}>
-                  <Field label="Nombre completo" icon="user" value={form.nombre} onChange={set("nombre")} placeholder="Ana García" />
+                  <Field label="Nombre completo" icon="user" value={form.nombre} onChange={set("nombre")} onKeyDown={onKey} placeholder="Ana García" />
                 </div>
                 <div style={{ flex: 1 }}>
-                  <Field label="Teléfono (opcional)" icon="phone" type="tel" value={form.telefono} onChange={set("telefono")} placeholder="5512345678" extra={{ maxLength: 10 }} />
+                  <Field label="Teléfono (opcional)" icon="phone" type="tel" value={form.telefono} onChange={set("telefono")} onKeyDown={onKey} placeholder="5512345678" extra={{ maxLength: 10 }} />
                 </div>
               </div>
             </>
           )}
 
-          <Field label="Correo electrónico" icon="mail" type="email" value={form.email} onChange={set("email")} placeholder="correo@ejemplo.com" />
+          <Field label="Correo electrónico" icon="mail" type="email" value={form.email} onChange={set("email")} onKeyDown={onKey} placeholder="correo@ejemplo.com" />
 
           <Field
             label="Contraseña"
@@ -314,6 +314,7 @@ const AuthPage = ({ onLogin }) => {
             type={showPwd ? "text" : "password"}
             value={form.password}
             onChange={set("password")}
+            onKeyDown={onKey}
             placeholder="••••••••"
             hint={mode === "register" ? "Mín. 8 caracteres, 1 mayúscula y 1 carácter especial" : undefined}
             right={
@@ -333,6 +334,7 @@ const AuthPage = ({ onLogin }) => {
               icon="shield"
               value={form.rfc}
               onChange={(e) => setForm((p) => ({ ...p, rfc: e.target.value.toUpperCase() }))}
+              onKeyDown={onKey}
               placeholder="ABC010101AAA"
               extra={{ maxLength: 13, textTransform: "uppercase", fontFamily: "monospace" }}
               hint="Persona moral: 12 chars · Persona física: 13 chars"

@@ -9,23 +9,21 @@ const app    = require('./app');
 const HTTP_PORT  = process.env.PORT       || 3000;
 const HTTPS_PORT = process.env.HTTPS_PORT || 3443;
 
-// ─── Servidor HTTP: redirige todo a HTTPS ─────────────────────────────────────
-const httpApp = (req, res) => {
-  const host = req.headers.host ? req.headers.host.replace(/:\d+$/, '') : 'localhost';
-  res.writeHead(301, { Location: `https://${host}:${HTTPS_PORT}${req.url}` });
-  res.end();
-};
-
-http.createServer(httpApp).listen(HTTP_PORT, () => {
-  console.log(`[HTTP]  Servidor en http://localhost:${HTTP_PORT} → redirige a HTTPS`);
-});
-
 // ─── Servidor HTTPS ───────────────────────────────────────────────────────────
 const certPath = path.join(__dirname, '..', 'certs');
 const certFile = path.join(certPath, 'cert.pem');
 const keyFile  = path.join(certPath, 'privkey.pem');
 
 if (fs.existsSync(certFile) && fs.existsSync(keyFile)) {
+  // Servidor HTTP: redirige todo a HTTPS (solo cuando hay certs)
+  const httpApp = (req, res) => {
+    const host = req.headers.host ? req.headers.host.replace(/:\d+$/, '') : 'localhost';
+    res.writeHead(301, { Location: `https://${host}:${HTTPS_PORT}${req.url}` });
+    res.end();
+  };
+  http.createServer(httpApp).listen(HTTP_PORT, () => {
+    console.log(`[HTTP]  Servidor en http://localhost:${HTTP_PORT} → redirige a HTTPS`);
+  });
   const tlsOptions = {
     cert: fs.readFileSync(certFile),
     key:  fs.readFileSync(keyFile),
