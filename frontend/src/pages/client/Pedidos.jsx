@@ -26,9 +26,23 @@ const DetalleContent = ({ detalle }) => (
           <span style={{ fontWeight: 700, flexShrink: 0, marginLeft: 8 }}>${(i.precio_unitario * i.cantidad).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
         </div>
       ))}
-      <div style={{ borderTop: "1px solid var(--gray-200)", paddingTop: 8, marginTop: 4, display: "flex", justifyContent: "space-between", fontWeight: 800, fontSize: 14 }}>
-        <span>Total</span>
-        <span style={{ color: "var(--red)" }}>${parseFloat(detalle.pedido?.total).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
+      <div style={{ borderTop: "1px solid var(--gray-200)", paddingTop: 8, marginTop: 4, display: "flex", flexDirection: "column", gap: 4 }}>
+        {detalle.pedido?.subtotal != null && (
+          <>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--gray-500)" }}>
+              <span>Subtotal</span>
+              <span>${parseFloat(detalle.pedido.subtotal).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--gray-500)" }}>
+              <span>IVA (16%)</span>
+              <span>+${parseFloat(detalle.pedido.iva).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
+            </div>
+          </>
+        )}
+        <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 800, fontSize: 14, borderTop: detalle.pedido?.subtotal != null ? "1px solid var(--gray-100)" : "none", paddingTop: detalle.pedido?.subtotal != null ? 4 : 0 }}>
+          <span>Total</span>
+          <span style={{ color: "var(--red)" }}>${parseFloat(detalle.pedido?.total).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
+        </div>
       </div>
     </div>
     {detalle.pago && (

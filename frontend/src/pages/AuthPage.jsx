@@ -18,9 +18,9 @@ const MUTED = "#6b6b63";
 const BORDER = "#d9d4c8";
 
 const STATS = [
-  { value: "+2k",  label: "Comerciantes" },
-  { value: "98%",  label: "Satisfacción"  },
-  { value: "24/7", label: "Soporte"       },
+  { value: "",  label: "Comerciantes" },
+  { value: "",  label: "Satisfacción"  },
+  { value: "", label: "Soporte"       },
 ];
 
 const FEATURES = [

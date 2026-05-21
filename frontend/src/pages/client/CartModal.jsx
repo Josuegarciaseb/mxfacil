@@ -42,8 +42,10 @@ const CartModal = ({ open, onClose, cart, setCart, token }) => {
     else setCart((c) => c.map((i) => (i.id === id ? { ...i, qty } : i)));
   };
 
-  const cartTotal = cart.reduce((s, i) => s + i.precio * i.qty, 0);
-  const cartCount = cart.reduce((s, i) => s + i.qty, 0);
+  const cartSubtotal = cart.reduce((s, i) => s + i.precio * i.qty, 0);
+  const cartIva      = parseFloat((cartSubtotal * 0.16).toFixed(2));
+  const cartTotal    = parseFloat((cartSubtotal + cartIva).toFixed(2));
+  const cartCount    = cart.reduce((s, i) => s + i.qty, 0);
 
   const handleConfirm = async () => {
     if (!orderForm.direccion_id) return toast("Selecciona una dirección", "warn");
@@ -210,16 +212,29 @@ const CartModal = ({ open, onClose, cart, setCart, token }) => {
               ))}
             </div>
 
-            {/* Total */}
-            <div style={{ background: "linear-gradient(135deg, #173404, #1e4205)", borderRadius: 12, padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,.5)", letterSpacing: ".06em", textTransform: "uppercase" }}>Total del pedido</div>
-                <div style={{ fontSize: 10, color: "rgba(255,255,255,.35)", marginTop: 1 }}>precio mayoreo</div>
+            {/* Desglose IVA + Total */}
+            <div style={{ background: "linear-gradient(135deg, #173404, #1e4205)", borderRadius: 12, padding: "14px 18px", display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: 12, color: "rgba(255,255,255,.55)" }}>Subtotal</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,.75)" }}>
+                  ${cartSubtotal.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                </span>
               </div>
-              <span style={{ fontWeight: 900, color: "#FDE68A", fontSize: 22, letterSpacing: "-.025em" }}>
-                ${cartTotal.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
-                <span style={{ fontSize: 13, fontWeight: 500, color: "rgba(255,255,255,.5)", marginLeft: 4 }}>MXN</span>
-              </span>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: 12, color: "rgba(255,255,255,.55)" }}>IVA (16%)</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,.75)" }}>
+                  +${cartIva.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div style={{ borderTop: "1px solid rgba(255,255,255,.15)", paddingTop: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,.5)", letterSpacing: ".06em", textTransform: "uppercase" }}>Total del pedido</div>
+                </div>
+                <span style={{ fontWeight: 900, color: "#FDE68A", fontSize: 22, letterSpacing: "-.025em" }}>
+                  ${cartTotal.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                  <span style={{ fontSize: 13, fontWeight: 500, color: "rgba(255,255,255,.5)", marginLeft: 4 }}>MXN</span>
+                </span>
+              </div>
             </div>
 
             {/* Form */}

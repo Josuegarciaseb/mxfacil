@@ -18,6 +18,9 @@ exports.listPedidosCliente = async (req, res) => {
         p.direccion_id,
         p.fecha,
         p.estado,
+        p.subtotal,
+        p.iva,
+        p.comision,
         p.total
       FROM pedido p
       WHERE p.usuario_id = ?
@@ -51,6 +54,9 @@ async function getPedidoDetalleCompleto(pedidoId, conn = null) {
       d.cp AS direccion_cp,
       p.fecha,
       p.estado,
+      p.subtotal,
+      p.iva,
+      p.comision,
       p.total
     FROM pedido p
     JOIN usuario u ON u.id = p.usuario_id
@@ -189,7 +195,8 @@ exports.createPedido = async (req, res) => {
       });
     }
 
-    let total = 0;
+    let subtotal  = 0;
+    let comisionTotal = 0;
     const detalles = [];
 
     // Validar items
@@ -218,7 +225,8 @@ exports.createPedido = async (req, res) => {
         });
       }
 
-      const precio = prodRows[0].precio;
+      const precioBase    = parseFloat(prodRows[0].precio);
+      const precioPublico = parseFloat((precioBase * 1.02).toFixed(2));
 
       // Stock con FOR UPDATE
       const [invRows] = await conn.query(
@@ -235,21 +243,27 @@ exports.createPedido = async (req, res) => {
         });
       }
 
-      total += precio * item.cantidad;
+      subtotal      += precioPublico * item.cantidad;
+      comisionTotal += parseFloat((precioBase * 0.02 * item.cantidad).toFixed(2));
       detalles.push({
-        producto_id: item.producto_id,
-        cantidad: item.cantidad,
-        precio_unitario: precio
+        producto_id:     item.producto_id,
+        cantidad:        item.cantidad,
+        precio_unitario: precioPublico,
       });
     }
+
+    subtotal = parseFloat(subtotal.toFixed(2));
+    const iva      = parseFloat((subtotal * 0.16).toFixed(2));
+    const comision = parseFloat(comisionTotal.toFixed(2));
+    const total    = parseFloat((subtotal + iva).toFixed(2));
 
     // Pedidos online quedan en 'esperando_pago' hasta que se confirme el pago.
     // Transferencia y contra entrega se confirman de inmediato con 'pendiente'.
     const estadoInicial = esPagoOnline ? 'esperando_pago' : 'pendiente';
 
     const [resultPedido] = await conn.query(
-      `INSERT INTO pedido (usuario_id, direccion_id, total, estado) VALUES (?, ?, ?, ?)`,
-      [userId, direccion_id, total, estadoInicial]
+      `INSERT INTO pedido (usuario_id, direccion_id, subtotal, iva, comision, total, estado) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [userId, direccion_id, subtotal, iva, comision, total, estadoInicial]
     );
     const pedidoId = resultPedido.insertId;
 
@@ -358,7 +372,7 @@ exports.listPedidosAdmin = async (req, res) => {
       if (estado) { where += ' AND p.estado = ?'; params.push(estado); }
 
       const [rows] = await pool.query(
-        `SELECT DISTINCT p.id, p.usuario_id, u.nombre AS usuario_nombre, p.direccion_id, p.fecha, p.estado, p.total
+        `SELECT DISTINCT p.id, p.usuario_id, u.nombre AS usuario_nombre, p.direccion_id, p.fecha, p.estado, p.subtotal, p.iva, p.comision, p.total
          FROM pedido p
          JOIN usuario u ON u.id = p.usuario_id
          JOIN pedido_item pi ON pi.pedido_id = p.id
@@ -375,7 +389,7 @@ exports.listPedidosAdmin = async (req, res) => {
     if (estado) { where += ' AND p.estado = ?'; params.push(estado); }
 
     const [rows] = await pool.query(
-      `SELECT p.id, p.usuario_id, u.nombre AS usuario_nombre, p.direccion_id, p.fecha, p.estado, p.total
+      `SELECT p.id, p.usuario_id, u.nombre AS usuario_nombre, p.direccion_id, p.fecha, p.estado, p.subtotal, p.iva, p.comision, p.total
        FROM pedido p
        JOIN usuario u ON u.id = p.usuario_id
        ${where}

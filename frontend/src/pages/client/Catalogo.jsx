@@ -42,10 +42,11 @@ const ClientCatalogo = ({
   }, [token]);
 
   const addToCart = (p) => {
+    const precioPublico = parseFloat((parseFloat(p.precio) * 1.02).toFixed(2));
     setCart((c) => {
       const ex = c.find((i) => i.id === p.id);
       if (ex) return c.map((i) => i.id === p.id ? { ...i, qty: i.qty + 1 } : i);
-      return [...c, { ...p, qty: 1 }];
+      return [...c, { ...p, precio: precioPublico, qty: 1 }];
     });
     toast(`${p.nombre} agregado al carrito`);
   };
@@ -221,9 +222,9 @@ const ClientCatalogo = ({
               <div style={{ display: "flex", alignItems: "center", gap: 16, flexShrink: 0 }}>
                 <div style={{ textAlign: "right" }}>
                   <div style={{ fontSize: 19, fontWeight: 900, color: "var(--red)", letterSpacing: "-.02em" }}>
-                    ${parseFloat(p.precio).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                    ${(parseFloat(p.precio) * 1.02).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                   </div>
-                  <div style={{ fontSize: 10, color: "var(--gold-dark)", fontWeight: 600 }}>precio mayoreo</div>
+                  <div style={{ fontSize: 10, color: "var(--gold-dark)", fontWeight: 600 }}>precio público</div>
                 </div>
                 <button
                   className="btn-primary btn-sm"
@@ -325,10 +326,10 @@ const ProductCard = ({ p, i, isMobile, onAdd }) => {
               fontSize: isMobile ? 18 : 21, fontWeight: 900, color: "var(--red)",
               letterSpacing: "-.03em", lineHeight: 1,
             }}>
-              ${parseFloat(p.precio).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+              ${(parseFloat(p.precio) * 1.02).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
             </div>
             <div style={{ fontSize: 10, color: "var(--gold-dark)", fontWeight: 600, marginTop: 2 }}>
-              precio mayoreo
+              precio público
             </div>
           </div>
           <button
