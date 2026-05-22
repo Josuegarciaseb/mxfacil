@@ -11,6 +11,7 @@ const {
   isValidName,
   isValidPhone,
   isValidPassword,
+  isValidRFC,
 } = require('../utils/validators');
 
 // ─── Helper: generar JWT ──────────────────────────────────────────────────────
@@ -34,7 +35,7 @@ function cookieOpts(maxAgeDays = 7) {
 
 // ─── POST /api/auth/register ──────────────────────────────────────────────────
 exports.register = async (req, res) => {
-  const { nombre, email, password, telefono } = req.body;
+  const { nombre, email, password, telefono, rol, rfc } = req.body;
 
   if (!nombre || !email || !password)
     return res.status(400).json({ message: 'nombre, email y password son obligatorios' });
@@ -53,37 +54,63 @@ exports.register = async (req, res) => {
       message: 'La contraseña debe tener mínimo 8 caracteres, una mayúscula y un carácter especial',
     });
 
+  // Solo se permite registrarse como cliente o vendedor (nunca admin)
+  const rolFinal = rol === 'vendedor' ? 'vendedor' : 'cliente';
+
+  if (rfc && !isValidRFC(rfc))
+    return res.status(400).json({ message: 'El RFC no tiene un formato válido' });
+
   try {
     const [existentes] = await pool.query('SELECT id FROM usuario WHERE email = ?', [email]);
     if (existentes.length)
       return res.status(409).json({ message: 'El email ya está registrado' });
 
-    // Hashing de contraseña con bcrypt (salt rounds = 12)
     const salt          = await bcrypt.genSalt(12);
     const password_hash = await bcrypt.hash(password, salt);
+    const email_hash    = hashData(email.toLowerCase().trim());
 
-    // Hash de integridad del email (SHA-256)
-    const email_hash = hashData(email.toLowerCase().trim());
+    const conn = await pool.getConnection();
+    try {
+      await conn.beginTransaction();
 
-    const [result] = await pool.query(
-      'INSERT INTO usuario (nombre, email, password_hash, email_hash, telefono) VALUES (?, ?, ?, ?, ?)',
-      [nombre.trim(), email.toLowerCase().trim(), password_hash, email_hash, telefono || null]
-    );
+      const [result] = await conn.query(
+        'INSERT INTO usuario (nombre, email, password_hash, email_hash, telefono, rol) VALUES (?, ?, ?, ?, ?, ?)',
+        [nombre.trim(), email.toLowerCase().trim(), password_hash, email_hash, telefono || null, rolFinal]
+      );
 
-    const nuevoUsuario = {
-      id:       result.insertId,
-      nombre:   nombre.trim(),
-      email:    email.toLowerCase().trim(),
-      telefono: telefono || null,
-      rol:      'cliente',
-    };
+      const userId = result.insertId;
+      let proveedor_id = null;
 
-    const token = generarToken(nuevoUsuario);
+      if (rolFinal === 'vendedor') {
+        const rfcFinal = rfc ? rfc.trim().toUpperCase() : null;
+        const [provResult] = await conn.query(
+          'INSERT INTO proveedor (usuario_id, nombre, telefono, rfc) VALUES (?, ?, ?, ?)',
+          [userId, nombre.trim(), telefono || null, rfcFinal]
+        );
+        proveedor_id = provResult.insertId;
+      }
 
-    // JWT también en cookie HttpOnly (Secure, SameSite=Strict)
-    res.cookie('auth_token', token, cookieOpts(7));
+      await conn.commit();
 
-    return res.status(201).json({ user: nuevoUsuario, token });
+      const nuevoUsuario = {
+        id:          userId,
+        nombre:      nombre.trim(),
+        email:       email.toLowerCase().trim(),
+        telefono:    telefono || null,
+        rol:         rolFinal,
+        proveedor_id,
+      };
+
+      const token = generarToken(nuevoUsuario);
+      res.cookie('auth_token', token, cookieOpts(7));
+
+      return res.status(201).json({ user: nuevoUsuario, token });
+    } catch (err) {
+      await conn.rollback();
+      throw err;
+    } finally {
+      conn.release();
+    }
   } catch (err) {
     console.error('Error en register:', err);
     return res.status(500).json({ message: 'Error al registrar usuario' });
