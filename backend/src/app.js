@@ -23,6 +23,11 @@ const envioRoutes     = require('./routes/envio.routes');
 
 const app = express();
 
+// Confiar en el proxy de Railway/Heroku para leer la IP real del cliente
+// Sin esto, req.ip sería la IP del load balancer y TODOS los usuarios
+// compartirían el mismo contador de rate limit (100 reqs/15min para todos)
+app.set('trust proxy', 1);
+
 // Stripe webhook necesita raw body antes del json parser
 app.post(
   '/api/pagos/stripe/webhook',

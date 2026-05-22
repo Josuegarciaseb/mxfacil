@@ -60,14 +60,16 @@ const VendedorProductos = ({ token, user }) => {
         const prov = await http("/proveedores/me", {}, token);
         provId = prov.id;
       }
-      const [p, c] = await Promise.all([
-        http("/productos?activo=&proveedor_id=" + provId, {}, token),
-        http("/categorias", {}, token),
-      ]);
-      setProductos(p); setCategorias(c);
+      const p = await http("/productos?activo=&proveedor_id=" + provId, {}, token);
+      setProductos(p);
     } catch (e) { toast(e.message, "error"); }
     finally { setLoading(false); }
   }, [token, user.proveedor_id]);
+
+  // Categorías se cargan independientemente para que un fallo de productos no las afecte
+  useEffect(() => {
+    http("/categorias", {}, token).then(setCategorias).catch(() => {});
+  }, [token]);
 
   useEffect(() => { load(); }, [load]);
 
