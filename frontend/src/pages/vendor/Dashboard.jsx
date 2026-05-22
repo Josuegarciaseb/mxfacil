@@ -22,10 +22,12 @@ const VendedorDashboard = ({ token, user }) => {
           const prov = await http("/proveedores/me", {}, token);
           provId = prov.id;
         }
-        const [prods, peds] = await Promise.all([
+        const [prodsResult, pedsResult] = await Promise.allSettled([
           http("/productos?activo=&proveedor_id=" + provId, {}, token),
           http("/pedidos/admin", {}, token),
         ]);
+        const prods = prodsResult.status === "fulfilled" ? prodsResult.value : [];
+        const peds  = pedsResult.status  === "fulfilled" ? pedsResult.value  : [];
         const ingresos = peds.reduce((s, p) => s + parseFloat(p.total || 0), 0);
         setStats({ productos: prods.length, pedidos: peds.length, ingresos });
         setRecent(peds.slice(0, 5));
