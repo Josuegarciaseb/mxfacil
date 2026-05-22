@@ -1,4 +1,5 @@
 import Icon from "../ui/Icon";
+import Logo from "../ui/Logo";
 
 const NAV_ADMIN = [
   { id: "dashboard",     icon: "dashboard",   label: "Dashboard" },
@@ -71,25 +72,7 @@ const Sidebar = ({ user, active, onNav, onLogout, isOpen, onClose, isMobile, car
           borderBottom: `1px solid ${BORDER_COLOR}`,
           display: "flex", alignItems: "center", justifyContent: "space-between",
         }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
-            <div style={{
-              width: 40, height: 40, flexShrink: 0,
-              background: ACCENT,
-              borderRadius: 11,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              boxShadow: "0 4px 14px rgba(99,153,34,.38)",
-            }}>
-              <Icon name="store" size={20} style={{ color: "#fff" }} />
-            </div>
-            <div>
-              <div style={{ fontWeight: 600, fontSize: 15, color: TEXT_BRIGHT, lineHeight: 1.2, letterSpacing: "-.01em", fontFamily: "'Sora',sans-serif" }}>
-                Comercio Fácil
-              </div>
-              <div style={{ fontSize: 10, color: TEXT_MUTED, fontWeight: 600, letterSpacing: ".06em", textTransform: "uppercase", fontFamily: "'Sora',sans-serif" }}>
-                Mayoreo · México
-              </div>
-            </div>
-          </div>
+          <Logo size={40} subtitle="Mayoreo · México" />
           {isMobile && (
             <button
               onClick={onClose}

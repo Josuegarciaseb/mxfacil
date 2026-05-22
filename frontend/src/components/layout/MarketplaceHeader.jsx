@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import Icon from "../ui/Icon";
+import Logo from "../ui/Logo";
 
 const NAV_ITEMS = [
   { icon: "shoppingBag", label: "Mis Pedidos",     id: "mis-pedidos"     },
@@ -55,25 +56,11 @@ const MarketplaceHeader = ({
             flexShrink: 0, padding: 0,
           }}
         >
-          <div style={{
-            width: isSmall ? 34 : 40, height: isSmall ? 34 : 40,
-            background: ACCENT,
-            borderRadius: isSmall ? 9 : 11, flexShrink: 0,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            boxShadow: "0 4px 14px rgba(99,153,34,.38)",
-          }}>
-            <Icon name="store" size={isSmall ? 17 : 21} style={{ color: "#fff" }} />
-          </div>
-          {!isSmall && (
-            <div style={{ lineHeight: 1.2 }}>
-              <div style={{ fontWeight: 600, fontSize: 15, color: TEXT_BRIGHT, letterSpacing: "-.01em", fontFamily: "'Sora',sans-serif" }}>
-                Comercio Fácil
-              </div>
-              <div style={{ fontSize: 9, color: TEXT_MUTED, fontWeight: 600, letterSpacing: ".06em", textTransform: "uppercase", fontFamily: "'Sora',sans-serif" }}>
-                Mayoreo · México
-              </div>
-            </div>
-          )}
+          <Logo
+            size={isSmall ? 34 : 40}
+            showText={!isSmall}
+            subtitle="Mayoreo · México"
+          />
         </button>
 
         {/* Buscador */}

@@ -1,4 +1,5 @@
 import Icon from "../ui/Icon";
+import Logo from "../ui/Logo";
 
 const PAGE_LABELS = {
   catalogo:             "Catálogo",
@@ -50,15 +51,7 @@ const TopBar = ({ user, onMenuOpen, cartCount, onCartOpen, page }) => (
     </button>
 
     <div style={{ display: "flex", alignItems: "center", gap: 9, flex: 1, minWidth: 0 }}>
-      <div style={{
-        width: 28, height: 28, flexShrink: 0,
-        background: ACCENT,
-        borderRadius: 8,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        boxShadow: `0 2px 8px rgba(99,153,34,.4)`,
-      }}>
-        <Icon name="store" size={15} style={{ color: "#fff" }} />
-      </div>
+      <Logo size={28} showText={false} />
       <span style={{
         fontWeight: 600, fontSize: 15, color: TEXT_BRIGHT,
         whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",

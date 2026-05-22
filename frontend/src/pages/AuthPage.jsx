@@ -3,6 +3,7 @@ import { http }          from "../utils/api";
 import { toast }         from "../utils/toast";
 import { useBreakpoint } from "../hooks/useBreakpoint";
 import Icon              from "../components/ui/Icon";
+import Logo              from "../components/ui/Logo";
 
 /* ── Design tokens (ref: login.html / register.html) ── */
 const G900 = "#173404";
@@ -150,13 +151,8 @@ const AuthPage = ({ onLogin }) => {
       <div style={{ position: "absolute", bottom: -80, right: -80, width: 320, height: 320, borderRadius: "50%", background: G400, opacity: 0.12 }} />
 
       {/* Marca */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, position: "relative", zIndex: 2 }}>
-        <div style={{ width: 38, height: 38, background: G400, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <HomeIcon size={22} />
-        </div>
-        <span style={{ fontSize: "1.05rem", fontWeight: 600, color: "#fff", letterSpacing: "-0.01em", fontFamily: "'Sora',sans-serif" }}>
-          Comercio<span style={{ color: G100 }}>Fácil</span>
-        </span>
+      <div style={{ position: "relative", zIndex: 2 }}>
+        <Logo size={38} />
       </div>
 
       {/* Hero text */}
