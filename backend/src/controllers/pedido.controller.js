@@ -375,8 +375,8 @@ exports.listPedidosAdmin = async (req, res) => {
         `SELECT DISTINCT p.id, p.usuario_id, u.nombre AS usuario_nombre, p.direccion_id, p.fecha, p.estado, p.subtotal, p.iva, p.comision, p.total
          FROM pedido p
          JOIN usuario u ON u.id = p.usuario_id
-         JOIN pedido_item pi ON pi.pedido_id = p.id
-         JOIN producto pr ON pr.id = pi.producto_id
+         JOIN pedido_item pit ON pit.pedido_id = p.id
+         JOIN producto pr ON pr.id = pit.producto_id
          ${where}
          ORDER BY p.fecha DESC`,
         params
