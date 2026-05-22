@@ -100,6 +100,8 @@ export const injectStyles = () => {
     .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.52); backdrop-filter:blur(6px); z-index:9999; overflow-y:auto; padding:48px 16px 40px; animation:fadeIn .2s ease; }
     .modal { background:var(--white); border:1px solid var(--gray-200); border-radius:var(--radius-xl); padding:24px; width:100%; max-width:520px; margin:0 auto; box-shadow:var(--shadow-lg); animation:fadeUp .3s cubic-bezier(.22,1,.36,1); position:relative; }
 
+    @keyframes slideUp { from{opacity:0;transform:translateY(100%)} to{opacity:1;transform:translateY(0)} }
+
     /* Product cards */
     .product-card { background:var(--white); border:1.5px solid var(--gray-200); border-radius:var(--radius-lg); overflow:hidden; transition:all .25s cubic-bezier(.22,1,.36,1); cursor:pointer; }
     .product-card:hover { border-color:var(--red); box-shadow:0 8px 32px rgba(99,153,34,.14), 0 2px 8px rgba(0,0,0,.06); transform:translateY(-4px); }

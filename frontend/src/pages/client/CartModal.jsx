@@ -92,13 +92,38 @@ const CartModal = ({ open, onClose, cart, setCart, token }) => {
 
   if (!open) return null;
 
+  /* ── Estilos dinámicos según tamaño de pantalla ── */
+  const overlayStyle = isMobile
+    ? { display: "flex", alignItems: "flex-end", padding: 0 }
+    : {};
+
+  const modalStyle = isMobile
+    ? {
+        maxWidth: "100%",
+        width: "100%",
+        borderRadius: "20px 20px 0 0",
+        maxHeight: "92dvh",
+        overflowY: "auto",
+        margin: 0,
+        paddingBottom: 28,
+        animation: "slideUp .32s cubic-bezier(.22,1,.36,1)",
+      }
+    : { maxWidth: 520 };
+
   return createPortal(
-    <div className="modal-overlay" onClick={paymentStep ? undefined : onClose}>
+    <div className="modal-overlay" style={overlayStyle} onClick={paymentStep ? undefined : onClose}>
       <div
         className="modal"
-        style={{ maxWidth: isMobile ? "100%" : 520 }}
+        style={modalStyle}
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Handle decorativo en mobile */}
+        {isMobile && (
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 14, marginTop: -4 }}>
+            <div style={{ width: 40, height: 4, borderRadius: 99, background: "var(--gray-200)" }} />
+          </div>
+        )}
+
         {/* ── HEADER ── */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -130,11 +155,12 @@ const CartModal = ({ open, onClose, cart, setCart, token }) => {
               background: "linear-gradient(135deg, #173404, #1e4205)",
               borderRadius: 10, padding: "12px 16px",
               display: "flex", justifyContent: "space-between", alignItems: "center",
+              flexWrap: "wrap", gap: 8,
             }}>
               <span style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,.5)", textTransform: "uppercase", letterSpacing: ".06em" }}>
                 Total a pagar
               </span>
-              <span style={{ fontWeight: 900, color: "#FDE68A", fontSize: 20 }}>
+              <span style={{ fontWeight: 900, color: "#FDE68A", fontSize: isMobile ? 18 : 20 }}>
                 ${Number(paymentStep.monto).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                 <span style={{ fontSize: 12, fontWeight: 500, color: "rgba(255,255,255,.4)", marginLeft: 4 }}>MXN</span>
               </span>
@@ -182,38 +208,83 @@ const CartModal = ({ open, onClose, cart, setCart, token }) => {
           />
         ) : (
           /* ── PASO 1: CARRITO + FORM ── */
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+
             {/* Items */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 260, overflowY: "auto" }}>
+            <div style={{
+              display: "flex", flexDirection: "column", gap: 8,
+              maxHeight: isMobile ? "38vh" : 260,
+              overflowY: "auto",
+              paddingRight: 2,
+            }}>
               {cart.map((i) => (
                 <div
                   key={i.id}
-                  style={{ display: "flex", alignItems: "center", gap: 10, background: "var(--gray-50)", padding: "10px 12px", borderRadius: 10, border: "1px solid var(--gray-100)" }}
+                  style={{
+                    background: "var(--gray-50)",
+                    padding: isMobile ? "9px 10px" : "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid var(--gray-100)",
+                  }}
                 >
-                  <div style={{ width: 38, height: 38, background: "var(--red-pale)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--red)", flexShrink: 0 }}>
-                    <Icon name="package" size={17} />
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 600, fontSize: 13, color: "var(--gray-900)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{i.nombre}</div>
-                    <div style={{ fontSize: 11, color: "var(--gray-500)" }}>${parseFloat(i.precio).toLocaleString("es-MX", { minimumFractionDigits: 2 })} c/u</div>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-                    <button onClick={() => updateQty(i.id, i.qty - 1)} style={{ width: 26, height: 26, border: "1.5px solid var(--gray-200)", borderRadius: 6, background: "var(--white)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "var(--gray-600)" }}>-</button>
-                    <span style={{ fontWeight: 700, minWidth: 20, textAlign: "center", fontSize: 14 }}>{i.qty}</span>
-                    <button onClick={() => updateQty(i.id, i.qty + 1)} style={{ width: 26, height: 26, border: "1.5px solid var(--gray-200)", borderRadius: 6, background: "var(--white)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "var(--gray-600)" }}>+</button>
-                  </div>
-                  <div style={{ minWidth: 70, textAlign: "right", flexShrink: 0 }}>
-                    <div style={{ fontWeight: 800, color: "var(--red)", fontSize: 14 }}>${(i.precio * i.qty).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</div>
-                  </div>
-                  <button onClick={() => setCart((c) => c.filter((x) => x.id !== i.id))} className="btn-ghost" style={{ padding: 5, color: "#dc2626", flexShrink: 0 }}>
-                    <Icon name="trash" size={14} />
-                  </button>
+                  {isMobile ? (
+                    /* ── Fila mobile: 2 filas ── */
+                    <>
+                      {/* Fila 1: nombre + total */}
+                      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 600, fontSize: 13, color: "var(--gray-900)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {i.nombre}
+                          </div>
+                          <div style={{ fontSize: 11, color: "var(--gray-500)", marginTop: 1 }}>
+                            ${parseFloat(i.precio).toLocaleString("es-MX", { minimumFractionDigits: 2 })} c/u
+                          </div>
+                        </div>
+                        <div style={{ fontWeight: 800, color: "var(--red)", fontSize: 14, flexShrink: 0 }}>
+                          ${(i.precio * i.qty).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                        </div>
+                      </div>
+                      {/* Fila 2: controles cantidad + eliminar */}
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <button onClick={() => updateQty(i.id, i.qty - 1)} style={{ width: 28, height: 28, border: "1.5px solid var(--gray-200)", borderRadius: 6, background: "var(--white)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "var(--gray-600)", fontSize: 16 }}>−</button>
+                          <span style={{ fontWeight: 700, minWidth: 22, textAlign: "center", fontSize: 14 }}>{i.qty}</span>
+                          <button onClick={() => updateQty(i.id, i.qty + 1)} style={{ width: 28, height: 28, border: "1.5px solid var(--gray-200)", borderRadius: 6, background: "var(--white)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "var(--gray-600)", fontSize: 16 }}>+</button>
+                        </div>
+                        <button onClick={() => setCart((c) => c.filter((x) => x.id !== i.id))} className="btn-ghost" style={{ padding: "4px 8px", color: "#dc2626" }}>
+                          <Icon name="trash" size={14} />
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    /* ── Fila desktop: 1 fila ── */
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{ width: 38, height: 38, background: "var(--red-pale)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--red)", flexShrink: 0 }}>
+                        <Icon name="package" size={17} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 600, fontSize: 13, color: "var(--gray-900)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{i.nombre}</div>
+                        <div style={{ fontSize: 11, color: "var(--gray-500)" }}>${parseFloat(i.precio).toLocaleString("es-MX", { minimumFractionDigits: 2 })} c/u</div>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                        <button onClick={() => updateQty(i.id, i.qty - 1)} style={{ width: 26, height: 26, border: "1.5px solid var(--gray-200)", borderRadius: 6, background: "var(--white)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "var(--gray-600)" }}>-</button>
+                        <span style={{ fontWeight: 700, minWidth: 20, textAlign: "center", fontSize: 14 }}>{i.qty}</span>
+                        <button onClick={() => updateQty(i.id, i.qty + 1)} style={{ width: 26, height: 26, border: "1.5px solid var(--gray-200)", borderRadius: 6, background: "var(--white)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "var(--gray-600)" }}>+</button>
+                      </div>
+                      <div style={{ minWidth: 70, textAlign: "right", flexShrink: 0 }}>
+                        <div style={{ fontWeight: 800, color: "var(--red)", fontSize: 14 }}>${(i.precio * i.qty).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</div>
+                      </div>
+                      <button onClick={() => setCart((c) => c.filter((x) => x.id !== i.id))} className="btn-ghost" style={{ padding: 5, color: "#dc2626", flexShrink: 0 }}>
+                        <Icon name="trash" size={14} />
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
 
             {/* Desglose IVA + Total */}
-            <div style={{ background: "linear-gradient(135deg, #173404, #1e4205)", borderRadius: 12, padding: "14px 18px", display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ background: "linear-gradient(135deg, #173404, #1e4205)", borderRadius: 12, padding: isMobile ? "12px 14px" : "14px 18px", display: "flex", flexDirection: "column", gap: 8 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span style={{ fontSize: 12, color: "rgba(255,255,255,.55)" }}>Subtotal</span>
                 <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,.75)" }}>
@@ -227,12 +298,12 @@ const CartModal = ({ open, onClose, cart, setCart, token }) => {
                 </span>
               </div>
               <div style={{ borderTop: "1px solid rgba(255,255,255,.15)", paddingTop: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,.5)", letterSpacing: ".06em", textTransform: "uppercase" }}>Total del pedido</div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,.5)", letterSpacing: ".06em", textTransform: "uppercase" }}>
+                  Total del pedido
                 </div>
-                <span style={{ fontWeight: 900, color: "#FDE68A", fontSize: 22, letterSpacing: "-.025em" }}>
+                <span style={{ fontWeight: 900, color: "#FDE68A", fontSize: isMobile ? 19 : 22, letterSpacing: "-.025em" }}>
                   ${cartTotal.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
-                  <span style={{ fontSize: 13, fontWeight: 500, color: "rgba(255,255,255,.5)", marginLeft: 4 }}>MXN</span>
+                  <span style={{ fontSize: 12, fontWeight: 500, color: "rgba(255,255,255,.5)", marginLeft: 4 }}>MXN</span>
                 </span>
               </div>
             </div>
@@ -274,14 +345,15 @@ const CartModal = ({ open, onClose, cart, setCart, token }) => {
               </div>
             )}
 
-            <div style={{ display: "flex", gap: 10 }}>
-              <Btn variant="secondary" onClick={onClose} style={{ flex: 1 }}>
-                <Icon name="arrowLeft" size={15} />Continuar
+            {/* Botones de acción */}
+            <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 10 }}>
+              <Btn variant="secondary" onClick={onClose} style={{ flex: isMobile ? "unset" : 1, justifyContent: "center" }}>
+                <Icon name="arrowLeft" size={15} />Continuar comprando
               </Btn>
               <Btn
                 onClick={handleConfirm}
                 disabled={placing || !direcciones.length}
-                style={{ flex: 2, justifyContent: "center" }}
+                style={{ flex: isMobile ? "unset" : 2, justifyContent: "center" }}
               >
                 {placing
                   ? <><div style={{ width: 16, height: 16, border: "2px solid rgba(255,255,255,.3)", borderTop: "2px solid #fff", borderRadius: "50%", animation: "spin 1s linear infinite" }} />Procesando...</>
