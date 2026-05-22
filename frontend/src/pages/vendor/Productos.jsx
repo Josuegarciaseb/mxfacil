@@ -15,7 +15,7 @@ const EMPTY_FORM = {
   presentacion: "", activo: 1, stock_inicial: "", image_url: "", imagen_modo: "url",
 };
 
-const IMG_BASE = "http://localhost:3000";
+const IMG_BASE = import.meta.env.VITE_API_URL || "http://localhost:3000"
 
 // Muestra la imagen del producto o un ícono genérico
 const ProductImg = ({ url, size = 36 }) => {

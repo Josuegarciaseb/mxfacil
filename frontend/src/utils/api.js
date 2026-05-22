@@ -1,4 +1,4 @@
-const API = "http://localhost:3000/api";
+const API = import.meta.env.VITE_API_URL + "/api" || "http://localhost:3000/api"
 
 export const http = async (path, opts = {}, token = null) => {
   const headers = { "Content-Type": "application/json" };
