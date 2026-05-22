@@ -222,9 +222,9 @@ const ClientCatalogo = ({
               <div style={{ display: "flex", alignItems: "center", gap: 16, flexShrink: 0 }}>
                 <div style={{ textAlign: "right" }}>
                   <div style={{ fontSize: 19, fontWeight: 900, color: "var(--red)", letterSpacing: "-.02em" }}>
-                    ${(parseFloat(p.precio) * 1.02).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                    ${(parseFloat(p.precio) * 1.02 * 1.16).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                   </div>
-                  <div style={{ fontSize: 10, color: "var(--gold-dark)", fontWeight: 600 }}>precio público</div>
+                  <div style={{ fontSize: 10, color: "var(--green)", fontWeight: 600 }}>IVA incluido</div>
                 </div>
                 <button
                   className="btn-primary btn-sm"
@@ -326,10 +326,10 @@ const ProductCard = ({ p, i, isMobile, onAdd }) => {
               fontSize: isMobile ? 18 : 21, fontWeight: 900, color: "var(--red)",
               letterSpacing: "-.03em", lineHeight: 1,
             }}>
-              ${(parseFloat(p.precio) * 1.02).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+              ${(parseFloat(p.precio) * 1.02 * 1.16).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
             </div>
-            <div style={{ fontSize: 10, color: "var(--gold-dark)", fontWeight: 600, marginTop: 2 }}>
-              precio público
+            <div style={{ fontSize: 10, color: "var(--green)", fontWeight: 600, marginTop: 2 }}>
+              IVA incluido
             </div>
           </div>
           <button

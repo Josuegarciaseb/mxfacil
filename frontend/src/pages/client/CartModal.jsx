@@ -237,11 +237,11 @@ const CartModal = ({ open, onClose, cart, setCart, token }) => {
                             {i.nombre}
                           </div>
                           <div style={{ fontSize: 11, color: "var(--gray-500)", marginTop: 1 }}>
-                            ${parseFloat(i.precio).toLocaleString("es-MX", { minimumFractionDigits: 2 })} c/u
+                            ${(parseFloat(i.precio) * 1.16).toLocaleString("es-MX", { minimumFractionDigits: 2 })} c/u <span style={{ color: "var(--green)", fontWeight: 600 }}>IVA inc.</span>
                           </div>
                         </div>
                         <div style={{ fontWeight: 800, color: "var(--red)", fontSize: 14, flexShrink: 0 }}>
-                          ${(i.precio * i.qty).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                          ${(i.precio * 1.16 * i.qty).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                         </div>
                       </div>
                       {/* Fila 2: controles cantidad + eliminar */}
@@ -264,7 +264,9 @@ const CartModal = ({ open, onClose, cart, setCart, token }) => {
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: 600, fontSize: 13, color: "var(--gray-900)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{i.nombre}</div>
-                        <div style={{ fontSize: 11, color: "var(--gray-500)" }}>${parseFloat(i.precio).toLocaleString("es-MX", { minimumFractionDigits: 2 })} c/u</div>
+                        <div style={{ fontSize: 11, color: "var(--gray-500)" }}>
+                          ${(parseFloat(i.precio) * 1.16).toLocaleString("es-MX", { minimumFractionDigits: 2 })} c/u <span style={{ color: "var(--green)", fontWeight: 600 }}>IVA inc.</span>
+                        </div>
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
                         <button onClick={() => updateQty(i.id, i.qty - 1)} style={{ width: 26, height: 26, border: "1.5px solid var(--gray-200)", borderRadius: 6, background: "var(--white)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "var(--gray-600)" }}>-</button>
@@ -272,7 +274,7 @@ const CartModal = ({ open, onClose, cart, setCart, token }) => {
                         <button onClick={() => updateQty(i.id, i.qty + 1)} style={{ width: 26, height: 26, border: "1.5px solid var(--gray-200)", borderRadius: 6, background: "var(--white)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "var(--gray-600)" }}>+</button>
                       </div>
                       <div style={{ minWidth: 70, textAlign: "right", flexShrink: 0 }}>
-                        <div style={{ fontWeight: 800, color: "var(--red)", fontSize: 14 }}>${(i.precio * i.qty).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</div>
+                        <div style={{ fontWeight: 800, color: "var(--red)", fontSize: 14 }}>${(i.precio * 1.16 * i.qty).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</div>
                       </div>
                       <button onClick={() => setCart((c) => c.filter((x) => x.id !== i.id))} className="btn-ghost" style={{ padding: 5, color: "#dc2626", flexShrink: 0 }}>
                         <Icon name="trash" size={14} />
@@ -286,7 +288,7 @@ const CartModal = ({ open, onClose, cart, setCart, token }) => {
             {/* Desglose IVA + Total */}
             <div style={{ background: "linear-gradient(135deg, #173404, #1e4205)", borderRadius: 12, padding: isMobile ? "12px 14px" : "14px 18px", display: "flex", flexDirection: "column", gap: 8 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontSize: 12, color: "rgba(255,255,255,.55)" }}>Subtotal</span>
+                <span style={{ fontSize: 12, color: "rgba(255,255,255,.55)" }}>Subtotal (sin IVA)</span>
                 <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,.75)" }}>
                   ${cartSubtotal.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                 </span>
