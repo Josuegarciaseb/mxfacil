@@ -14,7 +14,7 @@ import MercadoPagoCheckout from "../../components/payments/MercadoPagoCheckout";
 
 const DIGITAL_METHODS = ["tarjeta", "paypal", "mercadopago"];
 
-const CartModal = ({ open, onClose, cart, setCart, token }) => {
+const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth }) => {
   const [direcciones, setDirecciones]   = useState([]);
   const [orderForm,   setOrderForm]     = useState({ direccion_id: "", metodo_pago: "tarjeta" });
   const [placing,     setPlacing]       = useState(false);
@@ -340,14 +340,49 @@ const CartModal = ({ open, onClose, cart, setCart, token }) => {
               </div>
             )}
 
-            {DIGITAL_METHODS.includes(orderForm.metodo_pago) && (
+            {DIGITAL_METHODS.includes(orderForm.metodo_pago) && token && (
               <div style={{ display: "flex", gap: 8, alignItems: "flex-start", background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 9, padding: "10px 12px" }}>
                 <Icon name="info" size={16} style={{ color: "#2563eb", flexShrink: 0, marginTop: 1 }} />
                 <span style={{ fontSize: 12, color: "#1d4ed8" }}>Al confirmar se creará tu pedido y podrás completar el pago en el siguiente paso.</span>
               </div>
             )}
 
-            {/* Botones de acción */}
+            {/* ── Prompt de login para invitados ── */}
+            {!token && (
+              <div style={{
+                background: "linear-gradient(135deg,#173404,#1e4205)",
+                borderRadius: 12, padding: isMobile ? "16px 14px" : "18px 20px",
+                display: "flex", flexDirection: "column", gap: 12, textAlign: "center",
+              }}>
+                <div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "#e0edd5", marginBottom: 4, fontFamily: "'Sora',sans-serif" }}>
+                    ¡Ya casi terminas!
+                  </div>
+                  <div style={{ fontSize: 12, color: "rgba(255,255,255,.55)", fontFamily: "'Sora',sans-serif" }}>
+                    Inicia sesión o crea una cuenta gratis para finalizar tu pedido. Tu carrito se guardará.
+                  </div>
+                </div>
+                <button
+                  onClick={() => { if (onNeedAuth) onNeedAuth(); }}
+                  style={{
+                    width: "100%", height: 44,
+                    background: "#639922", color: "#fff",
+                    border: "none", borderRadius: 9,
+                    fontFamily: "'Sora',sans-serif", fontWeight: 700, fontSize: 14,
+                    cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                    boxShadow: "0 2px 10px rgba(99,153,34,.35)", transition: "filter .15s",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.filter = "brightness(1.1)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.filter = "brightness(1)")}
+                >
+                  <Icon name="user" size={15} />
+                  Iniciar sesión / Registrarse
+                </button>
+              </div>
+            )}
+
+            {/* Botones de acción (solo para autenticados) */}
+            {token && (
             <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 10 }}>
               <Btn variant="secondary" onClick={onClose} style={{ flex: isMobile ? "unset" : 1, justifyContent: "center" }}>
                 <Icon name="arrowLeft" size={15} />Continuar comprando
@@ -364,6 +399,7 @@ const CartModal = ({ open, onClose, cart, setCart, token }) => {
                     : <><Icon name="check" size={16} />Confirmar pedido</>}
               </Btn>
             </div>
+            )}
           </div>
         )}
       </div>

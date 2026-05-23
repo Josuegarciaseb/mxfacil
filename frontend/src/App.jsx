@@ -31,6 +31,7 @@ import AuthPage              from "./pages/AuthPage";
 
 const getStoredUser  = () => { try { return JSON.parse(localStorage.getItem("user")); } catch { return null; } };
 const getDefaultPage = (u) => u?.rol === "admin" ? "dashboard" : u?.rol === "vendedor" ? "vendedor-dashboard" : "catalogo";
+const getStoredCart  = () => { try { return JSON.parse(localStorage.getItem("guest_cart")) || []; } catch { return []; } };
 
 const MKT_H_DESKTOP = 112;
 const MKT_H_SMALL   = 58;
@@ -38,10 +39,15 @@ const MKT_H_SMALL   = 58;
 export default function App() {
   const [user,        setUser]        = useState(getStoredUser);
   const [token,       setToken]       = useState(() => localStorage.getItem("token") || null);
-  const [page,        setPage]        = useState(() => getDefaultPage(getStoredUser()));
+  const [page,        setPage]        = useState(() => {
+    const u = getStoredUser();
+    return u ? getDefaultPage(u) : "catalogo";
+  });
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [cartOpen,    setCartOpen]    = useState(false);
-  const [cart,        setCart]        = useState([]);
+
+  // Invitados usan carrito guardado en localStorage; autenticados empiezan vacíos
+  const [cart, setCart] = useState(() => !getStoredUser() ? getStoredCart() : []);
 
   const [catalogSearch,     setCatalogSearch]     = useState("");
   const [catalogCat,        setCatalogCat]        = useState("");
@@ -52,12 +58,26 @@ export default function App() {
   useEffect(() => { injectStyles(); }, []);
   useEffect(() => { if (isDesktop) setSidebarOpen(false); }, [isDesktop]);
 
-  const handleLogin = (u, t) => { setUser(u); setToken(t); setPage(getDefaultPage(u)); };
+  // Persiste carrito de invitado en localStorage
+  useEffect(() => {
+    if (!user) localStorage.setItem("guest_cart", JSON.stringify(cart));
+  }, [cart, user]);
+
+  const handleLogin = (u, t) => {
+    localStorage.removeItem("guest_cart");
+    setUser(u);
+    setToken(t);
+    setPage(getDefaultPage(u));
+    // El carrito del invitado se transfiere al estado (ya está en memoria)
+  };
 
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
-    setUser(null); setToken(null);
+    setUser(null);
+    setToken(null);
+    setCart([]);
+    setPage("catalogo");
   };
 
   const handleUserUpdate = (u) => {
@@ -65,20 +85,35 @@ export default function App() {
     setUser(u);
   };
 
-  if (!user || !token) {
-    return (
-      <>
-        <ToastContainer />
-        <AuthPage onLogin={handleLogin} />
-      </>
-    );
-  }
+  const isGuest    = !user || !token;
+  const isCliente  = user?.rol === "cliente";
+  const isVendedor = user?.rol === "vendedor";
 
   const cartCount = cart.reduce((s, i) => s + i.qty, 0);
-  const isCliente  = user.rol === "cliente";
-  const isVendedor = user.rol === "vendedor";
+
+  // Header de marketplace visible para clientes e invitados (excepto en la página de auth)
+  const showMarketplaceHeader = (isGuest || isCliente) && page !== "auth";
 
   const renderPage = () => {
+    // Página de auth — pantalla completa sin header
+    if (page === "auth") {
+      return <AuthPage onLogin={handleLogin} onBack={() => setPage("catalogo")} />;
+    }
+
+    // Invitados solo pueden ver el catálogo; cualquier otra ruta los mantiene aquí
+    if (isGuest) {
+      return (
+        <ClientCatalogo
+          token={null}
+          setCart={setCart}
+          externalSearch={catalogSearch}
+          externalCatFilter={catalogCat}
+          onCatFilter={setCatalogCat}
+          onCategoriasFetched={setCatalogCategorias}
+        />
+      );
+    }
+
     switch (page) {
       case "dashboard":          return <AdminDashboard    token={token} />;
       case "productos":          return <AdminProductos    token={token} />;
@@ -111,24 +146,26 @@ export default function App() {
   const VND_H_DESKTOP = 112;
   const VND_H_SMALL   = 58;
 
-  const mainPadding = isCliente
-    ? isSmall
-      ? `${MKT_H_SMALL + 16}px 14px 80px`
-      : `${MKT_H_DESKTOP + 20}px 32px 36px`
-    : isVendedor
+  const mainPadding = page === "auth"
+    ? 0
+    : showMarketplaceHeader
       ? isSmall
-        ? `${VND_H_SMALL + 16}px 14px 80px`
-        : `${VND_H_DESKTOP + 20}px 32px 36px`
-      : isSmall
-        ? "calc(var(--topbar-h) + 16px) 14px 80px"
-        : "24px 28px";
+        ? `${MKT_H_SMALL + 16}px 14px 80px`
+        : `${MKT_H_DESKTOP + 20}px 32px 36px`
+      : isVendedor
+        ? isSmall
+          ? `${VND_H_SMALL + 16}px 14px 80px`
+          : `${VND_H_DESKTOP + 20}px 32px 36px`
+        : isSmall
+          ? "calc(var(--topbar-h) + 16px) 14px 80px"
+          : "24px 28px";
 
   return (
     <>
       <ToastContainer />
 
       {/* Admin: sidebar oscuro + topbar mobile */}
-      {!isCliente && !isVendedor && (
+      {!showMarketplaceHeader && !isVendedor && !isGuest && (
         <>
           <Sidebar
             user={user}
@@ -165,13 +202,14 @@ export default function App() {
         />
       )}
 
-      {/* Cliente: header oscuro estilo marketplace */}
-      {isCliente && (
+      {/* Cliente + Invitado: header oscuro estilo marketplace */}
+      {showMarketplaceHeader && (
         <MarketplaceHeader
           user={user}
           page={page}
           onNav={setPage}
           onLogout={handleLogout}
+          onLoginClick={() => setPage("auth")}
           cartCount={cartCount}
           onCartOpen={() => setCartOpen(true)}
           categorias={catalogCategorias}
@@ -185,15 +223,16 @@ export default function App() {
       )}
 
       <main style={{
-        marginLeft: isCliente || isVendedor ? 0 : (isDesktop ? 256 : 0),
+        marginLeft: showMarketplaceHeader || isVendedor || isGuest ? 0 : (isDesktop ? 256 : 0),
         padding: mainPadding,
         minHeight: "100vh",
-        background: "var(--gray-50)",
+        background: page === "auth" ? "transparent" : "var(--gray-50)",
       }}>
         {renderPage()}
       </main>
 
-      {isSmall && isCliente && cartCount > 0 && (
+      {/* Botón flotante de carrito en mobile */}
+      {isSmall && (isCliente || isGuest) && cartCount > 0 && page !== "auth" && (
         <button
           onClick={() => setCartOpen(true)}
           style={{
@@ -212,13 +251,14 @@ export default function App() {
         </button>
       )}
 
-      {isCliente && (
+      {(isCliente || isGuest) && (
         <CartModal
           open={cartOpen}
           onClose={() => setCartOpen(false)}
           cart={cart}
           setCart={setCart}
           token={token}
+          onNeedAuth={() => { setCartOpen(false); setPage("auth"); }}
         />
       )}
     </>

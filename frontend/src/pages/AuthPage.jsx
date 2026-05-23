@@ -98,7 +98,7 @@ const Field = ({ label, hint, icon, type = "text", value, onChange, onKeyDown, p
 );
 
 /* ─────────────────────────────────────────── */
-const AuthPage = ({ onLogin }) => {
+const AuthPage = ({ onLogin, onBack }) => {
   const [mode,    setMode]    = useState("login");
   const [form,    setForm]    = useState({ nombre: "", email: "", password: "", telefono: "", rol: "cliente", rfc: "" });
   const [loading, setLoading] = useState(false);
@@ -151,8 +151,29 @@ const AuthPage = ({ onLogin }) => {
       <div style={{ position: "absolute", bottom: -80, right: -80, width: 320, height: 320, borderRadius: "50%", background: G400, opacity: 0.12 }} />
 
       {/* Marca */}
-      <div style={{ position: "relative", zIndex: 2 }}>
+      <div style={{ position: "relative", zIndex: 2, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <Logo size={38} />
+        {onBack && (
+          <button
+            onClick={onBack}
+            style={{
+              background: "rgba(255,255,255,.1)", border: "1px solid rgba(255,255,255,.15)",
+              borderRadius: 8, padding: "6px 12px",
+              color: "rgba(255,255,255,.7)", cursor: "pointer",
+              fontFamily: "'Sora',sans-serif", fontSize: "0.78rem", fontWeight: 500,
+              display: "flex", alignItems: "center", gap: 5,
+              transition: "all .15s",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,.16)"; e.currentTarget.style.color = "#fff"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,.1)"; e.currentTarget.style.color = "rgba(255,255,255,.7)"; }}
+          >
+            <svg width={13} height={13} viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="15 18 9 12 15 6"/>
+            </svg>
+            Catálogo
+          </button>
+        )}
       </div>
 
       {/* Hero text */}
@@ -213,6 +234,28 @@ const AuthPage = ({ onLogin }) => {
         overflowY: "auto",
       }}>
         <div style={{ width: "100%", maxWidth: 400, animation: "fadeUp 0.5s ease both" }}>
+
+          {/* Botón volver al catálogo */}
+          {onBack && (
+            <button
+              onClick={onBack}
+              style={{
+                display: "flex", alignItems: "center", gap: 6,
+                background: "none", border: "none",
+                color: MUTED, cursor: "pointer", padding: "0 0 1.5rem",
+                fontFamily: "'Sora',sans-serif", fontSize: "0.82rem",
+                fontWeight: 500, transition: "color .15s",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = G700)}
+              onMouseLeave={(e) => (e.currentTarget.style.color = MUTED)}
+            >
+              <svg width={15} height={15} viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="15 18 9 12 15 6"/>
+              </svg>
+              Volver al catálogo
+            </button>
+          )}
 
           {/* Cabecera */}
           <div style={{ marginBottom: "2rem" }}>
