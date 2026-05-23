@@ -36,7 +36,9 @@ router.get(
     });
 
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-    return res.redirect(`${frontendUrl}/oauth-success?token=${token}`);
+    // ✅ El token NUNCA viaja en la URL — solo en la cookie HttpOnly ya establecida.
+    // El frontend lo recupera con GET /api/auth/session (intercambio de un solo uso).
+    return res.redirect(`${frontendUrl}/oauth-success`);
   }
 );
 

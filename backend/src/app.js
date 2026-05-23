@@ -139,10 +139,42 @@ app.get('/api/console-warning.js', (req, res) => {
   res.send(`(function(){var s1='font-size:22px;font-weight:bold;color:#c0392b;';var s2='font-size:14px;color:#333;';console.log('%c⛔ ADVERTENCIA — Self-XSS Attack',s1);console.log('%cSi alguien te pidió copiar código aquí, es un ataque Self-XSS. NO lo hagas.',s2);})();`);
 });
 
-// 9. CSRF Token
-const csrfProtection = csrf({ cookie: { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'strict' } });
+// 9. CSRF — Protección real para todas las rutas que modifican estado
+//
+// Flujo:
+//   1. El frontend llama GET /api/csrf-token al iniciar (fetchCsrfToken en App.jsx).
+//      csurf crea el secreto CSRF en una cookie HttpOnly y devuelve el token derivado.
+//   2. El frontend guarda el token en memoria (_csrfToken en api.js).
+//   3. En cada POST/PUT/PATCH/DELETE el frontend adjunta X-CSRF-Token: <token>.
+//   4. El middleware global compara el token con el secreto de la cookie → 403 si no coincide.
+//
+// Exclusiones justificadas:
+//   • GET / HEAD / OPTIONS — métodos seguros (sin efecto de estado)
+//   • /api/pagos/mercadopago/webhook — llamada de servidor a servidor (sin cookie de navegador)
+//   • /api/auth/google/callback — Passport lo maneja con su propio flujo OAuth
+const csrfProtection = csrf({
+  cookie: {
+    httpOnly: true,
+    secure:   process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+  },
+});
+
+// El frontend obtiene aquí el token inicial; csurf genera la cookie en esta llamada.
 app.get('/api/csrf-token', csrfProtection, (req, res) => {
   res.json({ csrfToken: req.csrfToken() });
+});
+
+// Aplicar CSRF a todas las rutas mutantes excepto las dos de arriba
+const CSRF_SKIP = [
+  '/api/pagos/mercadopago/webhook',
+  '/api/auth/google/callback',
+];
+
+app.use((req, res, next) => {
+  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
+  if (CSRF_SKIP.some((p) => req.originalUrl.startsWith(p))) return next();
+  return csrfProtection(req, res, next);
 });
 
 // 10. RUTAS

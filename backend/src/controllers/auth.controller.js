@@ -269,6 +269,39 @@ exports.disableMfa = async (req, res) => {
   }
 };
 
+// ─── GET /api/auth/session — Canjea cookie OAuth por token JSON (uso único) ───
+// El token NUNCA viaja en la URL. El frontend hace fetch con credentials:'include',
+// recibe { user, token } en el body y la cookie queda destruida.
+exports.session = async (req, res) => {
+  const token = req.cookies?.auth_token;
+
+  if (!token)
+    return res.status(401).json({ message: 'Sin sesión OAuth activa' });
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    const [rows] = await pool.query(
+      'SELECT id, nombre, email, rol FROM usuario WHERE id = ?',
+      [decoded.id]
+    );
+
+    if (!rows.length)
+      return res.status(401).json({ message: 'Usuario no encontrado' });
+
+    // Destruir la cookie — intercambio de un solo uso
+    res.clearCookie('auth_token', {
+      httpOnly: true,
+      secure:   process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+    });
+
+    return res.json({ user: rows[0], token });
+  } catch {
+    return res.status(401).json({ message: 'Token inválido o expirado' });
+  }
+};
+
 // ─── GET /api/auth/verify-signature — Verificar firma digital de datos ───────
 exports.verifyDataSignature = (req, res) => {
   const { data, signature } = req.body;

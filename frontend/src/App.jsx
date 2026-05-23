@@ -28,6 +28,7 @@ import ClientPerfil          from "./pages/client/Perfil";
 import CartModal             from "./pages/client/CartModal";
 
 import AuthPage              from "./pages/AuthPage";
+import { fetchCsrfToken }   from "./utils/api";
 
 const getStoredUser  = () => { try { return JSON.parse(localStorage.getItem("user")); } catch { return null; } };
 const getDefaultPage = (u) => u?.rol === "admin" ? "dashboard" : u?.rol === "vendedor" ? "vendedor-dashboard" : "catalogo";
@@ -57,6 +58,39 @@ export default function App() {
 
   useEffect(() => { injectStyles(); }, []);
   useEffect(() => { if (isDesktop) setSidebarOpen(false); }, [isDesktop]);
+
+  // Obtener token CSRF al montar — debe ejecutarse antes de cualquier mutación
+  useEffect(() => { fetchCsrfToken(); }, []);
+
+  // ── Intercambio OAuth: canjea cookie HttpOnly → token en localStorage ──────
+  // El backend redirige a /oauth-success SIN token en la URL.
+  // Aquí hacemos un fetch con credentials:'include' para recoger el token
+  // desde el body (no desde la URL) y destruir la cookie en el mismo viaje.
+  useEffect(() => {
+    if (window.location.pathname !== '/oauth-success') return;
+
+    const API = import.meta.env.VITE_API_URL
+      ? `${import.meta.env.VITE_API_URL}/api`
+      : 'http://localhost:3000/api';
+
+    fetch(`${API}/auth/session`, { credentials: 'include' })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.token && data.user) {
+          localStorage.setItem('token', data.token);
+          localStorage.setItem('user', JSON.stringify(data.user));
+          localStorage.removeItem('guest_cart');
+          setToken(data.token);
+          setUser(data.user);
+          setPage(getDefaultPage(data.user));
+        }
+      })
+      .catch(() => { /* fallo silencioso: el usuario puede logearse manualmente */ })
+      .finally(() => {
+        // Limpiar la URL — quita /oauth-success del historial
+        window.history.replaceState({}, '', '/');
+      });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Persiste carrito de invitado en localStorage
   useEffect(() => {
