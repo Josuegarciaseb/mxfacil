@@ -28,6 +28,7 @@ const Logo = ({
         objectFit: "contain",
         flexShrink: 0,
         userSelect: "none",
+        filter: "brightness(0) invert(1)",
       }}
     />
     {showText && (

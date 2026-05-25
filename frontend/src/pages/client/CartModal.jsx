@@ -6,7 +6,7 @@ import { useBreakpoint } from "../../hooks/useBreakpoint";
 import { PAYMENT_METHODS } from "../../constants";
 import Btn from "../../components/ui/Btn";
 import EmptyState from "../../components/ui/EmptyState";
-import { SelectField } from "../../components/ui/FormFields";
+import { SelectField, InputField } from "../../components/ui/FormFields";
 import Icon from "../../components/ui/Icon";
 import StripeCheckout from "../../components/payments/StripeCheckout";
 import PayPalCheckout from "../../components/payments/PayPalCheckout";
@@ -14,28 +14,59 @@ import MercadoPagoCheckout from "../../components/payments/MercadoPagoCheckout";
 
 const DIGITAL_METHODS = ["tarjeta", "paypal", "mercadopago"];
 
+const EMPTY_ADDR = { linea1: "", ciudad: "", estado: "", cp: "", pais: "Mexico", es_principal: true };
+
 const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth }) => {
   const [direcciones, setDirecciones]   = useState([]);
   const [orderForm,   setOrderForm]     = useState({ direccion_id: "", metodo_pago: "tarjeta" });
   const [placing,     setPlacing]       = useState(false);
   const [paymentStep, setPaymentStep]   = useState(null); // { pedidoId, monto, metodo }
+  const [showAddrForm, setShowAddrForm] = useState(false);
+  const [addrForm,  setAddrForm]        = useState(EMPTY_ADDR);
+  const [savingAddr, setSavingAddr]     = useState(false);
   const { isMobile } = useBreakpoint();
 
-  useEffect(() => {
-    if (!open) return;
-    http("/direcciones", {}, token)
+  const loadDirecciones = (tkn) => {
+    http("/direcciones", {}, tkn ?? token)
       .then((d) => {
         setDirecciones(d);
         if (d.length) setOrderForm((f) => ({ ...f, direccion_id: d[0].id }));
       })
       .catch(() => {});
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    loadDirecciones();
   }, [open, token]);
 
   useEffect(() => {
     if (!open) {
       setPaymentStep(null);
+      setShowAddrForm(false);
+      setAddrForm(EMPTY_ADDR);
     }
   }, [open]);
+
+  const handleSaveAddr = async () => {
+    if (!addrForm.linea1 || !addrForm.ciudad || !addrForm.estado || !addrForm.cp)
+      return toast("Completa todos los campos", "warn");
+    setSavingAddr(true);
+    try {
+      await http("/direcciones", {
+        method: "POST",
+        body: JSON.stringify({ ...addrForm, es_principal: 1 }),
+      }, token);
+      toast("Dirección agregada");
+      setShowAddrForm(false);
+      setAddrForm(EMPTY_ADDR);
+      loadDirecciones();
+    } catch (e) {
+      toast(e.message, "error");
+    } finally {
+      setSavingAddr(false);
+    }
+  };
 
   const updateQty = (id, qty) => {
     if (qty <= 0) setCart((c) => c.filter((i) => i.id !== id));
@@ -161,7 +192,7 @@ const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth }) => {
                 Total a pagar
               </span>
               <span style={{ fontWeight: 900, color: "#FDE68A", fontSize: isMobile ? 18 : 20 }}>
-                ${Number(paymentStep.monto).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                ${Number(paymentStep.monto).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 <span style={{ fontSize: 12, fontWeight: 500, color: "rgba(255,255,255,.4)", marginLeft: 4 }}>MXN</span>
               </span>
             </div>
@@ -237,11 +268,11 @@ const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth }) => {
                             {i.nombre}
                           </div>
                           <div style={{ fontSize: 11, color: "var(--gray-500)", marginTop: 1 }}>
-                            ${(parseFloat(i.precio) * 1.16).toLocaleString("es-MX", { minimumFractionDigits: 2 })} c/u <span style={{ color: "var(--green)", fontWeight: 600 }}>IVA inc.</span>
+                            ${(parseFloat(i.precio) * 1.16).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} c/u <span style={{ color: "var(--green)", fontWeight: 600 }}>IVA inc.</span>
                           </div>
                         </div>
                         <div style={{ fontWeight: 800, color: "var(--red)", fontSize: 14, flexShrink: 0 }}>
-                          ${(i.precio * 1.16 * i.qty).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                          ${(i.precio * 1.16 * i.qty).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </div>
                       </div>
                       {/* Fila 2: controles cantidad + eliminar */}
@@ -265,7 +296,7 @@ const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth }) => {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: 600, fontSize: 13, color: "var(--gray-900)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{i.nombre}</div>
                         <div style={{ fontSize: 11, color: "var(--gray-500)" }}>
-                          ${(parseFloat(i.precio) * 1.16).toLocaleString("es-MX", { minimumFractionDigits: 2 })} c/u <span style={{ color: "var(--green)", fontWeight: 600 }}>IVA inc.</span>
+                          ${(parseFloat(i.precio) * 1.16).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} c/u <span style={{ color: "var(--green)", fontWeight: 600 }}>IVA inc.</span>
                         </div>
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
@@ -274,7 +305,7 @@ const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth }) => {
                         <button onClick={() => updateQty(i.id, i.qty + 1)} style={{ width: 26, height: 26, border: "1.5px solid var(--gray-200)", borderRadius: 6, background: "var(--white)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "var(--gray-600)" }}>+</button>
                       </div>
                       <div style={{ minWidth: 70, textAlign: "right", flexShrink: 0 }}>
-                        <div style={{ fontWeight: 800, color: "var(--red)", fontSize: 14 }}>${(i.precio * 1.16 * i.qty).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</div>
+                        <div style={{ fontWeight: 800, color: "var(--red)", fontSize: 14 }}>${(i.precio * 1.16 * i.qty).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                       </div>
                       <button onClick={() => setCart((c) => c.filter((x) => x.id !== i.id))} className="btn-ghost" style={{ padding: 5, color: "#dc2626", flexShrink: 0 }}>
                         <Icon name="trash" size={14} />
@@ -290,13 +321,13 @@ const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth }) => {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span style={{ fontSize: 12, color: "rgba(255,255,255,.55)" }}>Subtotal (sin IVA)</span>
                 <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,.75)" }}>
-                  ${cartSubtotal.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                  ${cartSubtotal.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span style={{ fontSize: 12, color: "rgba(255,255,255,.55)" }}>IVA (16%)</span>
                 <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,.75)" }}>
-                  +${cartIva.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                  +${cartIva.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
               <div style={{ borderTop: "1px solid rgba(255,255,255,.15)", paddingTop: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -304,23 +335,34 @@ const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth }) => {
                   Total del pedido
                 </div>
                 <span style={{ fontWeight: 900, color: "#FDE68A", fontSize: isMobile ? 19 : 22, letterSpacing: "-.025em" }}>
-                  ${cartTotal.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                  ${cartTotal.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   <span style={{ fontSize: 12, fontWeight: 500, color: "rgba(255,255,255,.5)", marginLeft: 4 }}>MXN</span>
                 </span>
               </div>
             </div>
 
-            {/* Form */}
+            {/* Form — solo para usuarios autenticados */}
+            {token && (
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 10 }}>
-              <SelectField
-                label="Dirección de entrega"
-                value={orderForm.direccion_id}
-                onChange={(e) => setOrderForm((f) => ({ ...f, direccion_id: e.target.value }))}
-              >
-                {direcciones.length === 0
-                  ? <option value="">Sin direcciones</option>
-                  : direcciones.map((d) => <option key={d.id} value={d.id}>{d.linea1}, {d.ciudad}</option>)}
-              </SelectField>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <SelectField
+                  label="Dirección de entrega"
+                  value={orderForm.direccion_id}
+                  onChange={(e) => setOrderForm((f) => ({ ...f, direccion_id: e.target.value }))}
+                >
+                  {direcciones.length === 0
+                    ? <option value="">Sin direcciones</option>
+                    : direcciones.map((d) => <option key={d.id} value={d.id}>{d.linea1}, {d.ciudad}</option>)}
+                </SelectField>
+                {direcciones.length > 0 && !showAddrForm && (
+                  <button
+                    onClick={() => setShowAddrForm(true)}
+                    style={{ alignSelf: "flex-start", background: "transparent", border: "none", color: "var(--red)", fontSize: 11, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, padding: "2px 0" }}
+                  >
+                    <Icon name="plus" size={11} />Agregar dirección
+                  </button>
+                )}
+              </div>
 
               <SelectField
                 label="Método de pago"
@@ -332,11 +374,85 @@ const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth }) => {
                 ))}
               </SelectField>
             </div>
+            )}
 
-            {!direcciones.length && (
-              <div style={{ display: "flex", gap: 8, alignItems: "flex-start", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 9, padding: "10px 12px" }}>
-                <Icon name="alert" size={16} style={{ color: "#d97706", flexShrink: 0, marginTop: 1 }} />
-                <span style={{ fontSize: 12, color: "#92400e" }}>Agrega una dirección en "Mis Direcciones" para continuar.</span>
+            {/* ── Sin direcciones: aviso + botón (solo autenticados) ── */}
+            {token && !direcciones.length && !showAddrForm && (
+              <div style={{ border: "1.5px dashed #fbbf24", borderRadius: 10, padding: "14px 16px", background: "#fffbeb", display: "flex", flexDirection: "column", gap: 10 }}>
+                <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                  <Icon name="mapPin" size={16} style={{ color: "#d97706", flexShrink: 0, marginTop: 1 }} />
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#92400e" }}>No tienes direcciones registradas</div>
+                    <div style={{ fontSize: 11, color: "#b45309", marginTop: 2 }}>Agrega una para continuar con tu pedido.</div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowAddrForm(true)}
+                  style={{ alignSelf: "flex-start", background: "#d97706", color: "#fff", border: "none", borderRadius: 7, padding: "7px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
+                >
+                  <Icon name="plus" size={13} />Agregar dirección
+                </button>
+              </div>
+            )}
+
+            {/* ── Formulario nueva dirección inline (solo autenticados) ── */}
+            {token && showAddrForm && (
+              <div style={{ border: "1.5px solid var(--gray-200)", borderRadius: 10, padding: "14px 16px", background: "var(--gray-50)", display: "flex", flexDirection: "column", gap: 10 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 2 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "var(--gray-800)", display: "flex", alignItems: "center", gap: 6 }}>
+                    <Icon name="mapPin" size={14} style={{ color: "var(--red)" }} />Nueva dirección
+                  </span>
+                  <button onClick={() => setShowAddrForm(false)} className="btn-ghost" style={{ padding: 4, borderRadius: 6 }}>
+                    <Icon name="x" size={14} />
+                  </button>
+                </div>
+                <InputField
+                  label="Calle y número"
+                  value={addrForm.linea1}
+                  onChange={(e) => setAddrForm((f) => ({ ...f, linea1: e.target.value }))}
+                  placeholder="Av. Reforma 123, Col. Centro"
+                />
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                  <InputField
+                    label="Ciudad"
+                    value={addrForm.ciudad}
+                    onChange={(e) => setAddrForm((f) => ({ ...f, ciudad: e.target.value }))}
+                    placeholder="Ciudad de México"
+                  />
+                  <InputField
+                    label="Estado"
+                    value={addrForm.estado}
+                    onChange={(e) => setAddrForm((f) => ({ ...f, estado: e.target.value }))}
+                    placeholder="CDMX"
+                  />
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                  <InputField
+                    label="Código Postal"
+                    value={addrForm.cp}
+                    onChange={(e) => setAddrForm((f) => ({ ...f, cp: e.target.value }))}
+                    placeholder="06600"
+                    maxLength={5}
+                  />
+                  <InputField
+                    label="País"
+                    value={addrForm.pais}
+                    onChange={(e) => setAddrForm((f) => ({ ...f, pais: e.target.value }))}
+                    placeholder="Mexico"
+                  />
+                </div>
+                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", paddingTop: 4 }}>
+                  <button onClick={() => setShowAddrForm(false)} style={{ background: "transparent", border: "1px solid var(--gray-200)", borderRadius: 7, padding: "7px 14px", fontSize: 12, fontWeight: 600, color: "var(--gray-600)", cursor: "pointer" }}>
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleSaveAddr}
+                    disabled={savingAddr}
+                    style={{ background: "var(--red)", color: "#fff", border: "none", borderRadius: 7, padding: "7px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, opacity: savingAddr ? .6 : 1 }}
+                  >
+                    {savingAddr ? "Guardando..." : <><Icon name="check" size={13} />Guardar</>}
+                  </button>
+                </div>
               </div>
             )}
 
@@ -389,7 +505,7 @@ const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth }) => {
               </Btn>
               <Btn
                 onClick={handleConfirm}
-                disabled={placing || !direcciones.length}
+                disabled={placing || !direcciones.length || showAddrForm}
                 style={{ flex: isMobile ? "unset" : 2, justifyContent: "center" }}
               >
                 {placing
