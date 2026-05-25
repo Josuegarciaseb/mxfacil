@@ -28,7 +28,7 @@ import ClientPerfil          from "./pages/client/Perfil";
 import CartModal             from "./pages/client/CartModal";
 
 import AuthPage              from "./pages/AuthPage";
-import { fetchCsrfToken }   from "./utils/api";
+import { http }              from "./utils/api";
 
 const getStoredUser  = () => { try { return JSON.parse(localStorage.getItem("user")); } catch { return null; } };
 const getDefaultPage = (u) => u?.rol === "admin" ? "dashboard" : u?.rol === "vendedor" ? "vendedor-dashboard" : "catalogo";
@@ -47,7 +47,6 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [cartOpen,    setCartOpen]    = useState(false);
 
-  // Invitados usan carrito guardado en localStorage; autenticados empiezan vacíos
   const [cart, setCart] = useState(() => !getStoredUser() ? getStoredCart() : []);
 
   const [catalogSearch,     setCatalogSearch]     = useState("");
@@ -59,21 +58,13 @@ export default function App() {
   useEffect(() => { injectStyles(); }, []);
   useEffect(() => { if (isDesktop) setSidebarOpen(false); }, [isDesktop]);
 
-  // Obtener token CSRF al montar — debe ejecutarse antes de cualquier mutación
-  useEffect(() => { fetchCsrfToken(); }, []);
-
-  // ── Intercambio OAuth: canjea cookie HttpOnly → token en localStorage ──────
-  // El backend redirige a /oauth-success SIN token en la URL.
-  // Aquí hacemos un fetch con credentials:'include' para recoger el token
-  // desde el body (no desde la URL) y destruir la cookie en el mismo viaje.
+  // Intercambio OAuth: canjea cookie HttpOnly → token en localStorage
   useEffect(() => {
     if (window.location.pathname !== '/oauth-success') return;
 
-    const API = import.meta.env.VITE_API_URL
-      ? `${import.meta.env.VITE_API_URL}/api`
-      : 'http://localhost:3000/api';
+    const BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
-    fetch(`${API}/auth/session`, { credentials: 'include' })
+    fetch(`${BASE}/api/auth/session`, { credentials: 'include' })
       .then((r) => r.json())
       .then((data) => {
         if (data.token && data.user) {
@@ -85,9 +76,8 @@ export default function App() {
           setPage(getDefaultPage(data.user));
         }
       })
-      .catch(() => { /* fallo silencioso: el usuario puede logearse manualmente */ })
+      .catch(() => {})
       .finally(() => {
-        // Limpiar la URL — quita /oauth-success del historial
         window.history.replaceState({}, '', '/');
       });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -102,7 +92,6 @@ export default function App() {
     setUser(u);
     setToken(t);
     setPage(getDefaultPage(u));
-    // El carrito del invitado se transfiere al estado (ya está en memoria)
   };
 
   const handleLogout = () => {
@@ -125,16 +114,13 @@ export default function App() {
 
   const cartCount = cart.reduce((s, i) => s + i.qty, 0);
 
-  // Header de marketplace visible para clientes e invitados (excepto en la página de auth)
   const showMarketplaceHeader = (isGuest || isCliente) && page !== "auth";
 
   const renderPage = () => {
-    // Página de auth — pantalla completa sin header
     if (page === "auth") {
       return <AuthPage onLogin={handleLogin} onBack={() => setPage("catalogo")} />;
     }
 
-    // Invitados solo pueden ver el catálogo; cualquier otra ruta los mantiene aquí
     if (isGuest) {
       return (
         <ClientCatalogo
@@ -198,7 +184,6 @@ export default function App() {
     <>
       <ToastContainer />
 
-      {/* Admin: sidebar oscuro + topbar mobile */}
       {!showMarketplaceHeader && !isVendedor && !isGuest && (
         <>
           <Sidebar
@@ -224,7 +209,6 @@ export default function App() {
         </>
       )}
 
-      {/* Vendedor: header estilo marketplace */}
       {isVendedor && (
         <VendorHeader
           user={user}
@@ -236,7 +220,6 @@ export default function App() {
         />
       )}
 
-      {/* Cliente + Invitado: header oscuro estilo marketplace */}
       {showMarketplaceHeader && (
         <MarketplaceHeader
           user={user}
@@ -265,7 +248,6 @@ export default function App() {
         {renderPage()}
       </main>
 
-      {/* Botón flotante de carrito en mobile */}
       {isSmall && (isCliente || isGuest) && cartCount > 0 && page !== "auth" && (
         <button
           onClick={() => setCartOpen(true)}
