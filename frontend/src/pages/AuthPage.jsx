@@ -152,7 +152,7 @@ const AuthPage = ({ onLogin, onBack }) => {
 
       {/* Marca */}
       <div style={{ position: "relative", zIndex: 2, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <Logo size={38} />
+        <Logo size={60} />
         {onBack && (
           <button
             onClick={onBack}

@@ -40,6 +40,16 @@ function StripeForm({ pedidoId, monto, onSuccess, onError, token }) {
       if (result.error) {
         onError(result.error.message);
       } else if (result.paymentIntent.status === "succeeded") {
+        /* Confirmar en el backend directamente (no depender solo del webhook) */
+        try {
+          await http("/pagos/stripe/confirm", {
+            method: "POST",
+            body: JSON.stringify({ pedido_id: pedidoId }),
+          }, token);
+        } catch (confirmErr) {
+          /* No bloquear — el pago ya fue procesado por Stripe */
+          console.warn("Stripe confirm error:", confirmErr.message);
+        }
         onSuccess();
       }
     } catch (err) {

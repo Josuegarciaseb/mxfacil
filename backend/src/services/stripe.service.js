@@ -11,6 +11,10 @@ exports.createPaymentIntent = async (amount, pedidoId) => {
   });
 };
 
+exports.retrievePaymentIntent = async (paymentIntentId) => {
+  return await stripe.paymentIntents.retrieve(paymentIntentId);
+};
+
 exports.constructWebhookEvent = (rawBody, signature) => {
   return stripe.webhooks.constructEvent(
     rawBody,

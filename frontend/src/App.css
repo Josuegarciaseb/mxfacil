@@ -112,7 +112,7 @@
   margin: 32px 0 0;
 
   .logo {
-    height: 18px;
+    height: 26px;
   }
 
   a {
@@ -131,8 +131,8 @@
       box-shadow: var(--shadow);
     }
     .button-icon {
-      height: 18px;
-      width: 18px;
+      height: 26px;
+      width: 26px;
     }
   }
 

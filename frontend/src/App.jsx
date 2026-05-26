@@ -30,6 +30,7 @@ import ClientPerfil          from "./pages/client/Perfil";
 import CartModal             from "./pages/client/CartModal";
 
 import AuthPage              from "./pages/AuthPage";
+import PaymentReturn         from "./pages/PaymentReturn";
 
 /* ── Mapeo id ↔ ruta ────────────────────────────────────── */
 const PAGE_TO_PATH = {
@@ -278,6 +279,9 @@ export default function App() {
 
           {/* OAuth callback */}
           <Route path="/oauth-success" element={null} />
+
+          {/* Retorno de MercadoPago (popup y redirección directa) */}
+          <Route path="/pago-retorno" element={<PaymentReturn />} />
 
           {/* ── Rutas cliente ── */}
           <Route path="/mis-pedidos"    element={clienteOnly(<ClientPedidos    token={token} />)} />

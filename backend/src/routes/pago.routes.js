@@ -7,7 +7,8 @@ const isAdmin = require('../middlewares/admin');
 // Stripe webhook necesita raw body — se registra en app.js antes del json parser
 
 // Stripe
-router.post('/stripe/intent', auth, pagoCtrl.createStripeIntent);
+router.post('/stripe/intent',   auth, pagoCtrl.createStripeIntent);
+router.post('/stripe/confirm',  auth, pagoCtrl.confirmStripePayment);
 
 // PayPal
 router.post('/paypal/create', auth, pagoCtrl.createPaypalOrder);

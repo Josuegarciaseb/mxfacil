@@ -220,6 +220,7 @@ const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth }) => {
               <MercadoPagoCheckout
                 pedidoId={paymentStep.pedidoId}
                 monto={paymentStep.monto}
+                onSuccess={handlePaymentSuccess}
                 onError={handlePaymentError}
                 token={token}
               />

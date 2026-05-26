@@ -1,4 +1,3 @@
-// src/controllers/pago.controller.js
 const pool = require('../config/db');
 const stripeService = require('../services/stripe.service');
 const paypalService = require('../services/paypal.service');
@@ -138,6 +137,58 @@ exports.createStripeIntent = async (req, res) => {
   } catch (err) {
     console.error('Error createStripeIntent:', err);
     return res.status(500).json({ message: 'Error al crear intento de pago' });
+  }
+};
+
+exports.confirmStripePayment = async (req, res) => {
+  const { pedido_id } = req.body;
+  const userId = req.user.id;
+
+  if (!pedido_id) return res.status(400).json({ message: 'pedido_id requerido' });
+
+  try {
+    const [pagos] = await pool.query(
+      `SELECT pg.id, pg.referencia, pg.estado, p.usuario_id
+       FROM pago pg JOIN pedido p ON p.id = pg.pedido_id
+       WHERE pg.pedido_id = ?`,
+      [pedido_id]
+    );
+
+    if (!pagos.length) return res.status(404).json({ message: 'Pago no encontrado' });
+    if (pagos[0].usuario_id !== userId) return res.status(403).json({ message: 'Acceso denegado' });
+
+    /* Si ya está aprobado (p.ej. el webhook llegó primero) no hacer nada */
+    if (pagos[0].estado === 'aprobado') return res.json({ success: true });
+
+    if (!pagos[0].referencia) {
+      return res.status(400).json({ message: 'Intent de pago no encontrado' });
+    }
+
+    /* Verificar estado con Stripe */
+    const intent = await stripeService.retrievePaymentIntent(pagos[0].referencia);
+
+    if (intent.status !== 'succeeded') {
+      return res.status(400).json({ message: `Pago Stripe en estado: ${intent.status}` });
+    }
+
+    /* Actualizar DB igual que lo haría el webhook */
+    const conn = await pool.getConnection();
+    try {
+      await conn.beginTransaction();
+      await conn.query('UPDATE pago SET estado = "aprobado" WHERE pedido_id = ?', [pedido_id]);
+      await confirmarPedidoPagado(conn, pedido_id);
+      await conn.commit();
+    } catch (err) {
+      await conn.rollback();
+      throw err;
+    } finally {
+      conn.release();
+    }
+
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('Error confirmStripePayment:', err);
+    return res.status(500).json({ message: 'Error al confirmar pago Stripe' });
   }
 };
 

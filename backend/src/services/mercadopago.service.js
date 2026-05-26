@@ -12,10 +12,11 @@ exports.createPreference = async ({ items, pedidoId, frontendUrl }) => {
     body: {
       items,
       back_urls: {
-        success: `${frontendUrl}/pedidos?mp=success`,
-        failure: `${frontendUrl}/pedidos?mp=failure`,
-        pending: `${frontendUrl}/pedidos?mp=pending`,
+        success: `${frontendUrl}/pago-retorno?status=success`,
+        failure: `${frontendUrl}/pago-retorno?status=failure`,
+        pending: `${frontendUrl}/pago-retorno?status=pending`,
       },
+      auto_return: "approved",
       external_reference: String(pedidoId),
       notification_url: `${process.env.BACKEND_URL || 'http://localhost:3000'}/api/pagos/mercadopago/webhook`,
     },

@@ -1,16 +1,5 @@
-/**
- * Logo de la marca — usa el archivo en /public/logo.svg
- *
- * Props:
- *   size        — alto/ancho en px del logo (default 40)
- *   showText    — mostrar el nombre al lado (default true)
- *   text        — nombre de la marca
- *   subtitle    — línea pequeña debajo del nombre (null = ocultar)
- *   textColor   — color del nombre
- *   subtitleColor — color del subtítulo
- */
 const Logo = ({
-  size        = 40,
+  size        = 60,
   showText    = true,
   text        = "Comercio Fácil",
   subtitle    = null,
@@ -35,7 +24,7 @@ const Logo = ({
       <div style={{ lineHeight: 1.2 }}>
         <div style={{
           fontWeight: 600,
-          fontSize: 15,
+          fontSize: 20,
           color: textColor,
           letterSpacing: "-.01em",
           fontFamily: "'Sora', sans-serif",
