@@ -31,6 +31,7 @@ import CartModal             from "./pages/client/CartModal";
 
 import AuthPage              from "./pages/AuthPage";
 import PaymentReturn         from "./pages/PaymentReturn";
+import Footer                from "./components/layout/Footer";
 
 /* ── Mapeo id ↔ ruta ────────────────────────────────────── */
 const PAGE_TO_PATH = {
@@ -308,6 +309,16 @@ export default function App() {
           {/* Cualquier ruta desconocida → catálogo */}
           <Route path="*" element={<Navigate to="/catalogo" replace />} />
         </Routes>
+
+        {/* ── Footer (solo marketplace / invitados) ── */}
+        {showMarketplaceHeader && (
+          <Footer
+            onNav={goTo}
+            isSmall={isSmall}
+            paddingH={isSmall ? 14 : 32}
+            paddingB={isSmall ? 80 : 36}
+          />
+        )}
       </main>
 
       {/* ── FAB carrito mobile ── */}
