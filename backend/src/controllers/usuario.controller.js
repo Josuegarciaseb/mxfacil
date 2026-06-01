@@ -1,4 +1,3 @@
-// src/controllers/usuario.controller.js
 const pool = require('../config/db');
 const {
   isValidEmail,

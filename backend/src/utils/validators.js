@@ -1,5 +1,3 @@
-// src/utils/validators.js
-
 // Correo tipo "algo@ejemplo.com"
 function isValidEmail(email) {
   if (typeof email !== 'string') return false;

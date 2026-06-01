@@ -77,8 +77,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// 2. CORS — permite Vercel en prod y localhost en dev
-// En Railway, agrega la variable: ALLOWED_ORIGINS=https://mxfacil-frontend.vercel.app
+// 2. CORS
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:5173').split(',');
 app.use(cors({
   origin: (origin, cb) => {
@@ -138,10 +137,6 @@ app.get('/api/console-warning.js', (req, res) => {
   res.send(`(function(){var s1='font-size:22px;font-weight:bold;color:#c0392b;';var s2='font-size:14px;color:#333;';console.log('%c⛔ ADVERTENCIA – Self-XSS Attack',s1);console.log('%cSi alguien te pidió copiar código aquí, es un ataque Self-XSS. NO lo hagas.',s2);})();`);
 });
 
-// NOTA: El CSRF fue eliminado intencionalmente.
-// La app usa JWT en header Authorization: Bearer (no cookies de sesión),
-// por lo que un ataque CSRF es arquitecturalmente imposible.
-// La seguridad real está garantizada por: JWT, Helmet, rate limiting, CORS y sanitización XSS.
 
 // 9. RUTAS
 app.use('/api/auth',        authRoutes);

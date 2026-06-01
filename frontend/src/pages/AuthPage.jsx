@@ -401,6 +401,39 @@ const AuthPage = ({ onLogin, onBack }) => {
             {loading ? <Spin /> : (mode === "login" ? "Iniciar sesión" : "Crear cuenta")}
           </button>
 
+          {/* Divisor */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "1.25rem 0 1rem" }}>
+            <div style={{ flex: 1, height: 1, background: BORDER }} />
+            <span style={{ fontSize: "0.75rem", color: MUTED, fontFamily: "'Sora',sans-serif", whiteSpace: "nowrap" }}>
+              o continuar con
+            </span>
+            <div style={{ flex: 1, height: 1, background: BORDER }} />
+          </div>
+
+          {/* Botón Google */}
+          <button
+            type="button"
+            onClick={() => { window.location.href = `${import.meta.env.VITE_API_URL || "http://localhost:3000"}/api/auth/google`; }}
+            style={{
+              width: "100%", height: 48,
+              background: "#fff", border: `1.5px solid ${BORDER}`,
+              borderRadius: 10, cursor: "pointer",
+              fontFamily: "'Sora',sans-serif", fontSize: "0.9rem", fontWeight: 500, color: TEXT,
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+              transition: "border-color .2s, box-shadow .2s",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#4285F4"; e.currentTarget.style.boxShadow = "0 0 0 3px rgba(66,133,244,.12)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = BORDER; e.currentTarget.style.boxShadow = "none"; }}
+          >
+            <svg width={20} height={20} viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+              <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+              <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+              <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+              <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+            </svg>
+            Continuar con Google
+          </button>
+
           {/* Pie */}
           <p style={{ marginTop: "1.5rem", textAlign: "center", fontSize: "0.84rem", color: MUTED, fontFamily: "'Sora',sans-serif" }}>
             {mode === "login"
