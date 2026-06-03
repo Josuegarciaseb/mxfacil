@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-
 
 import { injectStyles }      from "./styles/globalStyles";
 import { useBreakpoint }     from "./hooks/useBreakpoint";
+import { fetchCsrfToken }   from "./utils/csrf";
 
 import Icon                  from "./components/ui/Icon";
 import Sidebar               from "./components/layout/Sidebar";
@@ -88,6 +89,9 @@ export default function App() {
 
   useEffect(() => { injectStyles(); }, []);
   useEffect(() => { if (isDesktop) setSidebarOpen(false); }, [isDesktop]);
+
+  // Obtener token CSRF al montar la app (antes de cualquier formulario)
+  useEffect(() => { fetchCsrfToken().catch(() => {}); }, []);
 
   // Intercambio OAuth: canjea cookie HttpOnly → token en localStorage
   useEffect(() => {

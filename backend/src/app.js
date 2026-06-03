@@ -7,6 +7,7 @@ const path         = require('path');
 const passport     = require('./config/passport');
 const sanitize     = require('./middlewares/sanitize');
 const { addResponseIntegrity } = require('./middlewares/integrity');
+const { csrfProtect, csrfTokenHandler } = require('./middlewares/csrf');
 
 const authRoutes      = require('./routes/auth.routes');
 const oauthRoutes     = require('./routes/oauth.routes');
@@ -87,7 +88,7 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Data-Signature'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Data-Signature', 'X-CSRF-Token'],
 }));
 
 // 3. PARSERS
@@ -124,6 +125,10 @@ app.use('/api/auth/register', rateLimit({
 
 // 5. SANITIZACIÓN — Prevención XSS / inyección de código
 app.use(sanitize);
+
+// 5b. PROTECCIÓN CSRF — token HMAC-SHA256 firmado (Double-Submit Cookie)
+app.get('/api/csrf-token', csrfTokenHandler);
+app.use(csrfProtect);
 
 // 6. INTEGRIDAD DE RESPUESTAS — Hash SHA-256 en X-Content-Hash
 app.use(addResponseIntegrity);

@@ -18,8 +18,8 @@ console.log(
   'color:#333; font-size:14px;'
 );
 console.log(
-  '%c⚠ No pegues código que no entiendas. Cierra esta ventana si alguien te pidió abrirla.',
-  'color:#b45309; background:#fffbeb; font-size:13px; padding:6px 10px; border-radius:6px; border-left:4px solid #f59e0b;'
+  '%c No pegues código que no entiendas. Cierra esta ventana si alguien te pidió abrirla.',
+  'color:#b45309; background:#fffbeb; font-size:13px; padding:6px 10px; border-radius:6px;'
 );
 
 createRoot(document.getElementById('root')).render(
