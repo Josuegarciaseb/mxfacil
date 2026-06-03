@@ -15,7 +15,11 @@ export const http = async (path, opts = {}, token = null) => {
 
   const res  = await fetch(`${API}${path}`, { ...opts, headers });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.message || 'Error en la petición');
+  if (!res.ok) {
+    const msg = data.message || 'Error en la petición';
+    console.warn(`[API] ${method} ${path} → ${res.status}: ${msg}`);
+    throw new Error(msg);
+  }
   return data;
 };
 
@@ -34,6 +38,10 @@ export const httpUpload = async (path, formData, token = null) => {
     headers,
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.message || 'Error al subir archivo');
+  if (!res.ok) {
+    const msg = data.message || 'Error al subir archivo';
+    console.warn(`[API] POST ${path} → ${res.status}: ${msg}`);
+    throw new Error(msg);
+  }
   return data;
 };
