@@ -12,6 +12,7 @@ router.post('/logout',   authCtrl.logout);
 router.get('/session',   authCtrl.session);
 
 // MFA — requiere estar autenticado para configurar
+router.get ('/mfa/status',  auth, authCtrl.getMfaStatus);
 router.post('/mfa/setup',   auth, authCtrl.setupMfa);
 router.post('/mfa/verify',  auth, authCtrl.verifyMfa);
 router.post('/mfa/disable', auth, authCtrl.disableMfa);

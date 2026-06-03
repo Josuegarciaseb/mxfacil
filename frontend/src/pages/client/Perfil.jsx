@@ -8,6 +8,207 @@ import StatusBadge from "../../components/ui/StatusBadge";
 import { InputField } from "../../components/ui/FormFields";
 import Icon from "../../components/ui/Icon";
 
+/* ── Sección MFA ── */
+const MfaPanel = ({ token }) => {
+  const [mfaEnabled,  setMfaEnabled]  = useState(null);   // null=cargando
+  const [view,        setView]        = useState("idle");  // idle | setup | disable
+  const [qrData,      setQrData]      = useState(null);    // { qrCode, secret }
+  const [totpCode,    setTotpCode]    = useState("");
+  const [disablePwd,  setDisablePwd]  = useState("");
+  const [busy,        setBusy]        = useState(false);
+
+  useEffect(() => {
+    http("/auth/mfa/status", {}, token)
+      .then((d) => setMfaEnabled(d.mfa_enabled))
+      .catch(() => setMfaEnabled(false));
+  }, [token]);
+
+  /* Iniciar configuración — obtener QR */
+  const startSetup = async () => {
+    setBusy(true);
+    try {
+      const d = await http("/auth/mfa/setup", { method: "POST" }, token);
+      setQrData({ qrCode: d.qrCode, secret: d.secret });
+      setView("setup");
+      setTotpCode("");
+    } catch (e) { toast(e.message, "error"); }
+    finally { setBusy(false); }
+  };
+
+  /* Confirmar código y activar MFA */
+  const confirmSetup = async () => {
+    if (totpCode.length !== 6) { toast("El código debe tener 6 dígitos", "error"); return; }
+    setBusy(true);
+    try {
+      await http("/auth/mfa/verify", { method: "POST", body: JSON.stringify({ totp_code: totpCode }) }, token);
+      toast("MFA activado correctamente");
+      setMfaEnabled(true);
+      setView("idle");
+      setQrData(null);
+      setTotpCode("");
+    } catch (e) { toast(e.message, "error"); setTotpCode(""); }
+    finally { setBusy(false); }
+  };
+
+  /* Desactivar MFA con contraseña */
+  const confirmDisable = async () => {
+    if (!disablePwd) { toast("Ingresa tu contraseña", "error"); return; }
+    setBusy(true);
+    try {
+      await http("/auth/mfa/disable", { method: "POST", body: JSON.stringify({ password: disablePwd }) }, token);
+      toast("MFA desactivado");
+      setMfaEnabled(false);
+      setView("idle");
+      setDisablePwd("");
+    } catch (e) { toast(e.message, "error"); }
+    finally { setBusy(false); }
+  };
+
+  const cancel = () => { setView("idle"); setTotpCode(""); setDisablePwd(""); setQrData(null); };
+
+  if (mfaEnabled === null) return null;
+
+  return (
+    <div className="card" style={{ padding: 22 }}>
+      {/* Encabezado */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18, flexWrap: "wrap", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+          <svg width={16} height={16} viewBox="0 0 24 24" fill="none"
+            stroke="var(--gray-400)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          <h3 style={{ fontSize: 15, fontWeight: 700, color: "var(--gray-800)" }}>
+            Autenticación de dos factores (MFA)
+          </h3>
+        </div>
+        <span style={{
+          fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20,
+          background: mfaEnabled ? "#dcfce7" : "#f1f5f9",
+          color:      mfaEnabled ? "#15803d" : "#64748b",
+          border:     mfaEnabled ? "1px solid #bbf7d0" : "1px solid #e2e8f0",
+        }}>
+          {mfaEnabled ? "● Activo" : "○ Inactivo"}
+        </span>
+      </div>
+
+      {/* ── Vista: inactivo / botón activar ── */}
+      {view === "idle" && !mfaEnabled && (
+        <>
+          <p style={{ fontSize: 13, color: "var(--gray-500)", marginBottom: 16, lineHeight: 1.6 }}>
+            Protege tu cuenta con un código temporal generado por Google Authenticator, Authy u otra app compatible.
+          </p>
+          <Btn onClick={startSetup} disabled={busy}>
+            {busy ? "Iniciando..." : <><svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{marginRight:6}}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Activar MFA</>}
+          </Btn>
+        </>
+      )}
+
+      {/* ── Vista: activo / botón desactivar ── */}
+      {view === "idle" && mfaEnabled && (
+        <>
+          <div style={{ background: "#f0fdf4", borderRadius: 9, padding: "10px 14px", marginBottom: 16, fontSize: 13, color: "#15803d", border: "1px solid #bbf7d0" }}>
+            Tu cuenta está protegida con MFA. Necesitarás tu app autenticadora cada vez que inicies sesión.
+          </div>
+          <Btn
+            onClick={() => setView("disable")}
+            style={{ background: "var(--gray-100)", color: "var(--gray-700)", border: "1px solid var(--gray-200)" }}
+          >
+            <Icon name="x" size={14} /> Desactivar MFA
+          </Btn>
+        </>
+      )}
+
+      {/* ── Vista: setup — escanear QR y confirmar ── */}
+      {view === "setup" && qrData && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <p style={{ fontSize: 13, color: "var(--gray-600)", lineHeight: 1.6 }}>
+            <strong>Paso 1:</strong> Escanea este código QR con tu app autenticadora.
+          </p>
+
+          {/* QR */}
+          <div style={{ display: "flex", justifyContent: "center" }}>
+            <div style={{ background: "#fff", border: "2px solid var(--gray-100)", borderRadius: 12, padding: 12, display: "inline-block" }}>
+              <img src={qrData.qrCode} alt="QR MFA" style={{ width: 180, height: 180, display: "block" }} />
+            </div>
+          </div>
+
+          {/* Clave manual */}
+          <div style={{ background: "var(--gray-50)", borderRadius: 9, padding: "10px 14px", border: "1px solid var(--gray-100)" }}>
+            <p style={{ fontSize: 11, color: "var(--gray-500)", marginBottom: 4, fontWeight: 600 }}>CLAVE MANUAL (si no puedes escanear)</p>
+            <code style={{ fontSize: 13, fontFamily: "monospace", color: "var(--gray-800)", letterSpacing: "0.1em", wordBreak: "break-all" }}>
+              {qrData.secret}
+            </code>
+          </div>
+
+          {/* Paso 2: ingresar código */}
+          <p style={{ fontSize: 13, color: "var(--gray-600)", lineHeight: 1.6 }}>
+            <strong>Paso 2:</strong> Ingresa el código de 6 dígitos que aparece en tu app para confirmar.
+          </p>
+
+          <input
+            type="text"
+            inputMode="numeric"
+            maxLength={6}
+            value={totpCode}
+            autoFocus
+            onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+            placeholder="000000"
+            style={{
+              width: "100%", height: 56, boxSizing: "border-box",
+              border: `2px solid ${totpCode.length === 6 ? "#639922" : "var(--gray-200)"}`,
+              borderRadius: 10, background: "#fff",
+              fontFamily: "monospace", fontSize: "1.7rem", fontWeight: 700,
+              letterSpacing: "0.3em", textAlign: "center", color: "var(--gray-900)",
+              outline: "none", transition: "border-color .2s",
+            }}
+            onFocus={(e) => { e.target.style.borderColor = "#639922"; e.target.style.boxShadow = "0 0 0 3px rgba(99,153,34,.12)"; }}
+            onBlur={(e)  => { e.target.style.borderColor = totpCode.length === 6 ? "#639922" : "var(--gray-200)"; e.target.style.boxShadow = "none"; }}
+            onKeyDown={(e) => { if (e.key === "Enter") confirmSetup(); }}
+          />
+
+          <div style={{ display: "flex", gap: 10 }}>
+            <Btn onClick={confirmSetup} disabled={busy || totpCode.length !== 6} style={{ flex: 1 }}>
+              {busy ? "Verificando..." : <><Icon name="check" size={14} /> Confirmar y activar</>}
+            </Btn>
+            <Btn onClick={cancel} disabled={busy} style={{ background: "var(--gray-100)", color: "var(--gray-700)", border: "1px solid var(--gray-200)" }}>
+              Cancelar
+            </Btn>
+          </div>
+        </div>
+      )}
+
+      {/* ── Vista: confirmar desactivación ── */}
+      {view === "disable" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div style={{ background: "#fef2f2", borderRadius: 9, padding: "10px 14px", fontSize: 13, color: "#b91c1c", border: "1px solid #fecaca" }}>
+            Desactivar MFA reduce la seguridad de tu cuenta. Confirma con tu contraseña para continuar.
+          </div>
+          <InputField
+            label="Contraseña actual"
+            type="password"
+            value={disablePwd}
+            onChange={(e) => setDisablePwd(e.target.value)}
+            placeholder="••••••••"
+          />
+          <div style={{ display: "flex", gap: 10 }}>
+            <Btn
+              onClick={confirmDisable}
+              disabled={busy || !disablePwd}
+              style={{ flex: 1, background: "#dc2626", border: "none" }}
+            >
+              {busy ? "Desactivando..." : "Confirmar desactivación"}
+            </Btn>
+            <Btn onClick={cancel} disabled={busy} style={{ background: "var(--gray-100)", color: "var(--gray-700)", border: "1px solid var(--gray-200)" }}>
+              Cancelar
+            </Btn>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* ─────────────────────────────────────────── */
 const ClientPerfil = ({ token, user, onUpdate }) => {
   const [form,      setForm]      = useState({ nombre: user.nombre, email: user.email, telefono: user.telefono || "" });
   const [saving,    setSaving]    = useState(false);
@@ -53,7 +254,6 @@ const ClientPerfil = ({ token, user, onUpdate }) => {
     <div className="fade-up" style={{ maxWidth: isDesktop ? 1080 : 560 }}>
       <PageHeader title="Mi Perfil" subtitle="Tu informacion personal" />
 
-      {/* ── Two-column on desktop, stacked on mobile ── */}
       <div style={{
         display: isDesktop ? "grid" : "flex",
         gridTemplateColumns: isDesktop ? "300px 1fr" : undefined,
@@ -90,7 +290,7 @@ const ClientPerfil = ({ token, user, onUpdate }) => {
           </div>
         </div>
 
-        {/* ── Columna derecha: form + RFC ── */}
+        {/* ── Columna derecha ── */}
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
 
           {/* Edit form */}
@@ -105,6 +305,9 @@ const ClientPerfil = ({ token, user, onUpdate }) => {
               </Btn>
             </div>
           </div>
+
+          {/* MFA */}
+          <MfaPanel token={token} />
 
           {/* RFC / Verificación (solo vendedores) */}
           {user.rol === "vendedor" && proveedor && (

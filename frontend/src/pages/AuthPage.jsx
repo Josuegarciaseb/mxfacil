@@ -5,7 +5,7 @@ import { useBreakpoint } from "../hooks/useBreakpoint";
 import Icon              from "../components/ui/Icon";
 import Logo              from "../components/ui/Logo";
 
-/* ── Design tokens (ref: login.html / register.html) ── */
+/* ── Design tokens ── */
 const G900 = "#173404";
 const G800 = "#27500A";
 const G700 = "#2d5a0f";
@@ -30,7 +30,6 @@ const FEATURES = [
   "Gestión de inventario en tiempo real",
 ];
 
-/* ── Icono de casa (brand) ── */
 const HomeIcon = ({ size = 22 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
     stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -39,7 +38,6 @@ const HomeIcon = ({ size = 22 }) => (
   </svg>
 );
 
-/* ── Círculo de verificación ── */
 const CheckCircle = () => (
   <div style={{
     width: 20, height: 20, borderRadius: "50%", background: G400,
@@ -52,7 +50,6 @@ const CheckCircle = () => (
   </div>
 );
 
-/* ── Spinner inline ── */
 const Spin = () => (
   <div style={{
     width: 18, height: 18,
@@ -63,7 +60,6 @@ const Spin = () => (
   }} />
 );
 
-/* ── Input con icono izquierdo ── */
 const Field = ({ label, hint, icon, type = "text", value, onChange, onKeyDown, placeholder, extra = {}, right = null }) => (
   <div style={{ marginBottom: 14 }}>
     <label style={{ display: "block", fontSize: "0.78rem", fontWeight: 500, color: MUTED, marginBottom: 6, letterSpacing: "0.02em", fontFamily: "'Sora', sans-serif" }}>
@@ -103,10 +99,16 @@ const AuthPage = ({ onLogin, onBack }) => {
   const [form,    setForm]    = useState({ nombre: "", email: "", password: "", telefono: "", rol: "cliente", rfc: "" });
   const [loading, setLoading] = useState(false);
   const [showPwd, setShowPwd] = useState(false);
+
+  // MFA: cuando el servidor pide el código TOTP
+  const [mfaPending, setMfaPending] = useState(null); // { email, password }
+  const [totpCode,   setTotpCode]   = useState("");
+
   const { isMobile } = useBreakpoint();
 
   const set = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }));
 
+  /* ── Login / Registro ── */
   const submit = async () => {
     setLoading(true);
     try {
@@ -130,13 +132,41 @@ const AuthPage = ({ onLogin, onBack }) => {
         onLogin(data.user, data.token);
       }
     } catch (e) {
-      toast(e.message, "error");
+      // El servidor pide código MFA
+      if (e.message === "Se requiere código MFA") {
+        setMfaPending({ email: form.email, password: form.password });
+        setTotpCode("");
+      } else {
+        toast(e.message, "error");
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const onKey = (e) => { if (e.key === "Enter") submit(); };
+  /* ── Verificar código TOTP ── */
+  const submitTotp = async () => {
+    if (totpCode.length !== 6) { toast("El código debe tener 6 dígitos", "error"); return; }
+    setLoading(true);
+    try {
+      const data = await http("/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email: mfaPending.email, password: mfaPending.password, totp_code: totpCode }),
+      });
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
+      toast("¡Bienvenido de vuelta!");
+      onLogin(data.user, data.token);
+    } catch (e) {
+      toast(e.message, "error");
+      setTotpCode("");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onKey      = (e) => { if (e.key === "Enter") submit(); };
+  const onKeyTotp  = (e) => { if (e.key === "Enter") submitTotp(); };
 
   /* ── Panel izquierdo ── */
   const LeftPanel = () => (
@@ -146,11 +176,9 @@ const AuthPage = ({ onLogin, onBack }) => {
       padding: "3rem 3.5rem",
       position: "relative", overflow: "hidden",
     }}>
-      {/* Decoraciones */}
       <div style={{ position: "absolute", top: -120, left: -120, width: 480, height: 480, borderRadius: "50%", background: G800, opacity: 0.5 }} />
       <div style={{ position: "absolute", bottom: -80, right: -80, width: 320, height: 320, borderRadius: "50%", background: G400, opacity: 0.12 }} />
 
-      {/* Marca */}
       <div style={{ position: "relative", zIndex: 2, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <Logo size={60} />
         {onBack && (
@@ -176,9 +204,17 @@ const AuthPage = ({ onLogin, onBack }) => {
         )}
       </div>
 
-      {/* Hero text */}
       <div style={{ position: "relative", zIndex: 2 }}>
-        {mode === "login" ? (
+        {mfaPending ? (
+          <>
+            <h1 style={{ fontFamily: "'DM Serif Display', serif", fontSize: "2.4rem", lineHeight: 1.2, color: "#fff", marginBottom: "1rem", fontWeight: 400 }}>
+              Verificación<br/><em style={{ fontStyle: "italic", color: G100 }}>en dos pasos.</em>
+            </h1>
+            <p style={{ fontSize: "0.95rem", lineHeight: 1.7, color: "rgba(255,255,255,.6)", maxWidth: 340, fontFamily: "'Sora',sans-serif" }}>
+              Tu cuenta tiene MFA activado. Abre tu app autenticadora para obtener el código.
+            </p>
+          </>
+        ) : mode === "login" ? (
           <>
             <h1 style={{ fontFamily: "'DM Serif Display', serif", fontSize: "2.8rem", lineHeight: 1.15, color: "#fff", marginBottom: "1.25rem", fontWeight: 400 }}>
               El comercio<br/>mexicano en<br/><em style={{ fontStyle: "italic", color: G100 }}>tus manos.</em>
@@ -207,7 +243,6 @@ const AuthPage = ({ onLogin, onBack }) => {
         )}
       </div>
 
-      {/* Stats */}
       <div style={{ display: "flex", gap: "2rem", position: "relative", zIndex: 2 }}>
         {STATS.map(({ value, label }) => (
           <div key={label} style={{ borderTop: "1px solid rgba(255,255,255,.15)", paddingTop: "1rem" }}>
@@ -219,23 +254,111 @@ const AuthPage = ({ onLogin, onBack }) => {
     </div>
   );
 
-  /* ── Formulario ── */
+  /* ── Pantalla TOTP ── */
+  const TotpScreen = () => (
+    <div style={{ width: "100%", maxWidth: 400, animation: "fadeUp 0.4s ease both" }}>
+      {/* Icono escudo */}
+      <div style={{
+        width: 64, height: 64, borderRadius: 18,
+        background: G50, border: `2px solid ${G100}`,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        marginBottom: 24,
+      }}>
+        <svg width={30} height={30} viewBox="0 0 24 24" fill="none"
+          stroke={G700} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+      </div>
+
+      <div style={{ marginBottom: "2rem" }}>
+        <div style={{ fontSize: "0.72rem", letterSpacing: "0.1em", textTransform: "uppercase", color: G400, fontWeight: 600, marginBottom: "0.5rem", fontFamily: "'Sora',sans-serif" }}>
+          Autenticación de dos factores
+        </div>
+        <h2 style={{ fontFamily: "'DM Serif Display', serif", fontSize: "1.9rem", fontWeight: 400, color: TEXT, lineHeight: 1.2 }}>
+          Código de verificación
+        </h2>
+        <p style={{ marginTop: "0.6rem", fontSize: "0.88rem", color: MUTED, fontFamily: "'Sora',sans-serif" }}>
+          Ingresa el código de 6 dígitos de tu app autenticadora (Google Authenticator, Authy, etc.)
+        </p>
+      </div>
+
+      {/* Input OTP grande */}
+      <div style={{ marginBottom: 20 }}>
+        <input
+          type="text"
+          inputMode="numeric"
+          maxLength={6}
+          value={totpCode}
+          onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+          onKeyDown={onKeyTotp}
+          placeholder="000000"
+          autoFocus
+          style={{
+            width: "100%", height: 64,
+            background: "#fff", border: `2px solid ${totpCode.length === 6 ? G400 : BORDER}`,
+            borderRadius: 12, padding: "0 20px",
+            fontFamily: "monospace", fontSize: "2rem", fontWeight: 700,
+            color: TEXT, letterSpacing: "0.3em", textAlign: "center",
+            outline: "none", transition: "border-color .2s, box-shadow .2s",
+            boxSizing: "border-box",
+          }}
+          onFocus={(e) => { e.target.style.borderColor = G400; e.target.style.boxShadow = "0 0 0 3px rgba(99,153,34,.12)"; }}
+          onBlur={(e)  => { e.target.style.borderColor = totpCode.length === 6 ? G400 : BORDER; e.target.style.boxShadow = "none"; }}
+        />
+      </div>
+
+      <button
+        onClick={submitTotp}
+        disabled={loading || totpCode.length !== 6}
+        style={{
+          width: "100%", height: 50,
+          background: loading || totpCode.length !== 6 ? G700 : G900,
+          color: "#fff", border: "none", borderRadius: 10,
+          fontFamily: "'Sora',sans-serif", fontSize: "0.92rem", fontWeight: 600,
+          cursor: loading || totpCode.length !== 6 ? "not-allowed" : "pointer",
+          opacity: totpCode.length !== 6 ? 0.7 : 1,
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+          transition: "all .2s",
+        }}
+      >
+        {loading ? <Spin /> : "Verificar código"}
+      </button>
+
+      <button
+        onClick={() => { setMfaPending(null); setTotpCode(""); }}
+        style={{
+          display: "block", margin: "1rem auto 0", background: "none", border: "none",
+          color: MUTED, cursor: "pointer", fontFamily: "'Sora',sans-serif",
+          fontSize: "0.84rem", fontWeight: 500, transition: "color .15s",
+        }}
+        onMouseEnter={(e) => (e.currentTarget.style.color = G700)}
+        onMouseLeave={(e) => (e.currentTarget.style.color = MUTED)}
+      >
+        ← Volver al inicio de sesión
+      </button>
+    </div>
+  );
+
+  /* ── Formulario principal ── */
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: isMobile ? "column" : "row", background: SAND }}>
 
-      {/* Panel izquierdo (solo desktop) */}
       {!isMobile && <LeftPanel />}
 
-      {/* Panel derecho */}
       <div style={{
         flex: 1, display: "flex", flexDirection: "column",
         alignItems: "center", justifyContent: "center",
         padding: isMobile ? "2rem 1.5rem" : "3rem 4rem",
         overflowY: "auto",
       }}>
+
+        {/* ── Pantalla TOTP ── */}
+        {mfaPending ? (
+          <TotpScreen />
+        ) : (
+
         <div style={{ width: "100%", maxWidth: 400, animation: "fadeUp 0.5s ease both" }}>
 
-          {/* Botón volver al catálogo */}
           {onBack && (
             <button
               onClick={onBack}
@@ -257,7 +380,6 @@ const AuthPage = ({ onLogin, onBack }) => {
             </button>
           )}
 
-          {/* Cabecera */}
           <div style={{ marginBottom: "2rem" }}>
             <div style={{ fontSize: "0.72rem", letterSpacing: "0.1em", textTransform: "uppercase", color: G400, fontWeight: 600, marginBottom: "0.5rem", fontFamily: "'Sora',sans-serif" }}>
               {mode === "login" ? "Bienvenido de vuelta" : "Crea tu cuenta"}
@@ -270,7 +392,6 @@ const AuthPage = ({ onLogin, onBack }) => {
             </p>
           </div>
 
-          {/* Tabs modo (login / registro) */}
           <div style={{ display: "flex", background: SAND_D, borderRadius: 10, padding: 4, marginBottom: "1.5rem", gap: 4 }}>
             {[
               { id: "login",    label: "Iniciar sesión" },
@@ -297,10 +418,8 @@ const AuthPage = ({ onLogin, onBack }) => {
             })}
           </div>
 
-          {/* ── Campos ── */}
           {mode === "register" && (
             <>
-              {/* Selector de rol */}
               <div style={{ marginBottom: "1.5rem" }}>
                 <label style={{ display: "block", fontSize: "0.78rem", fontWeight: 500, color: MUTED, marginBottom: 8, fontFamily: "'Sora',sans-serif" }}>
                   Tipo de cuenta
@@ -333,7 +452,6 @@ const AuthPage = ({ onLogin, onBack }) => {
                 </div>
               </div>
 
-              {/* Nombre + Teléfono en fila */}
               <div style={{ display: "flex", gap: "0.75rem" }}>
                 <div style={{ flex: 1 }}>
                   <Field label="Nombre completo" icon="user" value={form.nombre} onChange={set("nombre")} onKeyDown={onKey} placeholder="Ana García" />
@@ -380,7 +498,6 @@ const AuthPage = ({ onLogin, onBack }) => {
             />
           )}
 
-          {/* Botón submit */}
           <button
             onClick={submit}
             disabled={loading}
@@ -401,7 +518,6 @@ const AuthPage = ({ onLogin, onBack }) => {
             {loading ? <Spin /> : (mode === "login" ? "Iniciar sesión" : "Crear cuenta")}
           </button>
 
-          {/* Divisor */}
           <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "1.25rem 0 1rem" }}>
             <div style={{ flex: 1, height: 1, background: BORDER }} />
             <span style={{ fontSize: "0.75rem", color: MUTED, fontFamily: "'Sora',sans-serif", whiteSpace: "nowrap" }}>
@@ -410,7 +526,6 @@ const AuthPage = ({ onLogin, onBack }) => {
             <div style={{ flex: 1, height: 1, background: BORDER }} />
           </div>
 
-          {/* Botón Google */}
           <button
             type="button"
             onClick={() => { window.location.href = `${import.meta.env.VITE_API_URL || "http://localhost:3000"}/api/auth/google`; }}
@@ -434,7 +549,6 @@ const AuthPage = ({ onLogin, onBack }) => {
             Continuar con Google
           </button>
 
-          {/* Pie */}
           <p style={{ marginTop: "1.5rem", textAlign: "center", fontSize: "0.84rem", color: MUTED, fontFamily: "'Sora',sans-serif" }}>
             {mode === "login"
               ? <><span>¿No tienes cuenta? </span><button onClick={() => setMode("register")} style={{ background: "none", border: "none", color: G700, fontWeight: 600, cursor: "pointer", fontFamily: "'Sora',sans-serif", fontSize: "0.84rem" }}>Regístrate gratis</button></>
@@ -442,6 +556,8 @@ const AuthPage = ({ onLogin, onBack }) => {
             }
           </p>
         </div>
+
+        )} {/* fin mfaPending ternario */}
       </div>
     </div>
   );

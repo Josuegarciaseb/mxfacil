@@ -47,6 +47,7 @@ const Footer = ({ onNav, isSmall, paddingH, paddingB }) => {
 
   return (
     <footer style={{
+      marginTop:    isSmall ? 48 : 72,
       marginLeft:   -paddingH,
       marginRight:  -paddingH,
       marginBottom: -paddingB,

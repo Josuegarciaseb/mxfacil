@@ -269,6 +269,17 @@ exports.disableMfa = async (req, res) => {
   }
 };
 
+// ─── GET /api/auth/mfa/status — Estado actual del MFA del usuario ────────────
+exports.getMfaStatus = async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT mfa_enabled FROM usuario WHERE id = ?', [req.user.id]);
+    return res.json({ mfa_enabled: rows[0]?.mfa_enabled === 1 });
+  } catch (err) {
+    console.error('Error en getMfaStatus:', err);
+    return res.status(500).json({ message: 'Error al obtener estado MFA' });
+  }
+};
+
 // ─── GET /api/auth/session — Canjea cookie OAuth por token JSON (uso único) ───
 // El token NUNCA viaja en la URL. El frontend hace fetch con credentials:'include',
 // recibe { user, token } en el body y la cookie queda destruida.
