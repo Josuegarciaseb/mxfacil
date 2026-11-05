@@ -16,15 +16,13 @@ const ClientDirecciones = ({ token }) => {
   const [form,   setForm]   = useState({ linea1: "", ciudad: "", estado: "", cp: "", pais: "Mexico", es_principal: false });
   const [saving, setSaving] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try { setDirs(await http("/direcciones", {}, token)); }
-    catch (e) { toast(e.message, "error"); }
-    finally { setLoading(false); }
-  }, [token]);
+  const load = useCallback(() => http("/direcciones", {}, token)
+    .then(setDirs)
+    .catch(e => toast(e.message, "error"))
+    .finally(() => setLoading(false)), [token]);
 
   useEffect(() => { load(); }, [load]);
-  const set = (k) => (e) => setForm((p) => ({ ...p, [k]: e.type === "checkbox" ? e.target.checked : e.target.value }));
+  const set = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value }));
 
   const save = async () => {
     setSaving(true);

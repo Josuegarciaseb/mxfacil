@@ -1,8 +1,10 @@
 // src/controllers/pedido.controller.js
 const pool = require('../config/db');
+const crypto = require('node:crypto');
+const { cents, publicPriceCents } = require('../utils/money');
+const { transaction, lockOrder, reserveStock, cancelOrder, fail } = require('../services/order-state.service');
 const {
-  isPositiveInteger,
-  isPositiveNumber
+  isPositiveInteger
 } = require('../utils/validators');
 
 // Cliente: GET /api/pedidos
@@ -48,10 +50,10 @@ async function getPedidoDetalleCompleto(pedidoId, conn = null) {
       p.usuario_id,
       u.nombre AS usuario_nombre,
       p.direccion_id,
-      d.linea1 AS direccion_linea1,
-      d.ciudad AS direccion_ciudad,
-      d.estado AS direccion_estado,
-      d.cp AS direccion_cp,
+      COALESCE(p.direccion_entrega->>'$.linea1',d.linea1) AS direccion_linea1,
+      COALESCE(p.direccion_entrega->>'$.ciudad',d.ciudad) AS direccion_ciudad,
+      COALESCE(p.direccion_entrega->>'$.estado',d.estado) AS direccion_estado,
+      COALESCE(p.direccion_entrega->>'$.cp',d.cp) AS direccion_cp,
       p.fecha,
       p.estado,
       p.subtotal,
@@ -74,6 +76,7 @@ async function getPedidoDetalleCompleto(pedidoId, conn = null) {
     SELECT
       pi.id,
       pi.producto_id,
+      pr.proveedor_id,
       pr.nombre AS producto_nombre,
       prov.nombre AS proveedor_nombre,
       pi.cantidad,
@@ -130,11 +133,13 @@ exports.getPedidoDetalle = async (req, res) => {
       const [provRows] = await pool.query('SELECT id FROM proveedor WHERE usuario_id = ?', [user.id]);
       if (!provRows.length) return res.status(403).json({ message: 'Sin proveedor asociado' });
       const proveedorId = provRows[0].id;
-      const [itemRows] = await pool.query(
-        'SELECT pi.id FROM pedido_item pi JOIN producto pr ON pr.id = pi.producto_id WHERE pi.pedido_id = ? AND pr.proveedor_id = ?',
-        [pedidoId, proveedorId]
-      );
-      if (!itemRows.length) return res.status(403).json({ message: 'No tienes acceso a este pedido' });
+      detalle.items = detalle.items.filter(i=>i.proveedor_id===proveedorId);
+      if (!detalle.items.length) return res.status(403).json({ message: 'No tienes acceso a este pedido' });
+      const sub = detalle.items.reduce((sum,i)=>sum+cents(i.precio_unitario)*i.cantidad,0);
+      const iva = Math.round(sub*16/100);
+      Object.assign(detalle.pedido,{subtotal:sub/100,iva:iva/100,total:(sub+iva)/100});
+      delete detalle.pedido.comision;
+      detalle.pago = null;
       return res.json(detalle);
     }
 
@@ -154,197 +159,90 @@ const METODOS_PAGO_ONLINE = new Set(['tarjeta', 'paypal', 'mercadopago']);
 
 // POST /api/pedidos (cliente)
 exports.createPedido = async (req, res) => {
-  const userId = req.user.id;
-  const { direccion_id, items, metodo_pago } = req.body;
-
-  // Validaciones básicas
-  if (!direccion_id || !Array.isArray(items) || !items.length || !metodo_pago) {
-    return res.status(400).json({
-      message: 'direccion_id, items y metodo_pago son obligatorios'
-    });
+  const { direccion_id, items, metodo_pago, clave_checkout } = req.body;
+  if (!isPositiveInteger(direccion_id) || Number(direccion_id) === 0 || !Array.isArray(items) || !items.length || items.length > 100) fail(400, 'Indica una dirección y entre 1 y 100 productos válidos');
+  if (!require('../utils/payment-methods')().includes(metodo_pago)) fail(400, 'Método de pago no disponible');
+  if (clave_checkout != null && (typeof clave_checkout !== 'string' || !/^[a-zA-Z0-9_-]{16,64}$/.test(clave_checkout))) fail(400, 'Clave de compra inválida');
+  const quantities = new Map();
+  for (const item of items) {
+    if (!item || !isPositiveInteger(item.producto_id) || Number(item.producto_id) === 0 || !isPositiveInteger(item.cantidad) || Number(item.cantidad) === 0) fail(400, 'Cada producto debe tener ID y cantidad enteros positivos');
+    const id = Number(item.producto_id);
+    const quantity = (quantities.get(id) || 0) + Number(item.cantidad);
+    if (!isPositiveInteger(quantity)) fail(400, 'Cantidad inválida');
+    quantities.set(id, quantity);
   }
-
-  if (!isPositiveInteger(direccion_id)) {
-    return res.status(400).json({
-      message: 'direccion_id debe ser un entero'
-    });
-  }
-
-  const metodosValidos = ['tarjeta', 'paypal', 'mercadopago', 'transferencia', 'contra_entrega', 'plataforma'];
-  if (!metodosValidos.includes(metodo_pago)) {
-    return res.status(400).json({
-      message: `Metodo de pago inválido. Opciones: ${metodosValidos.join(', ')}`
-    });
-  }
-
-  const esPagoOnline = METODOS_PAGO_ONLINE.has(metodo_pago);
-
-  const conn = await pool.getConnection();
-  try {
-    await conn.beginTransaction();
-
-    // Verificar que la dirección pertenezca al usuario
-    const [dirRows] = await conn.query(
-      'SELECT id FROM direccion WHERE id = ? AND usuario_id = ?',
-      [direccion_id, userId]
+  const normalized = [...quantities].sort((a,b) => a[0]-b[0]).map(([producto_id,cantidad])=>({producto_id,cantidad}));
+  const hash = crypto.createHash('sha256').update(JSON.stringify({ direccion_id:Number(direccion_id), metodo_pago, items:normalized })).digest('hex');
+  const result = await transaction(async conn => {
+    await conn.query('SELECT id FROM usuario WHERE id=? FOR UPDATE', [req.user.id]);
+    if (clave_checkout) {
+      const [existing] = await conn.query('SELECT id,solicitud_hash FROM pedido WHERE usuario_id=? AND clave_checkout=?', [req.user.id,clave_checkout]);
+      if (existing.length) {
+        if (existing[0].solicitud_hash !== hash) fail(409, 'La clave de compra ya se usó con otros datos');
+        return { detail: await getPedidoDetalleCompleto(existing[0].id, conn), repeated: true };
+      }
+    }
+    const [addresses] = await conn.query('SELECT linea1,ciudad,estado,cp,pais FROM direccion WHERE id=? AND usuario_id=?', [direccion_id,req.user.id]);
+    if (!addresses.length) fail(400, 'La dirección no existe o no pertenece al usuario');
+    const [products] = await conn.query(
+      `SELECT p.id, p.precio, p.activo FROM producto p
+       JOIN categoria c ON c.id = p.categoria_id
+       WHERE p.id IN (?) AND c.en_catalogo = 1 ORDER BY p.id FOR UPDATE OF p`,
+      [normalized.map(i=>i.producto_id)]
     );
-    if (!dirRows.length) {
-      await conn.rollback();
-      return res.status(400).json({
-        message: 'La dirección no existe o no pertenece al usuario'
-      });
-    }
-
-    let subtotal  = 0;
-    let comisionTotal = 0;
-    const detalles = [];
-
-    // Validar items
-    for (const item of items) {
-      if (
-        !item.producto_id ||
-        !isPositiveInteger(item.producto_id) ||
-        !isPositiveInteger(item.cantidad) ||
-        item.cantidad <= 0
-      ) {
-        await conn.rollback();
-        return res.status(400).json({
-          message: 'Cada item debe contener producto_id y cantidad (>0) en formato numérico'
-        });
-      }
-
-      // Validar que exista y esté activo
-      const [prodRows] = await conn.query(
-        'SELECT id, precio, activo FROM producto WHERE id = ?',
-        [item.producto_id]
-      );
-      if (!prodRows.length || prodRows[0].activo !== 1) {
-        await conn.rollback();
-        return res.status(400).json({
-          message: `Producto ${item.producto_id} no existe o está inactivo`
-        });
-      }
-
-      const precioBase    = parseFloat(prodRows[0].precio);
-      const precioPublico = parseFloat((precioBase * 1.02).toFixed(2));
-
-      // Stock con FOR UPDATE
-      const [invRows] = await conn.query(
-        'SELECT stock FROM inventario WHERE producto_id = ? FOR UPDATE',
-        [item.producto_id]
-      );
-
-      const stockActual = invRows.length ? invRows[0].stock : 0;
-
-      if (stockActual < item.cantidad) {
-        await conn.rollback();
-        return res.status(400).json({
-          message: `Stock insuficiente para producto ${item.producto_id}. Disponible: ${stockActual}`
-        });
-      }
-
-      subtotal      += precioPublico * item.cantidad;
-      comisionTotal += parseFloat((precioBase * 0.02 * item.cantidad).toFixed(2));
-      detalles.push({
-        producto_id:     item.producto_id,
-        cantidad:        item.cantidad,
-        precio_unitario: precioPublico,
-      });
-    }
-
-    subtotal = parseFloat(subtotal.toFixed(2));
-    const iva      = parseFloat((subtotal * 0.16).toFixed(2));
-    const comision = parseFloat(comisionTotal.toFixed(2));
-    const total    = parseFloat((subtotal + iva).toFixed(2));
-
-    // Pedidos online quedan en 'esperando_pago' hasta que se confirme el pago.
-    // Transferencia y contra entrega se confirman de inmediato con 'pendiente'.
-    const estadoInicial = esPagoOnline ? 'esperando_pago' : 'pendiente';
-
-    const [resultPedido] = await conn.query(
-      `INSERT INTO pedido (usuario_id, direccion_id, subtotal, iva, comision, total, estado) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [userId, direccion_id, subtotal, iva, comision, total, estadoInicial]
-    );
-    const pedidoId = resultPedido.insertId;
-
-    // Items — solo descuenta inventario si el pago no es online
-    for (const det of detalles) {
-      await conn.query(
-        `INSERT INTO pedido_item (pedido_id, producto_id, cantidad, precio_unitario) VALUES (?, ?, ?, ?)`,
-        [pedidoId, det.producto_id, det.cantidad, det.precio_unitario]
-      );
-
-      if (!esPagoOnline) {
-        await conn.query(
-          'UPDATE inventario SET stock = stock - ? WHERE producto_id = ?',
-          [det.cantidad, det.producto_id]
-        );
-      }
-    }
-
-    // Pago
-    await conn.query(
-      `INSERT INTO pago (pedido_id, metodo, monto, estado) VALUES (?, ?, ?, 'pendiente')`,
-      [pedidoId, metodo_pago, total]
-    );
-
-    // Envío — solo se crea si el pago no es online (para online se crea al confirmar el pago)
-    if (!esPagoOnline) {
-      await conn.query(
-        `INSERT INTO envio (pedido_id, estado) VALUES (?, 'preparando')`,
-        [pedidoId]
-      );
-    }
-
-    await conn.commit();
-
-    const detalle = await getPedidoDetalleCompleto(pedidoId, conn);
-    return res.status(201).json(detalle);
-  } catch (err) {
-    await conn.rollback();
-    console.error('Error createPedido:', err);
-    return res.status(500).json({ message: 'Error al crear pedido' });
-  } finally {
-    conn.release();
-  }
+    let subtotal = 0, commission = 0;
+    const details = normalized.map(item => {
+      const product = products.find(p=>p.id===item.producto_id);
+      if (!product || product.activo !== 1) fail(409, `El producto ${item.producto_id} ya no está disponible en el catálogo`);
+      const unit = publicPriceCents(product.precio);
+      subtotal += unit * item.cantidad;
+      commission += (unit - cents(product.precio)) * item.cantidad;
+      return {...item, precio_unitario:unit/100};
+    });
+    const tax = Math.round(subtotal * 16 / 100);
+    const total = subtotal + tax;
+    if (req.body.total_esperado != null && (!Number.isFinite(Number(req.body.total_esperado)) || Number(req.body.total_esperado) < 0 || cents(req.body.total_esperado) !== total)) fail(409,'El precio cambió. Revisa el carrito actualizado antes de confirmar');
+    if (!Number.isSafeInteger(total) || total <= 0 || total > 999999999999) fail(400, 'Total fuera de rango');
+    await reserveStock(conn, details);
+    const [created] = await conn.query(`INSERT INTO pedido
+      (usuario_id,direccion_id,direccion_entrega,subtotal,iva,comision,total,estado,stock_reservado,clave_checkout,solicitud_hash)
+      VALUES (?,?,?,?,?,?,?,?,1,?,?)`,
+      [req.user.id,direccion_id,JSON.stringify(addresses[0]),subtotal/100,tax/100,commission/100,total/100,METODOS_PAGO_ONLINE.has(metodo_pago)?'esperando_pago':'pendiente',clave_checkout||null,hash]);
+    for (const item of details) await conn.query('INSERT INTO pedido_item (pedido_id,producto_id,cantidad,precio_unitario) VALUES (?,?,?,?)', [created.insertId,item.producto_id,item.cantidad,item.precio_unitario]);
+    await conn.query("INSERT INTO pago (pedido_id,metodo,monto,estado) VALUES (?,?,?,'pendiente')", [created.insertId,metodo_pago,total/100]);
+    if (!METODOS_PAGO_ONLINE.has(metodo_pago)) await conn.query("INSERT INTO envio (pedido_id,estado) VALUES (?,'preparando')", [created.insertId]);
+    return { detail:await getPedidoDetalleCompleto(created.insertId,conn), repeated:false };
+  });
+  res.status(result.repeated?200:201).json(result.detail);
 };
 
-// PATCH /api/pedidos/:id/estado (admin)
 exports.updateEstadoPedido = async (req, res) => {
-  const pedidoId = req.params.id;
-  const { estado } = req.body;
-
-  if (!isPositiveInteger(pedidoId)) {
-    return res.status(400).json({ message: 'ID de pedido inválido' });
-  }
-
-  const estadosValidos = ['esperando_pago', 'pendiente', 'en_proceso', 'enviado', 'entregado', 'cancelado'];
-  if (!estadosValidos.includes(estado)) {
-    return res.status(400).json({
-      message: `Estado inválido. Opciones: ${estadosValidos.join(', ')}`
-    });
-  }
-
-  try {
-    const [rows] = await pool.query(
-      'SELECT id FROM pedido WHERE id = ?',
-      [pedidoId]
-    );
-    if (!rows.length) {
-      return res.status(404).json({ message: 'Pedido no encontrado' });
+  const id = req.params.id, estado = req.body.estado;
+  await transaction(async conn => {
+    const {order,payment} = await lockOrder(conn,id);
+    if (req.user.rol === 'vendedor') {
+      const [providers] = await conn.query('SELECT id FROM proveedor WHERE usuario_id=?',[req.user.id]);
+      const [items] = await conn.query('SELECT pr.proveedor_id FROM pedido_item pi JOIN producto pr ON pr.id=pi.producto_id WHERE pi.pedido_id=?', [id]);
+      if (!providers.length || !items.length || items.some(i=>i.proveedor_id!==providers[0].id)) fail(403, 'Solo puedes actualizar pedidos compuestos exclusivamente por tus productos');
     }
+    if (estado === order.estado) return;
+    if (estado === 'cancelado') return cancelOrder(conn,order,payment);
+    const transitions = { pendiente:['en_proceso'], en_proceso:['enviado'], enviado:['entregado'] };
+    if (!transitions[order.estado]?.includes(estado)) fail(409, 'Cambio de estado no permitido');
+    if (METODOS_PAGO_ONLINE.has(payment.metodo) && payment.estado !== 'aprobado') fail(409, 'El pago aún no está aprobado');
+    await conn.query('UPDATE pedido SET estado=? WHERE id=?', [estado,id]);
+    if (['enviado','entregado'].includes(estado)) await conn.query('UPDATE envio SET estado=? WHERE pedido_id=?', [estado==='enviado'?'en_transito':'entregado',id]);
+  });
+  res.json(await getPedidoDetalleCompleto(id));
+};
 
-    await pool.query(
-      'UPDATE pedido SET estado = ? WHERE id = ?',
-      [estado, pedidoId]
-    );
-
-    const detalle = await getPedidoDetalleCompleto(pedidoId);
-    return res.json(detalle);
-  } catch (err) {
-    console.error('Error updateEstadoPedido:', err);
-    return res.status(500).json({ message: 'Error al actualizar estado del pedido' });
-  }
+exports.cancelPedidoCliente = async (req,res) => {
+  await transaction(async conn => {
+    const {order,payment} = await lockOrder(conn,req.params.id);
+    if (order.usuario_id !== req.user.id) fail(403, 'No tienes acceso a este pedido');
+    await cancelOrder(conn,order,payment);
+  });
+  res.json(await getPedidoDetalleCompleto(req.params.id));
 };
 
 exports.listPedidosAdmin = async (req, res) => {
@@ -372,12 +270,15 @@ exports.listPedidosAdmin = async (req, res) => {
       if (estado) { where += ' AND p.estado = ?'; params.push(estado); }
 
       const [rows] = await pool.query(
-        `SELECT DISTINCT p.id, p.usuario_id, u.nombre AS usuario_nombre, p.direccion_id, p.fecha, p.estado, p.subtotal, p.iva, p.comision, p.total
+        `SELECT p.id, p.usuario_id, u.nombre AS usuario_nombre, p.direccion_id, p.fecha, p.estado,
+           SUM(pit.cantidad*pit.precio_unitario) AS subtotal, ROUND(SUM(pit.cantidad*pit.precio_unitario)*0.16,2) AS iva,
+           SUM(pit.cantidad*pit.precio_unitario)+ROUND(SUM(pit.cantidad*pit.precio_unitario)*0.16,2) AS total
          FROM pedido p
          JOIN usuario u ON u.id = p.usuario_id
          JOIN pedido_item pit ON pit.pedido_id = p.id
          JOIN producto pr ON pr.id = pit.producto_id
          ${where}
+         GROUP BY p.id,u.nombre
          ORDER BY p.fecha DESC`,
         params
       );
@@ -402,3 +303,6 @@ exports.listPedidosAdmin = async (req, res) => {
     return res.status(500).json({ message: 'Error al obtener pedidos' });
   }
 };
+
+// Express 4: forward asynchronous failures to the common error handler.
+for (const [name,handler] of Object.entries(exports)) exports[name] = (req,res,next) => Promise.resolve(handler(req,res,next)).catch(next);

@@ -14,12 +14,10 @@ const AdminInventario = ({ token }) => {
   const [saving,    setSaving]    = useState(null);
   const { isMobile } = useBreakpoint();
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try { setProductos(await http("/productos?activo=", {}, token)); }
-    catch (e) { toast(e.message, "error"); }
-    finally { setLoading(false); }
-  }, [token]);
+  const load = useCallback(() => http("/productos/gestion", {}, token)
+    .then(setProductos)
+    .catch(e => toast(e.message, "error"))
+    .finally(() => setLoading(false)), [token]);
 
   useEffect(() => { load(); }, [load]);
 

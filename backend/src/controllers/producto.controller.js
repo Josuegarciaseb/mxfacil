@@ -4,6 +4,15 @@ const path = require('path');
 const fs   = require('fs');
 const { isPositiveNumber, isPositiveInteger } = require('../utils/validators');
 
+function validImageUrl(value) {
+  if (value == null || value === '') return true;
+  if (typeof value !== 'string' || value.length > 500) return false;
+  if (/^\/uploads\/productos\/[a-f0-9]{32}\.(jpe?g|png|webp|gif)$/.test(value)) return true;
+  try {
+    const url = new URL(value);
+    return ['https:', 'http:'].includes(url.protocol) && !url.username && !url.password;
+  } catch { return false; }
+}
 
 // Helper para obtener un producto con categoria, proveedor y stock
 async function getProductoCompletoById(id, conn = null) {
@@ -17,6 +26,7 @@ async function getProductoCompletoById(id, conn = null) {
       pr.nombre AS proveedor_nombre,
       p.categoria_id,
       c.nombre AS categoria_nombre,
+      c.en_catalogo AS categoria_en_catalogo,
       p.nombre,
       p.descripcion,
       p.precio,
@@ -40,6 +50,10 @@ async function getProductoCompletoById(id, conn = null) {
 // Filtros opcionales: ?categoria_id= &proveedor_id= &q= &activo=1/0
 exports.listProductos = async (req, res) => {
   const { categoria_id, proveedor_id, q, activo } = req.query;
+  if ([categoria_id, proveedor_id].some(id => id != null && id !== '' && !isPositiveInteger(id)) ||
+      (q != null && (typeof q !== 'string' || q.length > 200))) {
+    return res.status(400).json({message:'Filtro de productos inválido'});
+  }
 
   try {
     const params = [];
@@ -53,12 +67,15 @@ exports.listProductos = async (req, res) => {
       where += ' AND p.proveedor_id = ?';
       params.push(proveedor_id);
     }
-    if (activo === '1' || activo === '0') {
+    if (req.user?.rol === 'vendedor') {
+      where += ' AND pr.usuario_id = ?';
+      params.push(req.user.id);
+    }
+    if (!req.user) {
+      where += ' AND p.activo = 1 AND c.en_catalogo = 1';
+    } else if (activo === '1' || activo === '0') {
       where += ' AND p.activo = ?';
       params.push(activo);
-    } else {
-      // Por defecto solo productos activos
-      where += ' AND p.activo = 1';
     }
     if (q) {
       where += ' AND (p.nombre LIKE CONCAT("%", ?, "%") OR p.descripcion LIKE CONCAT("%", ?, "%"))';
@@ -73,6 +90,7 @@ exports.listProductos = async (req, res) => {
         pr.nombre AS proveedor_nombre,
         p.categoria_id,
         c.nombre AS categoria_nombre,
+        c.en_catalogo AS categoria_en_catalogo,
         p.nombre,
         p.descripcion,
         p.precio,
@@ -103,7 +121,7 @@ exports.getProducto = async (req, res) => {
 
   try {
     const producto = await getProductoCompletoById(id);
-    if (!producto) {
+    if (!producto || !producto.activo || !producto.categoria_en_catalogo) {
       return res.status(404).json({ message: 'Producto no encontrado' });
     }
     return res.json(producto);
@@ -127,6 +145,7 @@ exports.createProducto = async (req, res) => {
     image_url,
   } = req.body;
 
+  if (!validImageUrl(image_url)) return res.status(400).json({message:'Imagen de producto inválida'});
   // Si es vendedor, obtener su proveedor_id automáticamente
   if (req.user.rol === 'vendedor') {
     const [provRows] = await pool.query(
@@ -179,17 +198,10 @@ exports.createProducto = async (req, res) => {
       return res.status(400).json({ message: 'Proveedor no existe' });
     }
 
-    const [cat] = await conn.query('SELECT id FROM categoria WHERE id = ?', [categoria_id]);
+    const [cat] = await conn.query('SELECT id FROM categoria WHERE id = ? AND en_catalogo = 1', [categoria_id]);
     if (!cat.length) {
       await conn.rollback();
-      return res.status(400).json({ message: 'Categoría no existe' });
-    }
-
-    if (image_url != null && image_url !== '') {
-      try { new URL(image_url); } catch {
-        await conn.rollback();
-        return res.status(400).json({ message: 'image_url debe ser una URL válida' });
-      }
+      return res.status(400).json({ message: 'Selecciona una categoría disponible en el catálogo' });
     }
 
     const [result] = await conn.query(
@@ -287,7 +299,7 @@ exports.updateProducto = async (req, res) => {
 
     if (req.user.rol === 'vendedor') {
       const [provRows] = await conn.query('SELECT id FROM proveedor WHERE usuario_id = ?', [req.user.id]);
-      if (!provRows.length || actual.proveedor_id !== provRows[0].id) {
+      if (!provRows.length || actual.proveedor_id !== provRows[0].id || (proveedor_id != null && Number(proveedor_id) !== actual.proveedor_id)) {
         await conn.rollback();
         return res.status(403).json({ message: 'No puedes editar un producto que no es tuyo' });
       }
@@ -301,11 +313,11 @@ exports.updateProducto = async (req, res) => {
       }
     }
 
-    if (categoria_id != null) {
-      const [cat] = await conn.query('SELECT id FROM categoria WHERE id = ?', [categoria_id]);
+    if (categoria_id != null || [1, '1', true].includes(activo)) {
+      const [cat] = await conn.query('SELECT id FROM categoria WHERE id = ? AND en_catalogo = 1', [categoria_id ?? actual.categoria_id]);
       if (!cat.length) {
         await conn.rollback();
-        return res.status(400).json({ message: 'Categoría no existe' });
+        return res.status(400).json({ message: 'Selecciona una categoría disponible en el catálogo' });
       }
     }
 
@@ -313,23 +325,11 @@ exports.updateProducto = async (req, res) => {
     if (activo === 0 || activo === '0' || activo === false) activoFinal = 0;
     else if (activo === 1 || activo === '1' || activo === true) activoFinal = 1;
 
-    if (image_url != null && image_url !== '') {
-      try { new URL(image_url); } catch {
-        await conn.rollback();
-        return res.status(400).json({ message: 'image_url debe ser una URL válida' });
-      }
+    if (!validImageUrl(image_url)) {
+      await conn.rollback();
+      return res.status(400).json({message:'Imagen de producto inválida'});
     }
-
     const imageUrlFinal = image_url !== undefined ? (image_url || null) : actual.image_url;
-    if (
-      image_url !== undefined &&
-      actual.image_url &&
-      actual.image_url !== image_url &&
-      actual.image_url.startsWith('/uploads/')
-    ) {
-      const oldFile = path.join(__dirname, '../../', actual.image_url);
-      fs.unlink(oldFile, () => {});
-    }
 
     await conn.query(
       `
@@ -372,11 +372,24 @@ exports.updateProducto = async (req, res) => {
 
 
 // POST /api/productos/imagen (admin o vendedor)
-exports.uploadImagen = (req, res) => {
+exports.uploadImagen = async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ message: 'No se recibió ningún archivo' });
   }
-  const url = `/uploads/productos/${req.file.filename}`;
+  const bytes = req.file.buffer;
+  const formats = {
+    jpg: bytes.subarray(0,3).equals(Buffer.from('ffd8ff','hex')),
+    png: bytes.subarray(0,8).equals(Buffer.from('89504e470d0a1a0a','hex')),
+    gif: ['GIF87a','GIF89a'].includes(bytes.toString('ascii',0,6)),
+    webp: bytes.toString('ascii',0,4) === 'RIFF' && bytes.toString('ascii',8,12) === 'WEBP',
+  };
+  const ext = path.extname(req.file.originalname).slice(1).toLowerCase().replace(/^jpeg$/,'jpg');
+  if (!formats[ext]) return res.status(400).json({message:'El contenido no corresponde al formato de imagen'});
+  const filename = require('node:crypto').randomBytes(16).toString('hex') + '.' + ext;
+  const dir = path.join(__dirname,'../../uploads/productos');
+  await fs.promises.mkdir(dir,{recursive:true});
+  await fs.promises.writeFile(path.join(dir,filename),bytes,{flag:'wx'});
+  const url = '/uploads/productos/' + filename;
   return res.status(201).json({ url });
 };
 

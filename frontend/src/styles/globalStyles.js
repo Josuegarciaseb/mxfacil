@@ -5,7 +5,7 @@ export const injectStyles = () => {
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
       /* Brand verde (reemplaza la paleta roja anterior) */
-      --red: #639922; --red-dark: #173404; --red-light: #2d5a0f;
+      --red: #48751a; --red-dark: #173404; --red-light: #2d5a0f;
       --red-pale: #EAF3DE; --red-soft: #C0DD97;
 
       /* Sidebar verde oscuro */
@@ -30,7 +30,7 @@ export const injectStyles = () => {
       --gray-600: #4A5B6A; --gray-700: #3A4A57; --gray-800: #1a1a18; --gray-900: #0D1824;
 
       /* Semánticos */
-      --green: #059669; --green-pale: #ECFDF5;
+      --green: #06734f; --green-pale: #ECFDF5;
       --amber: #D97706; --amber-pale: #FFFBEB;
       --blue: #1D4ED8; --blue-pale: #EFF6FF;
 
@@ -60,6 +60,9 @@ export const injectStyles = () => {
     input:focus, select:focus, textarea:focus {
       border-color: var(--red); box-shadow: 0 0 0 3px rgba(99,153,34,.12);
     }
+    :focus-visible { outline: 3px solid #347227 !important; outline-offset: 3px; }
+    header input::placeholder { color: #b5c8ae; }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }
     input::placeholder, textarea::placeholder { color: var(--gray-400); }
     button { cursor: pointer; font-family: 'Sora', sans-serif; }
     ::-webkit-scrollbar { width: 5px; height: 5px; }

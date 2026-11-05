@@ -4,16 +4,14 @@ import Btn from "../ui/Btn";
 import Icon from "../ui/Icon";
 
 /* ── Logo MercadoPago (CDN → local fallback) ── */
-const MP_CDN   = "https://http2.mlstatic.com/frontend-assets/mp-web-navigation/ui-navigation/6.7.0/mercadopago/logo__large@2x.png";
 const MP_LOCAL = "/mp-logo.svg";
 
 function MpLogoIcon() {
-  const [src, setSrc] = useState(MP_CDN);
+  const src = MP_LOCAL;
   return (
     <img
       src={src}
       alt="MercadoPago"
-      onError={() => setSrc(MP_LOCAL)}
       style={{ width: "150%", height: "150%", objectFit: "contain" }}
       draggable={false}
     />
@@ -42,114 +40,47 @@ export default function MercadoPagoCheckout({ pedidoId, monto, onSuccess, onErro
   const [loading,      setLoading]      = useState(false);
 
   const popupRef    = useRef(null);  // ventana popup
-  const monitorRef  = useRef(null);  // detectar cierre manual del popup
-  const pollingRef  = useRef(null);  // polling de estado de pago en DB
   const resolvedRef = useRef(false); // evitar doble resolución
   const mpUrlRef    = useRef(null);  // URL guardada para reabrir
 
-  /* ──────────────────────────────────────────────────────────────────────
-     handleResult: punto único para procesar el resultado del pago.
-     Lo llaman el polling, el BroadcastChannel y el postMessage.
-  ─────────────────────────────────────────────────────────────────────── */
-  const handleResult = useCallback((status) => {
-    if (resolvedRef.current) return;   // ya fue resuelto, ignorar duplicados
-    resolvedRef.current = true;
-
-    /* Detener todos los monitores */
-    if (monitorRef.current)  { clearInterval(monitorRef.current);  monitorRef.current  = null; }
-    if (pollingRef.current)  { clearInterval(pollingRef.current);  pollingRef.current  = null; }
-
-    /* Cerrar popup después de 3.5 s (el usuario ve la pantalla de confirmación) */
-    const popup = popupRef.current;
-    if (popup && !popup.closed) {
-      setTimeout(() => { try { popup.close(); } catch { /* ignore */ } }, 3500);
-    }
-
-    if (status === "success") {
-      setPaymentState("success");
-      setTimeout(() => onSuccess?.(), 1800);
-    } else if (status === "failure") {
-      setPaymentState("failure");
-    } else {
-      /* pending: el webhook actualizará el DB; tratamos como OK en la UI */
-      setPaymentState("pending");
-      setTimeout(() => onSuccess?.(), 1800);
-    }
-  }, [onSuccess]);
-
-  /* ──────────────────────────────────────────────────────────────────────
-     Escuchar BroadcastChannel + postMessage desde /pago-retorno.
-     Canal secundario: si el popup sí redirige a /pago-retorno, esto llega
-     antes que el próximo tick de polling.
-  ─────────────────────────────────────────────────────────────────────── */
+  // Only a read from the authenticated API can resolve a payment.
+  const [watching, setWatching] = useState(false);
   useEffect(() => {
-    let bc;
-    try {
-      bc = new BroadcastChannel("mp_payment_channel");
-      bc.onmessage = (e) => {
-        if (e.data?.type === "MP_PAYMENT_RETURN") handleResult(e.data.status);
-      };
-    } catch { /* BroadcastChannel no soportado */ }
-
-    const handleMsg = (e) => {
-      if (e.origin !== window.location.origin) return;
-      if (e.data?.type !== "MP_PAYMENT_RETURN") return;
-      handleResult(e.data.status);
-    };
-    window.addEventListener("message", handleMsg);
-
-    return () => {
-      try { bc?.close(); } catch { /* ignore */ }
-      window.removeEventListener("message", handleMsg);
-    };
-  }, [handleResult]);
-
-  /* Cleanup al desmontar */
-  useEffect(() => () => {
-    if (monitorRef.current)  clearInterval(monitorRef.current);
-    if (pollingRef.current)  clearInterval(pollingRef.current);
-  }, []);
-
-  /* ──────────────────────────────────────────────────────────────────────
-     Polling: consulta GET /pagos/pedido/:pedidoId cada 3 s.
-     Canal PRINCIPAL — funciona aunque auto_return no redirija el popup.
-     El webhook de MP actualiza la DB; nosotros solo leemos el estado.
-  ─────────────────────────────────────────────────────────────────────── */
-  const startPolling = useCallback(() => {
-    if (pollingRef.current) clearInterval(pollingRef.current);
-
-    pollingRef.current = setInterval(async () => {
+    if (!watching) return;
+    let active = true, checking = false;
+    let timer;
+    const deadline = Date.now() + 15 * 60 * 1000;
+    const check = async () => {
+      if (!active || checking || resolvedRef.current) return;
+      clearTimeout(timer);
+      checking = true;
       try {
-        const data = await http(`/pagos/pedido/${pedidoId}`, {}, token);
-        if (data.estado === "aprobado") {
-          handleResult("success");
-        } else if (data.estado === "rechazado") {
-          handleResult("failure");
+        const payment = await http(`/pagos/pedido/${pedidoId}`, {}, token);
+        if (!active) return;
+        if (payment.estado === 'aprobado' || payment.estado === 'rechazado') {
+          resolvedRef.current = true;
+          setWatching(false);
+          setPaymentState(payment.estado === 'aprobado' ? 'success' : 'failure');
+          if (payment.estado === 'aprobado') onSuccess();
+          return;
         }
-        /* 'pendiente' → seguir esperando */
-      } catch { /* ignorar errores de red */ }
-    }, 3000);
-
-    /* Parar polling automáticamente después de 15 minutos */
-    setTimeout(() => {
-      if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
-    }, 15 * 60 * 1000);
-  }, [pedidoId, token, handleResult]);
-
-  /* ──────────────────────────────────────────────────────────────────────
-     Monitorear cierre manual del popup
-  ─────────────────────────────────────────────────────────────────────── */
-  const startPopupMonitor = useCallback((popup) => {
-    if (monitorRef.current) clearInterval(monitorRef.current);
-    monitorRef.current = setInterval(() => {
-      if (popup.closed) {
-        clearInterval(monitorRef.current);
-        monitorRef.current = null;
-        /* Solo marcar como 'closed' si el pago aún no fue resuelto */
-        if (!resolvedRef.current) setPaymentState("closed");
-      }
-    }, 800);
-  }, []);
+        if (popupRef.current?.closed) setPaymentState('closed');
+      } catch { /* retry a transient network failure within the time limit */ }
+      finally { checking = false; }
+      if (!active) return;
+      if (Date.now() < deadline) timer = setTimeout(check, 12000);
+      else { setWatching(false); setPaymentState('pending'); }
+    };
+    const returned = message => {
+      if (message?.type === 'MP_PAYMENT_RETURN' && String(message.pedidoId) === String(pedidoId)) check();
+    };
+    const onMessage = event => { if (event.origin === window.location.origin) returned(event.data); };
+    let channel;
+    try { channel = new BroadcastChannel('mp_payment_channel'); channel.onmessage = e=>returned(e.data); } catch { /* optional */ }
+    window.addEventListener('message', onMessage);
+    check();
+    return () => { active=false; clearTimeout(timer); channel?.close(); window.removeEventListener('message',onMessage); };
+  }, [watching,pedidoId,token,onSuccess]);
 
   /* ──────────────────────────────────────────────────────────────────────
      Abrir (o reabrir) la ventana popup
@@ -180,9 +111,8 @@ export default function MercadoPagoCheckout({ pedidoId, monto, onSuccess, onErro
 
     popupRef.current = popup;
     setPaymentState("waiting");
-    startPopupMonitor(popup);
-    startPolling();               // ← canal principal para detectar el pago
-  }, [startPopupMonitor, startPolling]);
+    setWatching(true);
+  }, []);
 
   /* ──────────────────────────────────────────────────────────────────────
      Handlers de UI
@@ -197,7 +127,8 @@ export default function MercadoPagoCheckout({ pedidoId, monto, onSuccess, onErro
         body: JSON.stringify({ pedido_id: pedidoId }),
       }, token);
 
-      const url = import.meta.env.DEV ? data.sandbox_init_point : data.init_point;
+      const url = data.checkout_url;
+      if (!url) throw new Error('Mercado Pago no está disponible.');
       mpUrlRef.current = url;
       openPopup(url);
     } catch (err) {
@@ -252,7 +183,7 @@ export default function MercadoPagoCheckout({ pedidoId, monto, onSuccess, onErro
         <div style={{ fontSize: 40 }}>⏳</div>
         <div style={{ fontWeight: 800, color: "#d97706", fontSize: 15 }}>Pago en proceso</div>
         <div style={{ fontSize: 12, color: "#6b7280" }}>
-          Tu pago está siendo verificado. Te notificaremos cuando se acredite.
+          Tu pago está siendo verificado. Puedes consultar su estado en Mis pedidos.
         </div>
       </div>
     );

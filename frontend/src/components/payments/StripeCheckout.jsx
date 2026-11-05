@@ -5,7 +5,7 @@ import { http } from "../../utils/api";
 import Btn from "../ui/Btn";
 import Icon from "../ui/Icon";
 
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
+const stripePromise = import.meta.env.VITE_STRIPE_PUBLIC_KEY ? loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY) : null;
 
 const CARD_STYLE = {
   style: {
@@ -28,12 +28,12 @@ function StripeForm({ pedidoId, monto, onSuccess, onError, token }) {
     if (!stripe || !elements) return;
     setProcessing(true);
     try {
-      const { client_secret } = await http("/pagos/stripe/intent", {
+      const { client_secret, status } = await http("/pagos/stripe/intent", {
         method: "POST",
         body: JSON.stringify({ pedido_id: pedidoId }),
       }, token);
 
-      const result = await stripe.confirmCardPayment(client_secret, {
+      const result = status === 'succeeded' ? {paymentIntent:{status}} : await stripe.confirmCardPayment(client_secret, {
         payment_method: { card: elements.getElement(CardElement) },
       });
 
@@ -46,11 +46,13 @@ function StripeForm({ pedidoId, monto, onSuccess, onError, token }) {
             method: "POST",
             body: JSON.stringify({ pedido_id: pedidoId }),
           }, token);
-        } catch (confirmErr) {
-          /* No bloquear — el pago ya fue procesado por Stripe */
-          console.warn("Stripe confirm error:", confirmErr.message);
+        } catch {
+          onError('Stripe recibió tu pago. La tienda está verificándolo. Consulta Mis pedidos antes de reintentar.');
+          return;
         }
         onSuccess();
+      } else {
+        onError('Tu pago sigue en verificación. Consulta su estado en Mis pedidos.');
       }
     } catch (err) {
       onError(err.message);
@@ -78,6 +80,7 @@ function StripeForm({ pedidoId, monto, onSuccess, onError, token }) {
 }
 
 export default function StripeCheckout({ pedidoId, monto, onSuccess, onError, token }) {
+  if (!stripePromise) return <p role="alert">El pago con tarjeta no está disponible.</p>;
   return (
     <Elements stripe={stripePromise}>
       <StripeForm pedidoId={pedidoId} monto={monto} onSuccess={onSuccess} onError={onError} token={token} />

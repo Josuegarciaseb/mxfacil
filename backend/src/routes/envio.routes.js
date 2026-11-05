@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const envioCtrl = require('../controllers/envio.controller');
+const asyncRoute = require('../utils/async-route');
 const auth = require('../middlewares/auth');
 const isAdmin = require('../middlewares/admin');
 
@@ -8,6 +9,6 @@ const isAdmin = require('../middlewares/admin');
 router.get('/pedido/:pedidoId', auth, envioCtrl.getEnvioByPedido);
 
 // Admin: actualizar envío
-router.patch('/:id', auth, isAdmin, envioCtrl.updateEnvio);
+router.patch('/:id', auth, isAdmin, asyncRoute(envioCtrl.updateEnvio));
 
 module.exports = router;

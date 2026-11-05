@@ -1,48 +1,50 @@
-const express  = require('express');
-const router   = express.Router();
+const express = require('express');
+const crypto = require('node:crypto');
 const passport = require('../config/passport');
-const jwt      = require('jsonwebtoken');
-
-function generarToken(usuario) {
-  return jwt.sign(
-    { id: usuario.id, rol: usuario.rol },
-    process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRES_IN || '7d', algorithm: 'HS256' }
-  );
+const { issueExchange, redeemExchange } = require('../services/oauth-exchange.service');
+const router = express.Router();
+const cookieName = 'google_flow';
+const cookieOptions = {httpOnly:true, secure:process.env.NODE_ENV==='production', sameSite:'lax',path:'/api/auth/google'};
+const defaultFrontend = process.env.FRONTEND_URL || 'http://localhost:5173';
+function frontendOrigin(requested) {
+  const allowed = [defaultFrontend,...(process.env.ALLOWED_ORIGINS || '').split(',')].map(v=>v.trim().replace(/\/$/,''));
+  return allowed.includes(requested) ? requested : defaultFrontend.replace(/\/$/,'');
 }
 
-// ─── Iniciar flujo OAuth2 con Google ─────────────────────────────────────────
-router.get(
-  '/google',
-  passport.authenticate('google', {
-    scope: ['profile', 'email'],
-    session: false,
-  })
-);
-
-// ─── Callback después de autenticación en Google ──────────────────────────────
-router.get(
-  '/google/callback',
-  passport.authenticate('google', { session: false, failureRedirect: '/api/auth/google/failure' }),
-  (req, res) => {
-    const token = generarToken(req.user);
-
-    // Redirigir al frontend con token en cookie HttpOnly segura
-    res.cookie('auth_token', token, {
-      httpOnly: true,
-      secure:   process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge:   7 * 24 * 60 * 60 * 1000,
-    });
-
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-    return res.redirect(`${frontendUrl}/oauth-success`);
-  }
-);
-
-// ─── Fallo de autenticación ───────────────────────────────────────────────────
-router.get('/google/failure', (req, res) => {
-  return res.status(401).json({ message: 'Autenticación con Google fallida' });
+router.get('/google', (req,res,next) => {
+  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) return res.redirect(`${frontendOrigin()}/auth?oauth_error=unavailable`);
+  const origin = frontendOrigin(req.query.origin);
+  const challenge = req.query.challenge;
+  if (typeof challenge !== 'string' || !/^[a-f0-9]{64}$/.test(challenge)) return res.redirect(`${origin}/auth?oauth_error=restart`);
+  const state = crypto.randomBytes(32).toString('hex');
+  const duration = 10 * 60 * 1000;
+  res.cookie(cookieName, {state,challenge,origin,expires:Date.now()+duration}, {...cookieOptions,signed:true,maxAge:duration});
+  passport.authenticate('google',{scope:['profile','email'],session:false,state})(req,res,next);
 });
 
+router.get('/google/callback', (req,res,next) => {
+  const flow = req.signedCookies[cookieName];
+  const origin = frontendOrigin(flow?.origin);
+  const state = req.query.state;
+  res.clearCookie(cookieName,cookieOptions);
+  if (!flow || !(flow.expires > Date.now()) || !/^[a-f0-9]{64}$/.test(flow.state) || typeof state !== 'string' || !/^[a-f0-9]{64}$/.test(state) || !crypto.timingSafeEqual(Buffer.from(state),Buffer.from(flow.state))) {
+    return res.redirect(`${origin}/auth?oauth_error=state`);
+  }
+  if (req.query.error) return res.redirect(`${origin}/auth?oauth_error=cancelled`);
+  passport.authenticate('google',{session:false},async (err,user)=>{
+    if (err || !user) return res.redirect(`${origin}/auth?oauth_error=account`);
+    try {
+      const code = await issueExchange(user.id,flow.challenge);
+      // This one-use code requires the verifier kept in the originating tab.
+      res.set('Cache-Control','no-store').redirect(`${origin}/oauth-success#code=${code}`);
+    } catch(error) { next(error); }
+  })(req,res,next);
+});
+
+router.post('/google/exchange',async (req,res,next)=>{
+  try {
+    const result = await redeemExchange(req.body);
+    res.set('Cache-Control','no-store').status(result.status).json(result.body);
+  } catch(error) { next(error); }
+});
 module.exports = router;

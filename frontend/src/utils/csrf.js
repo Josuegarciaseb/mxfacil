@@ -1,6 +1,7 @@
-const API = (import.meta.env.VITE_API_URL || 'http://localhost:3000') + '/api';
+import { API_ROOT as API } from './config';
 
 let _token = null;
+let inflight = null;
 
 // Obtiene un token CSRF fresco del servidor y lo almacena en memoria
 export async function fetchCsrfToken() {
@@ -15,8 +16,8 @@ export async function fetchCsrfToken() {
 
 // Devuelve el token cacheado o lo solicita si no existe
 export async function ensureCsrfToken() {
-  if (!_token) await fetchCsrfToken();
-  return _token;
+  if (_token) return _token;
+  return inflight ||= fetchCsrfToken().finally(() => { inflight = null; });
 }
 
 // Fuerza renovación (usado tras error 403 CSRF)

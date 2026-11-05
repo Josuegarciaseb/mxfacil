@@ -1,7 +1,7 @@
 import { ICON_PATHS } from "../../constants";
 
 const Icon = ({ name, size = 20, style: s = {} }) => (
-  <svg
+  <svg aria-hidden="true" focusable="false"
     width={size}
     height={size}
     viewBox="0 0 24 24"

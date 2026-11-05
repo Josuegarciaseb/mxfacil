@@ -8,6 +8,7 @@ import PageHeader          from "../../components/ui/PageHeader";
 import Modal               from "../../components/ui/Modal";
 import Btn                 from "../../components/ui/Btn";
 import { InputField, SelectField } from "../../components/ui/FormFields";
+import { ProductStatusBadge } from "../../components/ui/StatusBadge";
 import Icon                from "../../components/ui/Icon";
 
 const EMPTY_ADMIN_FORM = { proveedor_id: "", categoria_id: "", nombre: "", descripcion: "", precio: "", presentacion: "", activo: 1, stock_inicial: "" };
@@ -23,18 +24,14 @@ const AdminProductos = ({ token }) => {
   const [saving,      setSaving]      = useState(false);
   const { isMobile } = useBreakpoint();
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [p, c, pr] = await Promise.all([
-        http("/productos?activo=", {}, token),
+  const load = useCallback(() => Promise.all([
+        http("/productos/gestion", {}, token),
         http("/categorias",        {}, token),
         http("/proveedores",       {}, token),
-      ]);
+      ]).then(([p, c, pr]) => {
       setProductos(p); setCategorias(c); setProveedores(pr);
-    } catch (e) { toast(e.message, "error"); }
-    finally { setLoading(false); }
-  }, [token]);
+      }).catch(e => toast(e.message, "error"))
+        .finally(() => setLoading(false)), [token]);
 
   useEffect(() => { load(); }, [load]);
   const set = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }));
@@ -83,7 +80,7 @@ const AdminProductos = ({ token }) => {
                   <tr key={p.id}>
                     <td data-label="Nombre">
                       <div style={{ fontWeight: 600, color: "var(--gray-900)" }}>{p.nombre}</div>
-                      {isMobile && <div style={{ display: "flex", gap: 6, marginTop: 4 }}><span className="badge badge-blue" style={{ fontSize: 11 }}>{p.categoria_nombre}</span>{p.activo ? <span className="badge badge-green" style={{ fontSize: 11 }}>Activo</span> : <span className="badge badge-red" style={{ fontSize: 11 }}>Inactivo</span>}</div>}
+                      {isMobile && <div style={{ display: "flex", gap: 6, marginTop: 4 }}><span className="badge badge-blue" style={{ fontSize: 11 }}>{p.categoria_nombre}</span><ProductStatusBadge producto={p} /></div>}
                     </td>
                     {!isMobile && <td data-label="Categoría"><span className="badge badge-blue">{p.categoria_nombre}</span></td>}
                     <td data-label="Precio" style={{ fontWeight: 700 }}>${parseFloat(p.precio).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</td>
@@ -91,10 +88,10 @@ const AdminProductos = ({ token }) => {
                       <span className={`badge ${p.stock > 10 ? "badge-green" : p.stock > 0 ? "badge-amber" : "badge-red"}`}>{p.stock}</span>
                       {p.presentacion && <span style={{ fontSize: 11, color: "var(--gray-400)", marginLeft: 4 }}>{p.presentacion}</span>}
                     </td>
-                    {!isMobile && <td data-label="Estado">{p.activo ? <span className="badge badge-green">Activo</span> : <span className="badge badge-red">Inactivo</span>}</td>}
+                    {!isMobile && <td data-label="Estado"><ProductStatusBadge producto={p} /></td>}
                     <td data-label="Acciones">
                       <div style={{ display: "flex", gap: 6 }}>
-                        <button className="btn-ghost btn-sm" onClick={() => { setForm({ proveedor_id: p.proveedor_id, categoria_id: p.categoria_id, nombre: p.nombre, descripcion: p.descripcion || "", precio: p.precio, presentacion: p.presentacion || "", activo: p.activo }); setModal(p); }}><Icon name="edit" size={14} /></button>
+                        <button className="btn-ghost btn-sm" onClick={() => { setForm({ proveedor_id: p.proveedor_id, categoria_id: p.categoria_en_catalogo === 0 ? "" : p.categoria_id, nombre: p.nombre, descripcion: p.descripcion || "", precio: p.precio, presentacion: p.presentacion || "", activo: p.activo }); setModal(p); }}><Icon name="edit" size={14} /></button>
                         <button className="btn-danger btn-sm" onClick={() => deactivate(p.id)}><Icon name="trash" size={14} /></button>
                       </div>
                     </td>
@@ -121,7 +118,7 @@ const AdminProductos = ({ token }) => {
           <SelectField label="Estado" value={form.activo} onChange={set("activo")}><option value={1}>Activo</option><option value={0}>Inactivo</option></SelectField>
           <div className="modal-footer" style={{ display: "flex", gap: 10, justifyContent: "flex-end", paddingTop: 14, borderTop: "1px solid var(--gray-100)" }}>
             <Btn variant="secondary" onClick={() => setModal(null)}>Cancelar</Btn>
-            <Btn onClick={save} disabled={saving}>{saving ? "Guardando..." : "Guardar"}</Btn>
+            <Btn onClick={save} disabled={saving || !form.categoria_id}>{saving ? "Guardando..." : "Guardar"}</Btn>
           </div>
         </div>
       </Modal>

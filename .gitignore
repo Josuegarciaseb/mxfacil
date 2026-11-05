@@ -7,3 +7,6 @@
 /docs
 /backend/node_modules
 /frontend/node_modules
+/.audit/
+**/.env.*
+!**/.env.example

@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { http } from "../../utils/api";
+import { publicPrice, gross, money } from '../../utils/cart';
+import { imageUrl } from '../../utils/config';
 import { toast } from "../../utils/toast";
 import { useBreakpoint } from "../../hooks/useBreakpoint";
 import Spinner from "../../components/ui/Spinner";
@@ -7,7 +9,7 @@ import EmptyState from "../../components/ui/EmptyState";
 import Icon from "../../components/ui/Icon";
 
 const ClientCatalogo = ({
-  token, setCart,
+  token, setCart, cart = [], onProductsFetched,
   externalSearch, externalCatFilter, onCatFilter,
   onCategoriasFetched,
 }) => {
@@ -17,35 +19,40 @@ const ClientCatalogo = ({
   const [viewMode,   setViewMode]   = useState("grid");
   const [sortOrder,  setSortOrder]  = useState("relevantes");
 
-  const [localSearch,    setLocalSearch]    = useState("");
+  const [loadError, setLoadError] = useState('');
+  const [attempt, setAttempt] = useState(0);
   const [localCatFilter, setLocalCatFilter] = useState("");
 
   const hasExternal = externalSearch !== undefined;
-  const search      = hasExternal ? externalSearch    : localSearch;
+  const search      = hasExternal ? externalSearch.trim() : '';
   const catFilter   = hasExternal ? externalCatFilter : localCatFilter;
   const setFilter   = hasExternal ? onCatFilter       : setLocalCatFilter;
 
   const { isMobile, isTablet, isDesktop } = useBreakpoint();
 
   useEffect(() => {
+    let live = true;
     (async () => {
       try {
         const [p, c] = await Promise.all([
           http("/productos", {}, token),
           http("/categorias", {}, token),
         ]);
-        setProductos(p); setCategorias(c);
+        if (!live) return;
+        setProductos(p); setCategorias(c); setLoadError(''); onProductsFetched?.(p);
         if (onCategoriasFetched) onCategoriasFetched(c);
-      } catch (e) { toast(e.message, "error"); }
-      finally { setLoading(false); }
+      } catch (e) { if (live) setLoadError(e.message); }
+      finally { if (live) setLoading(false); }
     })();
-  }, [token]);
+    return () => { live = false; };
+  }, [token,onCategoriasFetched,onProductsFetched,attempt]);
 
   const addToCart = (p) => {
-    const precioPublico = parseFloat((parseFloat(p.precio) * 1.02).toFixed(2));
+    const precioPublico = publicPrice(p.precio);
+    if ((cart.find(i=>i.id===p.id)?.qty || 0) >= p.stock) return toast('Alcanzaste las existencias disponibles','warn');
     setCart((c) => {
       const ex = c.find((i) => i.id === p.id);
-      if (ex) return c.map((i) => i.id === p.id ? { ...i, qty: i.qty + 1 } : i);
+      if (ex) return c.map((i) => i.id === p.id ? { ...i, qty: Math.min(i.qty + 1,p.stock) } : i);
       return [...c, { ...p, precio: precioPublico, qty: 1 }];
     });
     toast(`${p.nombre} agregado al carrito`);
@@ -64,7 +71,7 @@ const ClientCatalogo = ({
     });
 
   const cols = isMobile
-    ? "repeat(2, 1fr)"
+    ? "repeat(2, minmax(0, 1fr))"
     : isTablet
     ? "repeat(3, 1fr)"
     : "repeat(auto-fill, minmax(240px, 1fr))";
@@ -79,14 +86,14 @@ const ClientCatalogo = ({
         marginBottom: 18, flexWrap: "wrap", gap: 10,
       }}>
         <div>
-          <h2 style={{
+          <h1 style={{
             fontSize: isMobile ? 20 : 22, fontWeight: 900,
             color: "var(--gray-900)", letterSpacing: "-.02em", marginBottom: 2,
           }}>
             {catFilter
               ? (categorias.find((c) => c.id == catFilter)?.nombre ?? "Catálogo")
-              : "Todos los productos"}
-          </h2>
+              : "Productos del campo al mayoreo"}
+          </h1>
           <p style={{ color: "var(--gray-500)", fontSize: 13 }}>
             {filtered.length} {filtered.length === 1 ? "resultado" : "resultados"}
             {search ? ` para "${search}"` : ""}
@@ -96,6 +103,7 @@ const ClientCatalogo = ({
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {!isMobile && (
             <select
+                aria-label="Ordenar productos"
                 value={sortOrder}
                 onChange={(e) => setSortOrder(e.target.value)}
                 style={{
@@ -117,6 +125,8 @@ const ClientCatalogo = ({
             {["grid", "list"].map((v) => (
               <button
                 key={v}
+                aria-label={v === 'grid' ? 'Vista de cuadrícula' : 'Vista de lista'}
+                aria-pressed={viewMode === v}
                 onClick={() => setViewMode(v)}
                 style={{
                   padding: "6px 9px", border: "none", borderRadius: 7, cursor: "pointer",
@@ -143,6 +153,7 @@ const ClientCatalogo = ({
             return (
               <button
                 key={c.id}
+                aria-pressed={active}
                 onClick={() => setFilter(active && c.id !== "" ? "" : String(c.id))}
                 style={{
                   padding: "5px 14px", borderRadius: 99, cursor: "pointer",
@@ -165,7 +176,7 @@ const ClientCatalogo = ({
       )}
 
       {/* ── Resultados ── */}
-      {loading ? <Spinner /> : filtered.length === 0 ? (
+      {loading ? <Spinner /> : loadError ? <div role="alert">No se pudo cargar el catálogo. <button className="btn-secondary" onClick={()=>{setLoading(true);setAttempt(n=>n+1);}}>Reintentar</button></div> : filtered.length === 0 ? (
         <EmptyState
           icon="search"
           title="Sin resultados"
@@ -174,7 +185,7 @@ const ClientCatalogo = ({
       ) : viewMode === "grid" ? (
         <div style={{ display: "grid", gridTemplateColumns: cols, gap: isMobile ? 10 : 16 }}>
           {filtered.map((p, i) => (
-            <ProductCard key={p.id} p={p} i={i} isMobile={isMobile} onAdd={addToCart} />
+            <ProductCard key={p.id} p={p} i={i} isMobile={isMobile} onAdd={addToCart} atLimit={(cart.find(i=>i.id===p.id)?.qty||0)>=p.stock} />
           ))}
         </div>
       ) : (
@@ -222,14 +233,14 @@ const ClientCatalogo = ({
               <div style={{ display: "flex", alignItems: "center", gap: 16, flexShrink: 0 }}>
                 <div style={{ textAlign: "right" }}>
                   <div style={{ fontSize: 19, fontWeight: 900, color: "var(--red)", letterSpacing: "-.02em" }}>
-                    ${(parseFloat(p.precio) * 1.02 * 1.16).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    ${money(gross(publicPrice(p.precio)))}
                   </div>
                   <div style={{ fontSize: 10, color: "var(--green)", fontWeight: 600 }}>IVA incluido</div>
                 </div>
                 <button
                   className="btn-primary btn-sm"
                   onClick={() => addToCart(p)}
-                  disabled={p.stock === 0}
+                  aria-label={`Agregar ${p.nombre}`} disabled={(cart.find(i=>i.id===p.id)?.qty||0)>=p.stock}
                   style={{ borderRadius: 8 }}
                 >
                   <Icon name="plus" size={13} />
@@ -244,12 +255,10 @@ const ClientCatalogo = ({
   );
 };
 
-const IMG_BASE = "http://localhost:3000";
-
-const ProductCard = ({ p, i, isMobile, onAdd }) => {
+const ProductCard = ({ p, i, isMobile, onAdd, atLimit }) => {
   const [imgErr, setImgErr] = useState(false);
   const imgSrc = p.image_url && !imgErr
-    ? (p.image_url.startsWith("http") ? p.image_url : IMG_BASE + p.image_url)
+    ? imageUrl(p.image_url)
     : null;
 
   return (
@@ -267,6 +276,7 @@ const ProductCard = ({ p, i, isMobile, onAdd }) => {
       {imgSrc ? (
         <img
           src={imgSrc}
+          loading={i < 4 ? 'eager' : 'lazy'} decoding="async"
           alt={p.nombre}
           onError={() => setImgErr(true)}
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
@@ -326,7 +336,7 @@ const ProductCard = ({ p, i, isMobile, onAdd }) => {
               fontSize: isMobile ? 18 : 21, fontWeight: 900, color: "var(--red)",
               letterSpacing: "-.03em", lineHeight: 1,
             }}>
-              ${(parseFloat(p.precio) * 1.02 * 1.16).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              ${money(gross(publicPrice(p.precio)))}
             </div>
             <div style={{ fontSize: 10, color: "var(--green)", fontWeight: 600, marginTop: 2 }}>
               IVA incluido
@@ -335,7 +345,7 @@ const ProductCard = ({ p, i, isMobile, onAdd }) => {
           <button
             className="btn-primary btn-sm"
             onClick={() => onAdd(p)}
-            disabled={p.stock === 0}
+            aria-label={`Agregar ${p.nombre}`} disabled={atLimit}
             style={{ borderRadius: 8, flexShrink: 0, gap: 5, padding: isMobile ? "7px 10px" : undefined }}
           >
             <Icon name="plus" size={13} />

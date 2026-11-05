@@ -1,8 +1,15 @@
 import { ensureCsrfToken, fetchCsrfToken } from './csrf';
 
-const API = (import.meta.env.VITE_API_URL || 'http://localhost:3000') + '/api';
+import { API_ROOT as API } from './config';
 
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+function requestError(status, data, jwt) {
+  if (status === 401 && data.code === 'SESSION_EXPIRED' && jwt && jwt === localStorage.getItem('token')) {
+    window.dispatchEvent(new CustomEvent('tienda:sesion-expirada'));
+  }
+  return Object.assign(new Error(data.message || 'Error en la petición'), {status,code:data.code});
+}
 
 /**
  * Petición JSON autenticada con protección CSRF.
@@ -12,7 +19,7 @@ const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
  */
 export const http = async (path, opts = {}, token = null) => {
   const method  = (opts.method || 'GET').toUpperCase();
-  const headers = { 'Content-Type': 'application/json' };
+  const headers = { ...(opts.body ? {'Content-Type':'application/json'} : {}), ...opts.headers };
 
   const jwt = token || localStorage.getItem('token');
   if (jwt) headers['Authorization'] = `Bearer ${jwt}`;
@@ -25,22 +32,22 @@ export const http = async (path, opts = {}, token = null) => {
     }
   }
 
-  const res  = await fetch(`${API}${path}`, { ...opts, headers });
+  const res  = await fetch(`${API}${path}`, { ...opts, credentials:'include', headers });
   const data = await res.json().catch(() => ({}));
 
   // Token CSRF expirado — renovar y reintentar una vez
   if (res.status === 403 && data.message?.includes('CSRF')) {
     headers['X-CSRF-Token'] = await fetchCsrfToken();
-    const retry     = await fetch(`${API}${path}`, { ...opts, headers });
+    const retry     = await fetch(`${API}${path}`, { ...opts, credentials:'include', headers });
     const retryData = await retry.json().catch(() => ({}));
-    if (!retry.ok) throw new Error(retryData.message || 'Error en la petición');
+    if (!retry.ok) throw requestError(retry.status,retryData,jwt);
     return retryData;
   }
 
   if (!res.ok) {
     const msg = data.message || 'Error en la petición';
     console.warn(`[API] ${method} ${path} → ${res.status}: ${msg}`);
-    throw new Error(msg);
+    throw requestError(res.status,data,jwt);
   }
   return data;
 };
@@ -56,6 +63,7 @@ export const httpUpload = async (path, formData, token = null) => {
 
   const res  = await fetch(`${API}${path}`, {
     method: 'POST',
+    credentials: 'include',
     body: formData,
     headers,
   });
@@ -63,7 +71,7 @@ export const httpUpload = async (path, formData, token = null) => {
   if (!res.ok) {
     const msg = data.message || 'Error al subir archivo';
     console.warn(`[API] POST ${path} → ${res.status}: ${msg}`);
-    throw new Error(msg);
+    throw requestError(res.status,data,jwt);
   }
   return data;
 };

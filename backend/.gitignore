@@ -1,5 +1,8 @@
 node_modules/
 .env
 .env.*
+!.env.example
+certs/*.pem
+uploads/productos/
 .DS_Store
 npm-debug.log*

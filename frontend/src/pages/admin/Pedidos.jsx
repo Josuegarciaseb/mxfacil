@@ -20,12 +20,10 @@ const AdminPedidos = ({ token }) => {
   const [loadingDetalle, setLoadingDetalle] = useState(false);
   const { isMobile } = useBreakpoint();
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try { setPedidos(await http(filtroEstado ? `/pedidos/admin?estado=${filtroEstado}` : "/pedidos/admin", {}, token)); }
-    catch (e) { toast(e.message, "error"); }
-    finally { setLoading(false); }
-  }, [token, filtroEstado]);
+  const load = useCallback(() => http(filtroEstado ? `/pedidos/admin?estado=${filtroEstado}` : "/pedidos/admin", {}, token)
+    .then(setPedidos)
+    .catch(e => toast(e.message, "error"))
+    .finally(() => setLoading(false)), [token, filtroEstado]);
 
   useEffect(() => { load(); }, [load]);
 

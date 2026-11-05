@@ -66,7 +66,7 @@ const MarketplaceHeader = ({
         </button>
 
         {/* Buscador */}
-        <div style={{ flex: 1, display: "flex", minWidth: 0 }}>
+        <form role="search" onSubmit={e=>{e.preventDefault();onNav("catalogo");}} style={{ flex: 1, display: "flex", minWidth: 0 }}>
           <div style={{ position: "relative", flex: 1, display: "flex" }}>
             <Icon name="search" size={15} style={{
               position: "absolute", left: 13, top: "50%",
@@ -74,10 +74,10 @@ const MarketplaceHeader = ({
               color: TEXT_MUTED, pointerEvents: "none", zIndex: 1,
             }} />
             <input
-              type="text"
+              type="search" aria-label="Buscar productos"
               value={search}
               onChange={(e) => onSearch(e.target.value)}
-              placeholder={isSmall ? "Buscar productos..." : "Buscar productos al mayoreo..."}
+              placeholder={isSmall ? "Buscar productos..." : "Buscar productos del campo..."}
               style={{
                 flex: 1,
                 height: isSmall ? 38 : 42,
@@ -119,11 +119,11 @@ const MarketplaceHeader = ({
               </button>
             )}
           </div>
-        </div>
+        </form>
 
         {/* Carrito */}
         <button
-          onClick={onCartOpen}
+          aria-label={`Carrito, ${cartCount} ${cartCount === 1 ? 'producto' : 'productos'}`} onClick={onCartOpen}
           style={{
             flexShrink: 0,
             display: "flex", alignItems: "center", gap: 7,
@@ -163,7 +163,7 @@ const MarketplaceHeader = ({
         {!isGuest && (
           <div ref={menuRef} style={{ position: "relative", flexShrink: 0 }}>
             <button
-              onClick={() => setMenuOpen(!menuOpen)}
+              aria-label="Menú de cuenta" aria-expanded={menuOpen} onKeyDown={e=>{if(e.key==="Escape")setMenuOpen(false);}} onClick={() => setMenuOpen(!menuOpen)}
               style={{
                 display: "flex", alignItems: "center", gap: 8,
                 background: menuOpen ? `rgba(99,153,34,.18)` : "rgba(255,255,255,.07)",
@@ -289,7 +289,7 @@ const MarketplaceHeader = ({
         {/* ── Botón de login para invitados ── */}
         {isGuest && (
           <button
-            onClick={onLoginClick}
+            aria-label="Iniciar sesión" onClick={onLoginClick}
             style={{
               flexShrink: 0,
               display: "flex", alignItems: "center", gap: 7,
@@ -328,6 +328,7 @@ const MarketplaceHeader = ({
             return (
               <button
                 key={c.id}
+                aria-pressed={isActive}
                 onClick={() => {
                   onCatFilter(isActive && c.id !== "" ? "" : String(c.id));
                   onNav("catalogo");

@@ -12,7 +12,7 @@ const USUARIOS_MOCK   = [{ id: 1 }, { id: 2 }];
 const PROVEEDORES_MOCK = [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }];
 
 beforeEach(() => {
-  global.fetch = vi.fn().mockImplementation((url) => {
+  globalThis.fetch = vi.fn().mockImplementation((url) => {
     if (url.includes("/productos"))    return Promise.resolve({ ok: true, json: async () => PRODUCTOS_MOCK });
     if (url.includes("/pedidos"))      return Promise.resolve({ ok: true, json: async () => PEDIDOS_MOCK });
     if (url.includes("/usuario"))      return Promise.resolve({ ok: true, json: async () => USUARIOS_MOCK });
@@ -69,7 +69,7 @@ describe("AdminDashboard — Pedidos recientes", () => {
   });
 
   test("muestra EmptyState si no hay pedidos", async () => {
-    global.fetch = vi.fn().mockImplementation((url) => {
+    globalThis.fetch = vi.fn().mockImplementation((url) => {
       if (url.includes("/pedidos")) return Promise.resolve({ ok: true, json: async () => [] });
       return Promise.resolve({ ok: true, json: async () => [] });
     });

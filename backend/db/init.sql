@@ -2,13 +2,13 @@
 -- Schema completo mxfacil (incluye todas las migraciones)
 -- =========================================
 
-DROP DATABASE IF EXISTS mxfacil;
-CREATE DATABASE mxfacil
+CREATE DATABASE IF NOT EXISTS mxfacil
   CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE mxfacil;
 
 -- 1️⃣ USUARIOS Y DIRECCIONES
 CREATE TABLE usuario (
+  clave_literal TINYINT(1) NOT NULL DEFAULT 1,
   id             INT AUTO_INCREMENT PRIMARY KEY,
   nombre         VARCHAR(120)  NOT NULL,
   email          VARCHAR(180)  NOT NULL UNIQUE,
@@ -23,6 +23,16 @@ CREATE TABLE usuario (
 ) ENGINE=InnoDB;
 
 CREATE INDEX idx_usuario_google_id ON usuario(google_id);
+
+CREATE TABLE oauth_intercambio (
+  codigo_hash CHAR(64) CHARACTER SET ascii PRIMARY KEY,
+  usuario_id INT NOT NULL,
+  reto CHAR(64) CHARACTER SET ascii NOT NULL,
+  intentos TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  vence DATETIME NOT NULL,
+  INDEX idx_oauth_vence (vence),
+  FOREIGN KEY (usuario_id) REFERENCES usuario(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
 
 CREATE TABLE direccion (
   id          INT AUTO_INCREMENT PRIMARY KEY,
@@ -57,22 +67,14 @@ CREATE TABLE proveedor (
 CREATE TABLE categoria (
   id     INT AUTO_INCREMENT PRIMARY KEY,
   nombre VARCHAR(100) NOT NULL UNIQUE,
-  tipo   ENUM('perecedero','no_perecedero') NOT NULL DEFAULT 'perecedero'
+  tipo   ENUM('perecedero','no_perecedero') NOT NULL DEFAULT 'perecedero',
+  en_catalogo TINYINT(1) NOT NULL DEFAULT 1
 ) ENGINE=InnoDB;
 
 INSERT INTO categoria (nombre, tipo) VALUES
-  ('Frutas y verduras',       'perecedero'),
-  ('Lácteos y huevos',        'perecedero'),
-  ('Carnes y embutidos',      'perecedero'),
-  ('Mariscos y pescados',     'perecedero'),
-  ('Pan y tortillas',         'perecedero'),
-  ('Granos y legumbres',      'no_perecedero'),
-  ('Aceites y grasas',        'no_perecedero'),
-  ('Enlatados y conservas',   'no_perecedero'),
-  ('Bebidas',                 'no_perecedero'),
-  ('Condimentos y especias',  'no_perecedero'),
-  ('Harinas, azúcar y sal',   'no_perecedero'),
-  ('Dulces y botanas',        'no_perecedero');
+  ('Frutas y verduras',  'perecedero'),
+  ('Granos y legumbres', 'no_perecedero'),
+  ('Semillas',           'no_perecedero');
 
 CREATE TABLE producto (
   id           INT AUTO_INCREMENT PRIMARY KEY,
@@ -106,6 +108,14 @@ CREATE TABLE pedido (
   fecha        DATETIME DEFAULT CURRENT_TIMESTAMP,
   estado       ENUM('esperando_pago','pendiente','en_proceso','enviado','entregado','cancelado') DEFAULT 'pendiente',
   total        DECIMAL(12,2) NOT NULL,
+  subtotal     DECIMAL(12,2) NOT NULL DEFAULT 0,
+  iva          DECIMAL(12,2) NOT NULL DEFAULT 0,
+  comision     DECIMAL(12,2) NOT NULL DEFAULT 0,
+  stock_reservado TINYINT(1) NOT NULL DEFAULT 0,
+  direccion_entrega JSON DEFAULT NULL,
+  clave_checkout VARCHAR(64) DEFAULT NULL,
+  solicitud_hash CHAR(64) DEFAULT NULL,
+  UNIQUE KEY uq_pedido_checkout (usuario_id, clave_checkout),
   FOREIGN KEY (usuario_id)   REFERENCES usuario(id)   ON DELETE RESTRICT ON UPDATE CASCADE,
   FOREIGN KEY (direccion_id) REFERENCES direccion(id) ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB;

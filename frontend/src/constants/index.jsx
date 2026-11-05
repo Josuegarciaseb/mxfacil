@@ -1,4 +1,5 @@
 export const STATUS_BADGE_MAP = {
+  esperando_pago: "badge-amber",
   pendiente: "badge-amber",
   en_proceso: "badge-blue",
   enviado: "badge-blue",
@@ -12,6 +13,7 @@ export const STATUS_BADGE_MAP = {
 };
 
 export const STATUS_LABELS = {
+  esperando_pago: "Esperando pago",
   pendiente: "Pendiente",
   en_proceso: "En proceso",
   enviado: "Enviado",

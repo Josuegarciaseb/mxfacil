@@ -4,6 +4,8 @@
   "description": "Backend API seguro para Comercio Fácil México",
   "main": "src/server.js",
   "scripts": {
+    "test": "node --test test/checkout.test.js",
+    "audit:serve": "node test/serve-local.js",
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
     "docker:build": "docker-compose build",
@@ -14,7 +16,6 @@
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
-    "csurf": "^1.11.0",
     "dotenv": "^16.6.1",
     "express": "^4.19.0",
     "express-rate-limit": "^7.5.1",
@@ -32,5 +33,10 @@
   },
   "devDependencies": {
     "nodemon": "^3.1.0"
+  },
+  "overrides": {
+    "mercadopago": {
+      "uuid": "11.1.1"
+    }
   }
 }

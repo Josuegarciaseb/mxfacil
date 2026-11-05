@@ -86,12 +86,8 @@ exports.listProveedores = async (req, res) => {
         id,
         nombre,
         tipo,
-        contacto_email,
-        telefono,
-        rfc,
-        verificado,
-        verificado_en,
-        motivo_rechazo
+        verificado
+        ${req.user?.rol === 'admin' ? ', contacto_email, telefono, rfc, verificado_en, motivo_rechazo' : ''}
       FROM proveedor
       ${where}
       ORDER BY nombre ASC

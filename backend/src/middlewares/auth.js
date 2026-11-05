@@ -11,7 +11,7 @@ module.exports = async function auth(req, res, next) {
   const token = authHeader.split(' ')[1];
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET, {algorithms:['HS256']});
     // decoded: { id, rol, iat, exp }
 
     // opcional: verificar que el usuario siga existiendo
@@ -20,13 +20,13 @@ module.exports = async function auth(req, res, next) {
       [decoded.id]
     );
     if (!rows.length) {
-      return res.status(401).json({ message: 'Usuario no encontrado' });
+      return res.status(401).json({code:'SESSION_EXPIRED', message:'Usuario no encontrado'});
     }
 
     req.user = rows[0]; // {id, nombre, email, rol}
     next();
   } catch (err) {
-    console.error(err);
-    return res.status(401).json({ message: 'Token inválido o expirado' });
+    if (!['JsonWebTokenError','TokenExpiredError','NotBeforeError'].includes(err.name)) return next(err);
+    return res.status(401).json({code:'SESSION_EXPIRED', message:'Token inválido o expirado'});
   }
 };

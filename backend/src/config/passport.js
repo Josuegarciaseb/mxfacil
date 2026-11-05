@@ -2,7 +2,7 @@ const passport       = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const pool           = require('./db');
 
-passport.use(
+if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) passport.use(
   new GoogleStrategy(
     {
       clientID:     process.env.GOOGLE_CLIENT_ID,
@@ -11,22 +11,25 @@ passport.use(
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
-        const email  = profile.emails?.[0]?.value;
+        const email  = profile.emails?.[0]?.value?.trim().toLowerCase();
         const nombre = profile.displayName;
 
-        if (!email) return done(new Error('Google no proporcionó email'), null);
+        if (!email || profile.emails[0].verified !== true) return done(null,false);
 
-        let [rows] = await pool.query(
-          'SELECT id, nombre, email, rol FROM usuario WHERE google_id = ? OR email = ?',
+        const [rows] = await pool.query(
+          'SELECT id, nombre, email, rol, google_id FROM usuario WHERE google_id = ? OR email = ?',
           [profile.id, email]
         );
 
+        if (rows.length > 1) return done(null, false);
         if (rows.length) {
           const usuario = rows[0];
-          await pool.query(
-            'UPDATE usuario SET google_id = ? WHERE id = ? AND google_id IS NULL',
-            [profile.id, usuario.id]
-          );
+          if (usuario.google_id && usuario.google_id !== profile.id) return done(null,false);
+          if (!usuario.google_id && !email.endsWith('@gmail.com') && !profile._json?.hd) return done(null,false);
+          if (!usuario.google_id) {
+            const [linked] = await pool.query('UPDATE usuario SET google_id = ? WHERE id = ? AND google_id IS NULL', [profile.id, usuario.id]);
+            if (!linked.affectedRows) return done(null, false);
+          }
           return done(null, usuario);
         }
 

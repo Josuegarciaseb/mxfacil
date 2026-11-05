@@ -13,7 +13,7 @@ const PEDIDOS_MOCK   = [
 ];
 
 beforeEach(() => {
-  global.fetch = vi.fn().mockImplementation((url) => {
+  globalThis.fetch = vi.fn().mockImplementation((url) => {
     if (url.includes("/proveedores/me"))  return Promise.resolve({ ok: true, json: async () => ({ id: 5 }) });
     if (url.includes("/productos"))       return Promise.resolve({ ok: true, json: async () => PRODUCTOS_MOCK });
     if (url.includes("/pedidos"))         return Promise.resolve({ ok: true, json: async () => PEDIDOS_MOCK });
@@ -68,7 +68,7 @@ describe("VendedorDashboard — Pedidos recientes", () => {
   });
 
   test("muestra EmptyState si no hay pedidos", async () => {
-    global.fetch = vi.fn().mockImplementation((url) => {
+    globalThis.fetch = vi.fn().mockImplementation((url) => {
       if (url.includes("/pedidos")) return Promise.resolve({ ok: true, json: async () => [] });
       return Promise.resolve({ ok: true, json: async () => [] });
     });
@@ -81,7 +81,7 @@ describe("VendedorDashboard — Sin proveedor_id en user", () => {
   test("hace fetch a /proveedores/me si user.proveedor_id es null", async () => {
     render(<VendedorDashboard token="fake" user={USER_SIN_PROVEEDOR_ID} />);
     expect(await screen.findByText("Mi Panel")).toBeInTheDocument();
-    const llamadas = global.fetch.mock.calls.map(([url]) => url);
+    const llamadas = globalThis.fetch.mock.calls.map(([url]) => url);
     expect(llamadas.some((url) => url.includes("/proveedores/me"))).toBe(true);
   });
 });
