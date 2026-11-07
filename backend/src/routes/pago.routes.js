@@ -19,6 +19,7 @@ router.post('/mercadopago/preference', auth, pagoCtrl.createMercadoPagoPreferenc
 router.post('/mercadopago/webhook', pagoCtrl.handleMercadoPagoWebhook);
 
 // General
+router.get('/metodos', (req,res)=>res.json(require('../utils/payment-methods')()));
 router.get('/pedido/:pedidoId', auth, pagoCtrl.getPagoByPedido);
 router.patch('/:id/estado', auth, isAdmin, pagoCtrl.updateEstadoPago);
 

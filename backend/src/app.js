@@ -79,7 +79,7 @@ app.use((req, res, next) => {
 });
 
 // 2. CORS
-const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:5173').split(',');
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:5173,http://127.0.0.1:5173').split(',').map(s=>s.trim());
 app.use(cors({
   origin: (origin, cb) => {
     // Permitir peticiones sin origin (Postman, Railway health checks, etc.)
@@ -94,10 +94,10 @@ app.use(cors({
 // 3. PARSERS
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
-app.use(cookieParser());
+app.use(cookieParser(process.env.HMAC_SECRET || process.env.JWT_SECRET));
 
 // 3b. Archivos estáticos — imágenes de productos
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+app.use('/uploads', (req,res,next) => { res.setHeader('Cross-Origin-Resource-Policy','cross-origin'); next(); }, express.static(path.join(__dirname, '../uploads'), {maxAge:'1d',immutable:true}));
 
 // 4. RATE LIMITING
 const isProd = process.env.NODE_ENV === 'production';
@@ -161,10 +161,17 @@ app.get('/api/health', (req, res) => {
 });
 
 // 10. ERROR HANDLER
+app.use('/api', (req,res) => res.status(404).json({message:'Ruta no encontrada'}));
 app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
   if (err.message?.includes('CORS')) return res.status(403).json({ message: err.message });
-  console.error(err);
-  res.status(500).json({ message: 'Internal server error' });
+  if (err.type === 'entity.parse.failed') return res.status(400).json({message:'JSON inválido'});
+  if (err.type === 'entity.too.large') return res.status(413).json({message:'La solicitud es demasiado grande'});
+  if (err.code === 'LIMIT_FILE_SIZE') return res.status(413).json({message:'La imagen supera el límite de 5 MB'});
+  if (['ECONNREFUSED','ETIMEDOUT','PROTOCOL_CONNECTION_LOST'].includes(err.code)) return res.status(503).json({message:'Servicio temporalmente no disponible'});
+  if (err.status >= 400 && err.status < 600) return res.status(err.status).json({message:err.message});
+  console.error('API error:', err.code || err.name); // Avoid logging credentials, SQL values or raw provider payloads.
+  res.status(500).json({ message: 'No se pudo completar la solicitud. Intenta de nuevo.' });
 });
 
 module.exports = app;

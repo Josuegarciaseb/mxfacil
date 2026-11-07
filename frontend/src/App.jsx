@@ -3,7 +3,9 @@ import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-
 
 import { injectStyles }      from "./styles/globalStyles";
 import { useBreakpoint }     from "./hooks/useBreakpoint";
-import { fetchCsrfToken }   from "./utils/csrf";
+import { http } from './utils/api';
+import { exchangeGoogle } from './utils/google-auth';
+import { cartKey, cartTotals, money, readCart, mergeCart, refreshCart } from './utils/cart';
 
 import Icon                  from "./components/ui/Icon";
 import Sidebar               from "./components/layout/Sidebar";
@@ -63,7 +65,6 @@ const getDefaultPath = (u) =>
   u?.rol === "admin"    ? "/admin/dashboard"    :
   u?.rol === "vendedor" ? "/vendedor/dashboard" :
                           "/catalogo";
-const getStoredCart  = () => { try { return JSON.parse(localStorage.getItem("guest_cart")) || []; } catch { return []; } };
 
 const MKT_H_DESKTOP = 112;
 const MKT_H_SMALL   = 58;
@@ -79,7 +80,10 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [cartOpen,    setCartOpen]    = useState(false);
 
-  const [cart, setCart] = useState(() => !getStoredUser() ? getStoredCart() : []);
+  const [cart, setCart] = useState(() => readCart(getStoredUser()));
+  const [resumePayment, setResumePayment] = useState(null);
+  const [returnToCart, setReturnToCart] = useState(false);
+  const syncProducts = useCallback(products => setCart(c => refreshCart(c,products)), []);
 
   const [catalogSearch,     setCatalogSearch]     = useState("");
   const [catalogCat,        setCatalogCat]        = useState("");
@@ -88,21 +92,38 @@ export default function App() {
   const { isDesktop, isSmall } = useBreakpoint();
 
   useEffect(() => { injectStyles(); }, []);
-  useEffect(() => { if (isDesktop) setSidebarOpen(false); }, [isDesktop]);
+  useEffect(() => {
+    const expired = () => {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      setUser(null);
+      setToken(null);
+      setCart(readCart(null));
+      setCartOpen(false);
+      setResumePayment(null);
+      navigate('/auth', {replace:true, state:{from:location}});
+    };
+    window.addEventListener('tienda:sesion-expirada',expired);
+    return () => window.removeEventListener('tienda:sesion-expirada',expired);
+  }, [location,navigate]);
+  useEffect(() => {
+    const titles = {'/catalogo':'Productos del campo al mayoreo','/auth':'Acceso','/mis-pedidos':'Mis pedidos','/mis-direcciones':'Mis direcciones','/mi-perfil':'Mi perfil','/pago-retorno':'Estado del pago'};
+    document.title = `${titles[location.pathname] || 'Tienda'} · Comercio Fácil México`;
+  }, [location.pathname]);
 
-  // Obtener token CSRF al montar la app (antes de cualquier formulario)
-  useEffect(() => { fetchCsrfToken().catch(() => {}); }, []);
-
-  // Intercambio OAuth: canjea cookie HttpOnly → token en localStorage
+  // The browser verifier binds the one-time callback to this tab across origins.
   useEffect(() => {
     if (location.pathname !== "/oauth-success") return;
 
-    const BASE = import.meta.env.VITE_API_URL || "http://localhost:3000";
-
-    fetch(`${BASE}/api/auth/session`, { credentials: "include" })
-      .then((r) => r.json())
+    let active = true;
+    const code = new URLSearchParams(location.hash.slice(1)).get('code');
+    exchangeGoogle(code)
       .then((data) => {
+        if (!active) return;
         if (data.token && data.user) {
+          const guest = readCart(null);
+          setCart(mergeCart(readCart(data.user),guest));
+          setCartOpen(data.user.rol === 'cliente' && guest.length > 0);
           localStorage.setItem("token", data.token);
           localStorage.setItem("user", JSON.stringify(data.user));
           localStorage.removeItem("guest_cart");
@@ -113,28 +134,41 @@ export default function App() {
           navigate("/catalogo", { replace: true });
         }
       })
-      .catch(() => navigate("/catalogo", { replace: true }));
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+      .catch(error => {
+        if (!active) return;
+        navigate(error.message === 'Se requiere código MFA' ? '/auth?google_mfa=1' : '/auth?oauth_error=restart',{replace:true});
+      });
+    return ()=>{active=false;};
+  }, [location.pathname,location.hash,navigate]);
 
-  // Persiste carrito de invitado en localStorage
+  // Un carrito por cliente; cerrar sesión nunca lo comparte con el siguiente.
   useEffect(() => {
-    if (!user) localStorage.setItem("guest_cart", JSON.stringify(cart));
+    localStorage.setItem(cartKey(user), JSON.stringify(cart));
   }, [cart, user]);
 
   /* ── Auth handlers ──────────────────────────────────────── */
   const handleLogin = (u, t) => {
+    setCart(mergeCart(readCart(u),cart));
+    setCartOpen(returnToCart && u.rol === 'cliente');
+    setReturnToCart(false);
     localStorage.removeItem("guest_cart");
     setUser(u);
     setToken(t);
-    navigate(getDefaultPath(u));
+    const from = location.state?.from;
+    const destination = from && PATH_TO_PAGE[from.pathname] && from.pathname !== '/auth'
+      ? from.pathname + (from.search || '') : getDefaultPath(u);
+    navigate(destination,{replace:true});
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try { await http('/auth/logout', {method:'POST'}, token); } catch { /* local sign-out remains possible offline */ }
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     setUser(null);
     setToken(null);
     setCart([]);
+    setCartOpen(false);
+    setResumePayment(null);
     navigate("/catalogo");
   };
 
@@ -268,6 +302,8 @@ export default function App() {
             <ClientCatalogo
               token={token}
               setCart={setCart}
+              cart={cart}
+              onProductsFetched={syncProducts}
               externalSearch={catalogSearch}
               externalCatFilter={catalogCat}
               onCatFilter={setCatalogCat}
@@ -289,7 +325,7 @@ export default function App() {
           <Route path="/pago-retorno" element={<PaymentReturn />} />
 
           {/* ── Rutas cliente ── */}
-          <Route path="/mis-pedidos"    element={clienteOnly(<ClientPedidos    token={token} />)} />
+          <Route path="/mis-pedidos" element={clienteOnly(<ClientPedidos token={token} onResume={step=>{setResumePayment(step);setCartOpen(true);}} />)} />
           <Route path="/mis-direcciones" element={clienteOnly(<ClientDirecciones token={token} />)} />
           <Route path="/mi-perfil"      element={clienteOnly(<ClientPerfil     token={token} user={user} onUpdate={handleUserUpdate} />)} />
 
@@ -341,19 +377,22 @@ export default function App() {
           }}
         >
           <Icon name="cart" size={18} />
-          {cartCount} {cartCount === 1 ? "producto" : "productos"} · ${cart.reduce((s, i) => s + i.precio * i.qty, 0).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          {cartCount} {cartCount === 1 ? "producto" : "productos"} · ${money(cartTotals(cart).total)}
         </button>
       )}
 
       {/* ── Modal carrito ── */}
-      {(isCliente || isGuest) && (
+      {cartOpen && (isCliente || isGuest) && (
         <CartModal
           open={cartOpen}
-          onClose={() => setCartOpen(false)}
+          onClose={() => {setCartOpen(false);setResumePayment(null);}}
+          initialPayment={resumePayment}
+          userId={user?.id}
+          onOrdered={id=>{setCartOpen(false);setResumePayment(null);navigate(`/mis-pedidos?pedido_id=${id}`,{state:{updated:Date.now()}});}}
           cart={cart}
           setCart={setCart}
           token={token}
-          onNeedAuth={() => { setCartOpen(false); navigate("/auth"); }}
+          onNeedAuth={() => { setCartOpen(false); setReturnToCart(true); navigate("/auth"); }}
         />
       )}
     </>

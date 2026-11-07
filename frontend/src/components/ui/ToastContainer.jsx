@@ -1,15 +1,21 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { setToastFn } from "../../utils/toast";
 import Icon from "./Icon";
 
 const ToastContainer = () => {
   const [toasts, setToasts] = useState([]);
 
-  setToastFn((msg, type) => {
-    const id = Date.now();
+  useEffect(()=>{
+    const timers = new Set();
+    let sequence = 0;
+    setToastFn((msg, type) => {
+    const id = ++sequence;
     setToasts((p) => [...p, { id, msg, type }]);
-    setTimeout(() => setToasts((p) => p.filter((t) => t.id !== id)), 3500);
-  });
+    const timer = setTimeout(() => { setToasts((p) => p.filter((t) => t.id !== id)); timers.delete(timer); }, 3500);
+    timers.add(timer);
+    });
+    return ()=>{setToastFn(null);timers.forEach(clearTimeout);};
+  },[]);
 
   return (
     <div
@@ -18,7 +24,7 @@ const ToastContainer = () => {
         bottom: 16,
         right: 16,
         left: 16,
-        zIndex: 9999,
+        zIndex: 10001,
         display: "flex",
         flexDirection: "column",
         gap: 8,
@@ -28,6 +34,7 @@ const ToastContainer = () => {
       {toasts.map((t) => (
         <div
           key={t.id}
+          role={t.type === 'error' ? 'alert' : 'status'}
           style={{
             background:
               t.type === "error"

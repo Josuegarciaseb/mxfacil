@@ -6,17 +6,17 @@ import ClientCatalogo from "../pages/client/Catalogo";
 const PRODUCTOS_MOCK = [
   { id: 1, nombre: "Caja de mangos",  precio: 350, categoria_id: 1, categoria_nombre: "Frutas y verduras",  proveedor_nombre: "Proveedor A", stock: 20, activo: 1 },
   { id: 2, nombre: "Saco de arroz",   precio: 120, categoria_id: 6, categoria_nombre: "Granos y legumbres", proveedor_nombre: "Proveedor B", stock: 50, activo: 1 },
-  { id: 3, nombre: "Aceite vegetal",  precio: 45,  categoria_id: 7, categoria_nombre: "Aceites y grasas",   proveedor_nombre: "Proveedor C", stock: 0,  activo: 1 },
+  { id: 3, nombre: "Semilla de calabaza", precio: 45, categoria_id: 13, categoria_nombre: "Semillas",       proveedor_nombre: "Proveedor C", stock: 0,  activo: 1 },
 ];
 
 const CATEGORIAS_MOCK = [
   { id: 1, nombre: "Frutas y verduras" },
   { id: 6, nombre: "Granos y legumbres" },
-  { id: 7, nombre: "Aceites y grasas" },
+  { id: 13, nombre: "Semillas" },
 ];
 
 beforeEach(() => {
-  global.fetch = vi.fn().mockImplementation((url) => {
+  globalThis.fetch = vi.fn().mockImplementation((url) => {
     if (url.includes("/categorias"))
       return Promise.resolve({ ok: true, json: async () => CATEGORIAS_MOCK });
     return Promise.resolve({ ok: true, json: async () => PRODUCTOS_MOCK });
@@ -54,6 +54,13 @@ describe("Catalogo — Renderizado", () => {
 
 
 describe("Catalogo — Búsqueda", () => {
+  test("filtra las semillas por el ID recibido de la API", async () => {
+    render(<ClientCatalogo {...baseProps} externalCatFilter="13" />);
+    expect(await screen.findByText("Semilla de calabaza")).toBeInTheDocument();
+    expect(screen.getByRole("heading", {name:"Semillas"})).toBeInTheDocument();
+    expect(screen.queryByText("Caja de mangos")).not.toBeInTheDocument();
+  });
+
   test("filtra productos al recibir externalSearch", async () => {
     const { rerender } = render(<ClientCatalogo {...baseProps} />);
     await screen.findByText("Caja de mangos");

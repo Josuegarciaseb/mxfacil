@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useId } from "react";
 import { http }          from "../utils/api";
+import { startGoogle, exchangeGoogle } from '../utils/google-auth';
 import { toast }         from "../utils/toast";
 import { useBreakpoint } from "../hooks/useBreakpoint";
 import Icon              from "../components/ui/Icon";
@@ -30,13 +31,6 @@ const FEATURES = [
   "Gestión de inventario en tiempo real",
 ];
 
-const HomeIcon = ({ size = 22 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
-    stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
-    <polyline points="9 22 9 12 15 12 15 22"/>
-  </svg>
-);
 
 const CheckCircle = () => (
   <div style={{
@@ -60,9 +54,11 @@ const Spin = () => (
   }} />
 );
 
-const Field = ({ label, hint, icon, type = "text", value, onChange, onKeyDown, placeholder, extra = {}, right = null }) => (
+const Field = ({ label, hint, icon, type = "text", value, onChange, onKeyDown, placeholder, extra = {}, right = null }) => {
+  const id = useId();
+  return (
   <div style={{ marginBottom: 14 }}>
-    <label style={{ display: "block", fontSize: "0.78rem", fontWeight: 500, color: MUTED, marginBottom: 6, letterSpacing: "0.02em", fontFamily: "'Sora', sans-serif" }}>
+    <label htmlFor={id} style={{ display: "block", fontSize: "0.78rem", fontWeight: 500, color: MUTED, marginBottom: 6, letterSpacing: "0.02em", fontFamily: "'Sora', sans-serif" }}>
       {label}
     </label>
     <div style={{ position: "relative" }}>
@@ -71,7 +67,7 @@ const Field = ({ label, hint, icon, type = "text", value, onChange, onKeyDown, p
         color: BORDER, pointerEvents: "none", zIndex: 1, transition: "color .2s",
       }} />
       <input
-        type={type}
+        id={id} aria-describedby={hint ? `${id}-hint` : undefined} type={type}
         value={value}
         onChange={onChange}
         onKeyDown={onKeyDown}
@@ -89,9 +85,11 @@ const Field = ({ label, hint, icon, type = "text", value, onChange, onKeyDown, p
       />
       {right}
     </div>
-    {hint && <p style={{ fontSize: "0.72rem", color: MUTED, marginTop: 4, fontFamily: "'Sora',sans-serif" }}>{hint}</p>}
+    {hint && <p id={`${id}-hint`} style={{ fontSize: "0.72rem", color: MUTED, marginTop: 4, fontFamily: "'Sora',sans-serif" }}>{hint}</p>}
   </div>
 );
+
+};
 
 /* ─────────────────────────────────────────── */
 const AuthPage = ({ onLogin, onBack }) => {
@@ -101,7 +99,8 @@ const AuthPage = ({ onLogin, onBack }) => {
   const [showPwd, setShowPwd] = useState(false);
 
   // MFA: cuando el servidor pide el código TOTP
-  const [mfaPending, setMfaPending] = useState(null); // { email, password }
+  const [mfaPending, setMfaPending] = useState(()=>new URLSearchParams(window.location.search).has('google_mfa') && sessionStorage.getItem('google_code') ? {google:true} : null);
+  const oauthError = new URLSearchParams(window.location.search).get('oauth_error');
   const [totpCode,   setTotpCode]   = useState("");
 
   const { isMobile } = useBreakpoint();
@@ -149,7 +148,7 @@ const AuthPage = ({ onLogin, onBack }) => {
     if (totpCode.length !== 6) { toast("El código debe tener 6 dígitos", "error"); return; }
     setLoading(true);
     try {
-      const data = await http("/auth/login", {
+      const data = mfaPending.google ? await exchangeGoogle(sessionStorage.getItem('google_code'),totpCode) : await http("/auth/login", {
         method: "POST",
         body: JSON.stringify({ email: mfaPending.email, password: mfaPending.password, totp_code: totpCode }),
       });
@@ -169,7 +168,7 @@ const AuthPage = ({ onLogin, onBack }) => {
   const onKeyTotp  = (e) => { if (e.key === "Enter") submitTotp(); };
 
   /* ── Panel izquierdo ── */
-  const LeftPanel = () => (
+  const leftPanel = (
     <div style={{
       width: "48%", background: G900,
       display: "flex", flexDirection: "column", justifyContent: "space-between",
@@ -255,7 +254,7 @@ const AuthPage = ({ onLogin, onBack }) => {
   );
 
   /* ── Pantalla TOTP ── */
-  const TotpScreen = () => (
+  const totpScreen = (
     <div style={{ width: "100%", maxWidth: 400, animation: "fadeUp 0.4s ease both" }}>
       {/* Icono escudo */}
       <div style={{
@@ -287,6 +286,8 @@ const AuthPage = ({ onLogin, onBack }) => {
         <input
           type="text"
           inputMode="numeric"
+          aria-label="Código de verificación de seis dígitos"
+          autoComplete="one-time-code"
           maxLength={6}
           value={totpCode}
           onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
@@ -343,7 +344,7 @@ const AuthPage = ({ onLogin, onBack }) => {
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: isMobile ? "column" : "row", background: SAND }}>
 
-      {!isMobile && <LeftPanel />}
+      {!isMobile && leftPanel}
 
       <div style={{
         flex: 1, display: "flex", flexDirection: "column",
@@ -354,7 +355,7 @@ const AuthPage = ({ onLogin, onBack }) => {
 
         {/* ── Pantalla TOTP ── */}
         {mfaPending ? (
-          <TotpScreen />
+          totpScreen
         ) : (
 
         <div style={{ width: "100%", maxWidth: 400, animation: "fadeUp 0.5s ease both" }}>
@@ -477,7 +478,7 @@ const AuthPage = ({ onLogin, onBack }) => {
             right={
               <button
                 type="button"
-                onClick={() => setShowPwd((p) => !p)}
+                aria-label={showPwd ? "Ocultar contraseña" : "Mostrar contraseña"} onClick={() => setShowPwd((p) => !p)}
                 style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", padding: 4, color: MUTED, display: "flex" }}
               >
                 <Icon name="eye" size={16} />
@@ -526,9 +527,10 @@ const AuthPage = ({ onLogin, onBack }) => {
             <div style={{ flex: 1, height: 1, background: BORDER }} />
           </div>
 
+          {oauthError && <p role="alert">{oauthError === 'cancelled' ? 'Cancelaste el acceso con Google.' : oauthError === 'unavailable' ? 'El acceso con Google no está disponible.' : 'No se pudo verificar el acceso con Google. Inicia sesión de nuevo.'}</p>}
           <button
             type="button"
-            onClick={() => { window.location.href = `${import.meta.env.VITE_API_URL || "http://localhost:3000"}/api/auth/google`; }}
+            onClick={() => startGoogle().catch(()=>toast('No se pudo iniciar el acceso con Google','error'))}
             style={{
               width: "100%", height: 48,
               background: "#fff", border: `1.5px solid ${BORDER}`,

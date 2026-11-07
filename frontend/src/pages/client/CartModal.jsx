@@ -1,4 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, lazy, Suspense } from "react";
+import { cartTotals, gross, money, refreshCart } from '../../utils/cart';
+import { useDialog } from '../../hooks/useDialog';
 import { createPortal } from "react-dom";
 import { http } from "../../utils/api";
 import { toast } from "../../utils/toast";
@@ -8,59 +10,58 @@ import Btn from "../../components/ui/Btn";
 import EmptyState from "../../components/ui/EmptyState";
 import { SelectField, InputField } from "../../components/ui/FormFields";
 import Icon from "../../components/ui/Icon";
-import StripeCheckout from "../../components/payments/StripeCheckout";
-import PayPalCheckout from "../../components/payments/PayPalCheckout";
-import MercadoPagoCheckout from "../../components/payments/MercadoPagoCheckout";
+const StripeCheckout = lazy(()=>import('../../components/payments/StripeCheckout'));
+const PayPalCheckout = lazy(()=>import('../../components/payments/PayPalCheckout'));
+const MercadoPagoCheckout = lazy(()=>import('../../components/payments/MercadoPagoCheckout'));
 
 const DIGITAL_METHODS = ["tarjeta", "paypal", "mercadopago"];
 
 const EMPTY_ADDR = { linea1: "", ciudad: "", estado: "", cp: "", pais: "Mexico", es_principal: true };
 
-const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth }) => {
+const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth, initialPayment, userId, onOrdered }) => {
   const [direcciones, setDirecciones]   = useState([]);
-  const [orderForm,   setOrderForm]     = useState({ direccion_id: "", metodo_pago: "tarjeta" });
+  const [orderForm,   setOrderForm]     = useState({ direccion_id: "", metodo_pago: "" });
+  const [methods, setMethods] = useState([]);
+  const [loadError, setLoadError] = useState('');
+  const [retry, setRetry] = useState(0);
+  const submitting = useRef(false);
   const [placing,     setPlacing]       = useState(false);
-  const [paymentStep, setPaymentStep]   = useState(null); // { pedidoId, monto, metodo }
+  const [paymentStep, setPaymentStep]   = useState(initialPayment || null);
   const [showAddrForm, setShowAddrForm] = useState(false);
   const [addrForm,  setAddrForm]        = useState(EMPTY_ADDR);
   const [savingAddr, setSavingAddr]     = useState(false);
   const { isMobile } = useBreakpoint();
 
-  const loadDirecciones = (tkn) => {
-    http("/direcciones", {}, tkn ?? token)
-      .then((d) => {
-        setDirecciones(d);
-        if (d.length) setOrderForm((f) => ({ ...f, direccion_id: d[0].id }));
-      })
-      .catch(() => {});
-  };
-
+  const dialog = useDialog(open,placing ? undefined : onClose);
   useEffect(() => {
-    if (!open) return;
-    loadDirecciones();
-  }, [open, token]);
-
-  useEffect(() => {
-    if (!open) {
-      setPaymentStep(null);
-      setShowAddrForm(false);
-      setAddrForm(EMPTY_ADDR);
-    }
-  }, [open]);
+    if (!open || !token || initialPayment) return;
+    let active = true;
+    Promise.all([http('/direcciones',{},token),http('/pagos/metodos',{},token)]).then(([addresses,available])=>{
+      if (!active) return;
+      const options = PAYMENT_METHODS.filter(m=>available.includes(m.value)
+        && (m.value!=='tarjeta' || !!import.meta.env.VITE_STRIPE_PUBLIC_KEY)
+        && (m.value!=='paypal' || !!import.meta.env.VITE_PAYPAL_CLIENT_ID));
+      setMethods(options); setDirecciones(addresses); setLoadError('');
+      setOrderForm(f=>({...f,direccion_id:addresses[0]?.id || '',metodo_pago:options[0]?.value || ''}));
+    }).catch(()=>{if(active)setLoadError('No pudimos cargar tus direcciones y métodos de pago.');});
+    return ()=>{ active=false; };
+  }, [open,token,initialPayment,retry]);
 
   const handleSaveAddr = async () => {
-    if (!addrForm.linea1 || !addrForm.ciudad || !addrForm.estado || !addrForm.cp)
+    if (![addrForm.linea1,addrForm.ciudad,addrForm.estado,addrForm.cp].every(s=>s.trim()))
       return toast("Completa todos los campos", "warn");
+    if (!/^\d{5}$/.test(addrForm.cp)) return toast('El código postal debe tener 5 dígitos','warn');
     setSavingAddr(true);
     try {
-      await http("/direcciones", {
+      const address = await http("/direcciones", {
         method: "POST",
         body: JSON.stringify({ ...addrForm, es_principal: 1 }),
       }, token);
       toast("Dirección agregada");
       setShowAddrForm(false);
       setAddrForm(EMPTY_ADDR);
-      loadDirecciones();
+      setDirecciones(d=>[address,...d]);
+      setOrderForm(f=>({...f,direccion_id:address.id}));
     } catch (e) {
       toast(e.message, "error");
     } finally {
@@ -70,31 +71,41 @@ const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth }) => {
 
   const updateQty = (id, qty) => {
     if (qty <= 0) setCart((c) => c.filter((i) => i.id !== id));
-    else setCart((c) => c.map((i) => (i.id === id ? { ...i, qty } : i)));
+    else setCart((c) => c.map((i) => (i.id === id ? { ...i, qty:Math.min(i.stock,qty) } : i)));
   };
 
-  const cartSubtotal = cart.reduce((s, i) => s + i.precio * i.qty, 0);
-  const cartIva      = parseFloat((cartSubtotal * 0.16).toFixed(2));
-  const cartTotal    = parseFloat((cartSubtotal + cartIva).toFixed(2));
+  const {subtotal:cartSubtotal,iva:cartIva,total:cartTotal,lines} = cartTotals(cart);
   const cartCount    = cart.reduce((s, i) => s + i.qty, 0);
 
   const handleConfirm = async () => {
+    if (submitting.current) return;
     if (!orderForm.direccion_id) return toast("Selecciona una dirección", "warn");
+    submitting.current = true;
     setPlacing(true);
     try {
+      const storageKey = `checkout_attempt_${userId}`;
+      const items = cart.map(i=>({producto_id:i.id,cantidad:i.qty}));
+      const fingerprint = JSON.stringify([orderForm.direccion_id,orderForm.metodo_pago,items,cartTotal]);
+      let attempt;
+      try { attempt = JSON.parse(sessionStorage.getItem(storageKey)); } catch { /* discard invalid saved state */ }
+      if (attempt?.fingerprint !== fingerprint) {
+        attempt = {fingerprint,key:crypto.randomUUID()};
+        sessionStorage.setItem(storageKey,JSON.stringify(attempt));
+      }
       const result = await http("/pedidos", {
         method: "POST",
         body: JSON.stringify({
           direccion_id: parseInt(orderForm.direccion_id),
           metodo_pago:  orderForm.metodo_pago,
-          items:        cart.map((i) => ({ producto_id: i.id, cantidad: i.qty })),
+          items, clave_checkout:attempt.key, total_esperado:cartTotal,
         }),
       }, token);
 
-      if (!DIGITAL_METHODS.includes(orderForm.metodo_pago)) {
-        toast("Pedido confirmado!");
+      sessionStorage.removeItem(storageKey);
+      if (!DIGITAL_METHODS.includes(orderForm.metodo_pago) || result.pago.estado === 'aprobado') {
+        toast(`Pedido #${result.pedido.id} confirmado`);
         setCart([]);
-        onClose();
+        onOrdered(result.pedido.id);
         return;
       }
 
@@ -106,7 +117,11 @@ const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth }) => {
       setCart([]);
     } catch (e) {
       toast(e.message, "error");
+      if (e.status===409) {
+        try { const products=await http('/productos',{},token); setCart(c=>refreshCart(c,products)); } catch { /* keep cart on network failure */ }
+      }
     } finally {
+      submitting.current = false;
       setPlacing(false);
     }
   };
@@ -114,7 +129,7 @@ const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth }) => {
   const handlePaymentSuccess = () => {
     toast("Pago completado. ¡Gracias por tu compra!");
     setPaymentStep(null);
-    onClose();
+    onOrdered(paymentStep.pedidoId);
   };
 
   const handlePaymentError = (msg) => {
@@ -142,9 +157,10 @@ const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth }) => {
     : { maxWidth: 520 };
 
   return createPortal(
-    <div className="modal-overlay" style={overlayStyle} onClick={paymentStep ? undefined : onClose}>
+    <div className="modal-overlay" style={overlayStyle} onClick={paymentStep || placing ? undefined : onClose}>
       <div
         className="modal"
+        ref={dialog} role="dialog" aria-modal="true" aria-label={paymentStep ? 'Completar pago' : 'Mi carrito'} tabIndex={-1}
         style={modalStyle}
         onClick={(e) => e.stopPropagation()}
       >
@@ -160,7 +176,7 @@ const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth }) => {
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             {paymentStep && (
               <button
-                onClick={() => setPaymentStep(null)}
+                onClick={() => onOrdered(paymentStep.pedidoId)} aria-label="Ver pedido pendiente"
                 className="btn-ghost"
                 style={{ padding: 6, borderRadius: "50%", marginRight: 2 }}
               >
@@ -174,7 +190,7 @@ const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth }) => {
               <span className="badge badge-red-solid">{cartCount}</span>
             )}
           </div>
-          <button onClick={onClose} className="btn-ghost" style={{ padding: 6, borderRadius: "50%" }}>
+          <button onClick={onClose} disabled={placing} aria-label="Cerrar carrito" className="btn-ghost" style={{ padding: 6, borderRadius: "50%" }}>
             <Icon name="x" size={18} />
           </button>
         </div>
@@ -197,6 +213,7 @@ const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth }) => {
               </span>
             </div>
 
+            <Suspense fallback={<p role="status">Cargando método de pago…</p>}>
             {paymentStep.metodo === "tarjeta" && (
               <StripeCheckout
                 pedidoId={paymentStep.pedidoId}
@@ -225,6 +242,7 @@ const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth }) => {
                 token={token}
               />
             )}
+            </Suspense>
           </div>
         ) : cart.length === 0 ? (
           /* ── CARRITO VACÍO ── */
@@ -269,21 +287,21 @@ const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth }) => {
                             {i.nombre}
                           </div>
                           <div style={{ fontSize: 11, color: "var(--gray-500)", marginTop: 1 }}>
-                            ${(parseFloat(i.precio) * 1.16).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} c/u <span style={{ color: "var(--green)", fontWeight: 600 }}>IVA inc.</span>
+                            ${money(gross(i.precio))} c/u <span style={{ color: "var(--green)", fontWeight: 600 }}>IVA inc.</span>
                           </div>
                         </div>
                         <div style={{ fontWeight: 800, color: "var(--red)", fontSize: 14, flexShrink: 0 }}>
-                          ${(i.precio * 1.16 * i.qty).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          ${money(lines[i.id])}
                         </div>
                       </div>
                       {/* Fila 2: controles cantidad + eliminar */}
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <button onClick={() => updateQty(i.id, i.qty - 1)} style={{ width: 28, height: 28, border: "1.5px solid var(--gray-200)", borderRadius: 6, background: "var(--white)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "var(--gray-600)", fontSize: 16 }}>−</button>
+                          <button aria-label={`Quitar una unidad de ${i.nombre}`} onClick={() => updateQty(i.id, i.qty - 1)} style={{ width: 28, height: 28, border: "1.5px solid var(--gray-200)", borderRadius: 6, background: "var(--white)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "var(--gray-600)", fontSize: 16 }}>−</button>
                           <span style={{ fontWeight: 700, minWidth: 22, textAlign: "center", fontSize: 14 }}>{i.qty}</span>
-                          <button onClick={() => updateQty(i.id, i.qty + 1)} style={{ width: 28, height: 28, border: "1.5px solid var(--gray-200)", borderRadius: 6, background: "var(--white)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "var(--gray-600)", fontSize: 16 }}>+</button>
+                          <button aria-label={`Agregar una unidad de ${i.nombre}`} disabled={i.qty >= i.stock} onClick={() => updateQty(i.id, i.qty + 1)} style={{ width: 28, height: 28, border: "1.5px solid var(--gray-200)", borderRadius: 6, background: "var(--white)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "var(--gray-600)", fontSize: 16 }}>+</button>
                         </div>
-                        <button onClick={() => setCart((c) => c.filter((x) => x.id !== i.id))} className="btn-ghost" style={{ padding: "4px 8px", color: "#dc2626" }}>
+                        <button aria-label={`Eliminar ${i.nombre} del carrito`} onClick={() => setCart((c) => c.filter((x) => x.id !== i.id))} className="btn-ghost" style={{ padding: "4px 8px", color: "#dc2626" }}>
                           <Icon name="trash" size={14} />
                         </button>
                       </div>
@@ -297,18 +315,18 @@ const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth }) => {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: 600, fontSize: 13, color: "var(--gray-900)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{i.nombre}</div>
                         <div style={{ fontSize: 11, color: "var(--gray-500)" }}>
-                          ${(parseFloat(i.precio) * 1.16).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} c/u <span style={{ color: "var(--green)", fontWeight: 600 }}>IVA inc.</span>
+                          ${money(gross(i.precio))} c/u <span style={{ color: "var(--green)", fontWeight: 600 }}>IVA inc.</span>
                         </div>
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-                        <button onClick={() => updateQty(i.id, i.qty - 1)} style={{ width: 26, height: 26, border: "1.5px solid var(--gray-200)", borderRadius: 6, background: "var(--white)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "var(--gray-600)" }}>-</button>
+                        <button aria-label={`Quitar una unidad de ${i.nombre}`} onClick={() => updateQty(i.id, i.qty - 1)} style={{ width: 26, height: 26, border: "1.5px solid var(--gray-200)", borderRadius: 6, background: "var(--white)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "var(--gray-600)" }}>-</button>
                         <span style={{ fontWeight: 700, minWidth: 20, textAlign: "center", fontSize: 14 }}>{i.qty}</span>
-                        <button onClick={() => updateQty(i.id, i.qty + 1)} style={{ width: 26, height: 26, border: "1.5px solid var(--gray-200)", borderRadius: 6, background: "var(--white)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "var(--gray-600)" }}>+</button>
+                        <button aria-label={`Agregar una unidad de ${i.nombre}`} disabled={i.qty >= i.stock} onClick={() => updateQty(i.id, i.qty + 1)} style={{ width: 26, height: 26, border: "1.5px solid var(--gray-200)", borderRadius: 6, background: "var(--white)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "var(--gray-600)" }}>+</button>
                       </div>
                       <div style={{ minWidth: 70, textAlign: "right", flexShrink: 0 }}>
-                        <div style={{ fontWeight: 800, color: "var(--red)", fontSize: 14 }}>${(i.precio * 1.16 * i.qty).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                        <div style={{ fontWeight: 800, color: "var(--red)", fontSize: 14 }}>${money(lines[i.id])}</div>
                       </div>
-                      <button onClick={() => setCart((c) => c.filter((x) => x.id !== i.id))} className="btn-ghost" style={{ padding: 5, color: "#dc2626", flexShrink: 0 }}>
+                      <button aria-label={`Eliminar ${i.nombre} del carrito`} onClick={() => setCart((c) => c.filter((x) => x.id !== i.id))} className="btn-ghost" style={{ padding: 5, color: "#dc2626", flexShrink: 0 }}>
                         <Icon name="trash" size={14} />
                       </button>
                     </div>
@@ -370,7 +388,7 @@ const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth }) => {
                 value={orderForm.metodo_pago}
                 onChange={(e) => setOrderForm((f) => ({ ...f, metodo_pago: e.target.value }))}
               >
-                {PAYMENT_METHODS.map((m) => (
+                {methods.map((m) => (
                   <option key={m.value} value={m.value}>{m.label}</option>
                 ))}
               </SelectField>
@@ -378,7 +396,8 @@ const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth }) => {
             )}
 
             {/* ── Sin direcciones: aviso + botón (solo autenticados) ── */}
-            {token && !direcciones.length && !showAddrForm && (
+            {loadError && <div role="alert">{loadError} <button className="btn-secondary" onClick={()=>setRetry(n=>n+1)}>Reintentar</button></div>}
+            {token && methods.length > 0 && !direcciones.length && !showAddrForm && (
               <div style={{ border: "1.5px dashed #fbbf24", borderRadius: 10, padding: "14px 16px", background: "#fffbeb", display: "flex", flexDirection: "column", gap: 10 }}>
                 <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
                   <Icon name="mapPin" size={16} style={{ color: "#d97706", flexShrink: 0, marginTop: 1 }} />
@@ -403,7 +422,7 @@ const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth }) => {
                   <span style={{ fontSize: 13, fontWeight: 700, color: "var(--gray-800)", display: "flex", alignItems: "center", gap: 6 }}>
                     <Icon name="mapPin" size={14} style={{ color: "var(--red)" }} />Nueva dirección
                   </span>
-                  <button onClick={() => setShowAddrForm(false)} className="btn-ghost" style={{ padding: 4, borderRadius: 6 }}>
+                  <button aria-label="Cerrar formulario de dirección" onClick={() => setShowAddrForm(false)} className="btn-ghost" style={{ padding: 4, borderRadius: 6 }}>
                     <Icon name="x" size={14} />
                   </button>
                 </div>
@@ -506,7 +525,7 @@ const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth }) => {
               </Btn>
               <Btn
                 onClick={handleConfirm}
-                disabled={placing || !direcciones.length || showAddrForm}
+                disabled={placing || !direcciones.length || !orderForm.metodo_pago || !!loadError || showAddrForm}
                 style={{ flex: isMobile ? "unset" : 2, justifyContent: "center" }}
               >
                 {placing

@@ -13,5 +13,6 @@ router.patch('/:id/estado', auth, isAdminOrVendedor, pedCtrl.updateEstadoPedido)
 router.get('/', auth, pedCtrl.listPedidosCliente);
 router.get('/:id', auth, pedCtrl.getPedidoDetalle);
 router.post('/', auth, pedCtrl.createPedido);
+router.post('/:id/cancelar', auth, pedCtrl.cancelPedidoCliente);
 
 module.exports = router;

@@ -22,14 +22,16 @@ function isValidPhone(telefono) {
 
 // Entero positivo (para cantidades, stock, etc.)
 function isPositiveInteger(value) {
+  if (!['string', 'number'].includes(typeof value) || String(value).trim() === '') return false;
   const n = Number(value);
-  return Number.isInteger(n) && n >= 0;
+  return Number.isSafeInteger(n) && n >= 0 && n <= 2147483647;
 }
 
 // Número positivo (para precios, montos, etc.)
 function isPositiveNumber(value) {
+  if (!['string', 'number'].includes(typeof value) || String(value).trim() === '') return false;
   const n = Number(value);
-  return typeof n === 'number' && !isNaN(n) && n >= 0;
+  return Number.isFinite(n) && n >= 0 && n <= 99999999.99;
 }
 
 // CP mexicano: exactamente 5 dígitos

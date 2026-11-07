@@ -68,8 +68,10 @@ exports.updateEnvio = async (req, res) => {
   try {
     await conn.beginTransaction();
 
+    const [parents] = await conn.query('SELECT pedido_id FROM envio WHERE id = ?', [envioId]);
+    const [orders] = await conn.query('SELECT estado FROM pedido WHERE id = ? FOR UPDATE', [parents[0]?.pedido_id || 0]);
     const [envios] = await conn.query(
-      'SELECT * FROM envio WHERE id = ?',
+      'SELECT * FROM envio WHERE id = ? FOR UPDATE',
       [envioId]
     );
     if (!envios.length) {
@@ -78,6 +80,11 @@ exports.updateEnvio = async (req, res) => {
     }
 
     const actual = envios[0];
+    if (orders[0]?.estado === 'cancelado' ||
+        (estado && estado !== actual.estado && (actual.estado === 'entregado' || (orders[0]?.estado === 'enviado' && estado === 'preparando')))) {
+      await conn.rollback();
+      return res.status(409).json({message:'El envío ya no admite ese cambio de estado'});
+    }
 
     await conn.query(
       `

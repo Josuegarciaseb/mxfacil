@@ -14,9 +14,10 @@ function sanitizeValue(value) {
   }
 
   if (value !== null && typeof value === 'object') {
-    const sanitized = {};
+    const sanitized = Object.create(null);
     for (const key of Object.keys(value)) {
-      sanitized[key] = sanitizeValue(value[key]);
+      if (['__proto__', 'prototype', 'constructor'].includes(key)) continue;
+      sanitized[key] = key === 'password' ? value[key] : sanitizeValue(value[key]);
     }
     return sanitized;
   }
@@ -32,3 +33,4 @@ function sanitizeMiddleware(req, res, next) {
 }
 
 module.exports = sanitizeMiddleware;
+module.exports.legacyText = sanitizeValue;

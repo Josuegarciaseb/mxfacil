@@ -7,6 +7,7 @@ export default defineConfig({
     port: 5173,
     historyApiFallback: true,   // React Router: sirve index.html en cualquier ruta
     proxy: {
+      '/uploads': 'http://localhost:3000',
       '/api': {
         target: 'http://localhost:3000',
         changeOrigin: true,

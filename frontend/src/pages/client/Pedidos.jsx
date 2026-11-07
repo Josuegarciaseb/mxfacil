@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation, useSearchParams } from 'react-router-dom';
 import { http } from "../../utils/api";
 import { toast } from "../../utils/toast";
 import { useBreakpoint } from "../../hooks/useBreakpoint";
@@ -11,8 +12,10 @@ import Modal from "../../components/ui/Modal";
 import StatusBadge from "../../components/ui/StatusBadge";
 import Icon from "../../components/ui/Icon";
 
-const DetalleContent = ({ detalle }) => (
+const DetalleContent = ({ detalle, onResume, onCancel }) => (
   <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    {detalle.pedido.estado === 'esperando_pago' && <button className="btn-primary" onClick={()=>onResume({pedidoId:detalle.pedido.id,metodo:detalle.pago.metodo,monto:detalle.pago.monto})}>Continuar pago</button>}
+    {['esperando_pago','pendiente'].includes(detalle.pedido.estado) && detalle.pago?.estado !== 'aprobado' && !detalle.pago?.referencia && <button className="btn-secondary" onClick={()=>onCancel(detalle.pedido.id)}>Cancelar pedido</button>}
     <div style={{ background: "var(--gray-50)", borderRadius: 9, padding: 12, border: "1px solid var(--gray-100)" }}>
       <div style={{ fontSize: 11, color: "var(--gray-400)", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 8 }}>Productos</div>
       {detalle.items?.map((i) => (
@@ -56,7 +59,7 @@ const DetalleContent = ({ detalle }) => (
     {detalle.envio && (
       <div style={{ background: "var(--gray-50)", borderRadius: 9, padding: 10, border: "1px solid var(--gray-100)", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13 }}>
         <span style={{ color: "var(--gray-700)", display: "flex", alignItems: "center", gap: 6 }}>
-          <Icon name="truck" size={13} style={{ color: "var(--gray-400)" }} />{detalle.envio.transportista || "Pendiente"}
+          <Icon name="truck" size={13} style={{ color: "var(--gray-400)" }} />{detalle.envio.transportista || "Envío"}
         </span>
         <StatusBadge estado={detalle.envio.estado} />
       </div>
@@ -68,11 +71,16 @@ const DetalleContent = ({ detalle }) => (
   </div>
 );
 
-const ClientPedidos = ({ token }) => {
+const ClientPedidos = ({ token, onResume }) => {
   const [pedidos,  setPedidos]  = useState([]);
   const [loading,  setLoading]  = useState(true);
-  const [selected, setSelected] = useState(null);
-  const [detalle,  setDetalle]  = useState(null);
+  const [params, setParams] = useSearchParams();
+  const location = useLocation();
+  const selected = Number(params.get('pedido_id')) || null;
+  const setSelected = id => setParams(id ? {pedido_id:String(id)} : {}, {replace:true});
+  const [loaded, setDetalle] = useState(null);
+  const detalle = loaded?.pedido.id === selected ? loaded : null;
+  const [revision,setRevision] = useState(0);
   const { isMobile } = useBreakpoint();
 
   useEffect(() => {
@@ -81,13 +89,21 @@ const ClientPedidos = ({ token }) => {
       catch (e) { toast(e.message, "error"); }
       finally { setLoading(false); }
     })();
-  }, [token]);
+  }, [token,location.state?.updated,revision]);
 
-  const openDetalle = async (id) => {
-    setSelected(id);
-    try { setDetalle(await http("/pedidos/" + id, {}, token)); }
-    catch (e) { toast(e.message, "error"); }
+  useEffect(()=>{
+    if (!selected) return;
+    let active = true;
+    http(`/pedidos/${selected}`,{},token).then(data=>{if(active)setDetalle(data);}).catch(e=>{if(active)toast(e.message,'error');});
+    return ()=>{active=false;};
+  },[selected,token,revision,location.state?.updated]);
+
+  const cancel = async id => {
+    if (!window.confirm(`¿Cancelar el pedido #${id}?`)) return;
+    try { await http(`/pedidos/${id}/cancelar`,{method:'POST'},token); setRevision(n=>n+1); }
+    catch(e) { toast(e.message,'error'); }
   };
+  const resume = step => { setSelected(null); onResume(step); };
 
   if (loading) return <Spinner />;
 
@@ -105,7 +121,8 @@ const ClientPedidos = ({ token }) => {
                 key={p.id}
                 className="card fade-up"
                 style={{ animationDelay: i * 0.04 + "s", padding: isMobile ? 14 : 18, cursor: "pointer", transition: "all .2s", border: selected === p.id ? "1.5px solid var(--red)" : "1px solid var(--gray-200)", boxShadow: selected === p.id ? "var(--shadow-red)" : "var(--shadow-sm)" }}
-                onClick={() => openDetalle(p.id)}
+                role="button" tabIndex={0} aria-label={`Ver pedido #${p.id}`}
+                onClick={() => setSelected(p.id)} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();setSelected(p.id);}}}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 12 : 14 }}>
                   <div style={{ width: isMobile ? 40 : 44, height: isMobile ? 40 : 44, background: "var(--red-pale)", borderRadius: 11, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--red)", flexShrink: 0 }}>
@@ -137,14 +154,14 @@ const ClientPedidos = ({ token }) => {
                     <div style={{ fontSize: 11, color: "rgba(255,255,255,.7)", fontWeight: 600 }}>PEDIDO</div>
                     <div style={{ fontSize: 20, fontWeight: 900, color: "#fff" }}>#{selected}</div>
                   </div>
-                  <button onClick={() => { setSelected(null); setDetalle(null); }} style={{ background: "rgba(255,255,255,.15)", border: "none", color: "#fff", cursor: "pointer", padding: 7, borderRadius: 8, display: "flex" }}>
+                  <button aria-label="Cerrar detalle del pedido" onClick={() => { setSelected(null); setDetalle(null); }} style={{ background: "rgba(255,255,255,.15)", border: "none", color: "#fff", cursor: "pointer", padding: 7, borderRadius: 8, display: "flex" }}>
                     <Icon name="x" size={15} />
                   </button>
                 </div>
                 <div style={{ marginTop: 10 }}><StatusBadge estado={detalle.pedido?.estado} /></div>
               </div>
               <div style={{ padding: 16 }}>
-                <DetalleContent detalle={detalle} />
+                <DetalleContent detalle={detalle} onResume={resume} onCancel={cancel} />
               </div>
             </div>
           )}
@@ -154,7 +171,7 @@ const ClientPedidos = ({ token }) => {
       {/* Modal detalle — mobile */}
       {isMobile && selected && detalle && (
         <Modal open={true} onClose={() => { setSelected(null); setDetalle(null); }} title={"Pedido #" + selected}>
-          <DetalleContent detalle={detalle} />
+          <DetalleContent detalle={detalle} onResume={resume} onCancel={cancel} />
         </Modal>
       )}
     </div>

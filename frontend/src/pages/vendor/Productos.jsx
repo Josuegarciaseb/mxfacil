@@ -8,6 +8,7 @@ import PageHeader from "../../components/ui/PageHeader";
 import Modal from "../../components/ui/Modal";
 import Btn from "../../components/ui/Btn";
 import { InputField, SelectField } from "../../components/ui/FormFields";
+import { ProductStatusBadge } from "../../components/ui/StatusBadge";
 import Icon from "../../components/ui/Icon";
 
 const EMPTY_FORM = {
@@ -15,7 +16,7 @@ const EMPTY_FORM = {
   presentacion: "", activo: 1, stock_inicial: "", image_url: "", imagen_modo: "url",
 };
 
-const IMG_BASE = import.meta.env.VITE_API_URL || "http://localhost:3000"
+import { ASSET_BASE as IMG_BASE } from '../../utils/config';
 
 // Muestra la imagen del producto o un ícono genérico
 const ProductImg = ({ url, size = 36 }) => {
@@ -38,7 +39,7 @@ const ProductImg = ({ url, size = 36 }) => {
   );
 };
 
-const VendedorProductos = ({ token, user }) => {
+const VendedorProductos = ({ token }) => {
   const [productos,  setProductos]  = useState([]);
   const [categorias, setCategorias] = useState([]);
   const [loading,    setLoading]    = useState(true);
@@ -51,20 +52,10 @@ const VendedorProductos = ({ token, user }) => {
   const fileRef = useRef(null);
   const { isMobile } = useBreakpoint();
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      // Si el user no trae proveedor_id (sesión antigua), lo resolvemos desde /proveedores/me
-      let provId = user.proveedor_id;
-      if (!provId) {
-        const prov = await http("/proveedores/me", {}, token);
-        provId = prov.id;
-      }
-      const p = await http("/productos?activo=&proveedor_id=" + provId, {}, token);
-      setProductos(p);
-    } catch (e) { toast(e.message, "error"); }
-    finally { setLoading(false); }
-  }, [token, user.proveedor_id]);
+  const load = useCallback(() => http("/productos/gestion", {}, token)
+    .then(setProductos)
+    .catch(e => toast(e.message, "error"))
+    .finally(() => setLoading(false)), [token]);
 
   // Categorías se cargan independientemente para que un fallo de productos no las afecte
   useEffect(() => {
@@ -83,7 +74,7 @@ const VendedorProductos = ({ token, user }) => {
 
   const openEdit = (p) => {
     setForm({
-      categoria_id: p.categoria_id, nombre: p.nombre,
+      categoria_id: p.categoria_en_catalogo === 0 ? "" : p.categoria_id, nombre: p.nombre,
       descripcion: p.descripcion || "", precio: p.precio,
       presentacion: p.presentacion || "",
       activo: p.activo, image_url: p.image_url || "",
@@ -197,7 +188,7 @@ const VendedorProductos = ({ token, user }) => {
                       {isMobile && (
                         <div style={{ display: "flex", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
                           <span className="badge badge-blue" style={{ fontSize: 11 }}>{p.categoria_nombre}</span>
-                          {p.activo ? <span className="badge badge-green" style={{ fontSize: 11 }}>Activo</span> : <span className="badge badge-red" style={{ fontSize: 11 }}>Inactivo</span>}
+                          <ProductStatusBadge producto={p} />
                         </div>
                       )}
                     </td>
@@ -207,7 +198,7 @@ const VendedorProductos = ({ token, user }) => {
                       <span className={"badge " + (p.stock > 10 ? "badge-green" : p.stock > 0 ? "badge-amber" : "badge-red")}>{p.stock}</span>
                       {p.presentacion && <span style={{ fontSize: 11, color: "var(--gray-400)", marginLeft: 4 }}>{p.presentacion}</span>}
                     </td>
-                    {!isMobile && <td data-label="Estado">{p.activo ? <span className="badge badge-green">Activo</span> : <span className="badge badge-red">Inactivo</span>}</td>}
+                    {!isMobile && <td data-label="Estado"><ProductStatusBadge producto={p} /></td>}
                     <td data-label="Acciones">
                       <div style={{ display: "flex", gap: 6 }}>
                         <button className="btn-ghost btn-sm" onClick={() => openEdit(p)}>
@@ -233,7 +224,7 @@ const VendedorProductos = ({ token, user }) => {
             <option value="">Selecciona...</option>
             {categorias.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
           </SelectField>
-          <InputField label="Presentación" value={form.presentacion} onChange={set("presentacion")} placeholder="ej. Caja de 20 kg, Botella de 1 L, Paquete de 24 pzas" />
+          <InputField label="Presentación" value={form.presentacion} onChange={set("presentacion")} placeholder="Ej. Caja de 20 kg o costal de 25 kg" />
           {modal === "create" ? (
             <div className="form-grid">
               <InputField label="Precio (MXN)" type="number" min="0" step="0.01" value={form.precio} onChange={set("precio")} placeholder="0.00" />
@@ -330,7 +321,7 @@ const VendedorProductos = ({ token, user }) => {
           </SelectField>
           <div className="modal-footer" style={{ display: "flex", gap: 10, justifyContent: "flex-end", paddingTop: 14, borderTop: "1px solid var(--gray-100)" }}>
             <Btn variant="secondary" onClick={() => { setModal(null); setPreview(null); }}>Cancelar</Btn>
-            <Btn onClick={save} disabled={saving || uploading}>{saving ? "Guardando..." : "Guardar"}</Btn>
+            <Btn onClick={save} disabled={saving || uploading || !form.categoria_id}>{saving ? "Guardando..." : "Guardar"}</Btn>
           </div>
         </div>
       </Modal>

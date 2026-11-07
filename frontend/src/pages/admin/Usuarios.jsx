@@ -17,12 +17,10 @@ const AdminUsuarios = ({ token, currentUser }) => {
   const [saving,   setSaving]   = useState(false);
   const { isMobile } = useBreakpoint();
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try { setUsuarios(await http("/usuario", {}, token)); }
-    catch (e) { toast(e.message, "error"); }
-    finally { setLoading(false); }
-  }, [token]);
+  const load = useCallback(() => http("/usuario", {}, token)
+    .then(setUsuarios)
+    .catch(e => toast(e.message, "error"))
+    .finally(() => setLoading(false)), [token]);
 
   useEffect(() => { load(); }, [load]);
   const set = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }));

@@ -5,11 +5,11 @@ const pool = require('../config/db');
 exports.listCategorias = async (req, res) => {
   try {
     const { tipo } = req.query;
-    let query = 'SELECT id, nombre, tipo FROM categoria';
+    let query = 'SELECT id, nombre, tipo FROM categoria WHERE en_catalogo = 1';
     const params = [];
 
     if (tipo === 'perecedero' || tipo === 'no_perecedero') {
-      query += ' WHERE tipo = ?';
+      query += ' AND tipo = ?';
       params.push(tipo);
     }
 

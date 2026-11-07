@@ -25,12 +25,10 @@ const AdminProveedores = ({ token }) => {
   const [verifying,    setVerifying]    = useState(false);
   const { isMobile } = useBreakpoint();
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try { setProvs(await http("/proveedores", {}, token)); }
-    catch (e) { toast(e.message, "error"); }
-    finally { setLoading(false); }
-  }, [token]);
+  const load = useCallback(() => http("/proveedores/admin", {}, token)
+    .then(setProvs)
+    .catch(e => toast(e.message, "error"))
+    .finally(() => setLoading(false)), [token]);
 
   useEffect(() => { load(); }, [load]);
   const set = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }));

@@ -15,12 +15,10 @@ const AdminCategorias = ({ token }) => {
   const [nombre,  setNombre]  = useState("");
   const [saving,  setSaving]  = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try { setCats(await http("/categorias", {}, token)); }
-    catch (e) { toast(e.message, "error"); }
-    finally { setLoading(false); }
-  }, [token]);
+  const load = useCallback(() => http("/categorias", {}, token)
+    .then(setCats)
+    .catch(e => toast(e.message, "error"))
+    .finally(() => setLoading(false)), [token]);
 
   useEffect(() => { load(); }, [load]);
 

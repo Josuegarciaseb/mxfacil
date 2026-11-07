@@ -119,14 +119,15 @@ exports.register = async (req, res) => {
 
 // ─── POST /api/auth/login ────────────────────────────────────────────────────
 exports.login = async (req, res) => {
-  const { email, password, totp_code } = req.body;
+  const { password, totp_code } = req.body;
+  const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : '';
 
-  if (!email || !password)
+  if (!isValidEmail(email) || typeof password !== 'string' || !password)
     return res.status(400).json({ message: 'email y password son obligatorios' });
 
   try {
     const [rows] = await pool.query(
-      'SELECT id, nombre, email, password_hash, telefono, rol, mfa_secret, mfa_enabled FROM usuario WHERE email = ?',
+      'SELECT id, nombre, email, password_hash, clave_literal, telefono, rol, mfa_secret, mfa_enabled FROM usuario WHERE email = ?',
       [email]
     );
     if (!rows.length)
@@ -134,7 +135,8 @@ exports.login = async (req, res) => {
 
     const usuario = rows[0];
 
-    const passwordValida = await bcrypt.compare(password, usuario.password_hash);
+    const candidate = usuario.clave_literal ? password : require('../middlewares/sanitize').legacyText(password);
+    const passwordValida = usuario.password_hash && await bcrypt.compare(candidate, usuario.password_hash);
     if (!passwordValida)
       return res.status(401).json({ message: 'Credenciales inválidas' });
 
@@ -149,6 +151,10 @@ exports.login = async (req, res) => {
         return res.status(401).json({ message: 'Código MFA inválido o expirado' });
     }
 
+    if (!usuario.clave_literal) {
+      const hash = candidate === password ? usuario.password_hash : await bcrypt.hash(password,12);
+      await pool.query('UPDATE usuario SET password_hash=?,clave_literal=1 WHERE id=? AND password_hash=?',[hash,usuario.id,usuario.password_hash]);
+    }
     const token = generarToken(usuario);
 
     // Para vendedores, incluir su proveedor_id en el payload
@@ -196,7 +202,8 @@ exports.setupMfa = async (req, res) => {
     const encryptedSecret = encrypt(secret);
 
     // Guardar secreto encriptado en BD (aún no activado)
-    await pool.query('UPDATE usuario SET mfa_secret = ?, mfa_enabled = 0 WHERE id = ?', [encryptedSecret, userId]);
+    const [changed] = await pool.query('UPDATE usuario SET mfa_secret = ? WHERE id = ? AND mfa_enabled = 0', [encryptedSecret, userId]);
+    if (!changed.affectedRows) return res.status(409).json({message:'El segundo factor ya está activo'});
 
     const [rows] = await pool.query('SELECT email FROM usuario WHERE id = ?', [userId]);
     const email  = rows[0].email;
@@ -257,7 +264,7 @@ exports.disableMfa = async (req, res) => {
 
   try {
     const [rows] = await pool.query('SELECT password_hash FROM usuario WHERE id = ?', [userId]);
-    const valid  = await bcrypt.compare(password, rows[0].password_hash);
+    const valid = typeof password === 'string' && rows[0]?.password_hash && await bcrypt.compare(password, rows[0].password_hash);
     if (!valid)
       return res.status(401).json({ message: 'Contraseña incorrecta' });
 

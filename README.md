@@ -245,6 +245,8 @@ Edita ambos archivos con tus valores (ver sección [Configuración](#-configurac
 mysql -u root -p < backend/db/init.sql
 ```
 
+El catálogo inicial agrupa frutas y verduras, granos y legumbres, y semillas al mayoreo. Para actualizar una base existente que ya usa las categorías de mayoreo, ejecuta `backend/migrations/010_catalogo_agricola.sql` sobre esa base. La migración conserva los productos, las existencias y los pedidos. Usa `init.sql` únicamente para instalaciones nuevas.
+
 ### 6. Iniciar el proyecto
 
 Abre **dos terminales** en paralelo:
@@ -394,7 +396,7 @@ Authorization: Bearer <tu_token_jwt>
 
 | Método | Ruta | Descripción | Acceso |
 |---|---|---|---|
-| GET | `/api/categorias` | Listar todas las categorías | Público |
+| GET | `/api/categorias` | Listar las categorías visibles en el catálogo | Público |
 | POST | `/api/categorias` | Crear categoría | Admin |
 | PUT | `/api/categorias/:id` | Editar categoría | Admin |
 | DELETE | `/api/categorias/:id` | Eliminar categoría | Admin |

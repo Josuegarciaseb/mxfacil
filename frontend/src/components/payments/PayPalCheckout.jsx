@@ -2,7 +2,7 @@ import { PayPalButtons, PayPalScriptProvider } from "@paypal/react-paypal-js";
 import { http } from "../../utils/api";
 
 const PAYPAL_OPTIONS = {
-  "client-id": import.meta.env.VITE_PAYPAL_CLIENT_ID,
+  clientId: import.meta.env.VITE_PAYPAL_CLIENT_ID,
   currency: "MXN",
   intent: "capture",
 };

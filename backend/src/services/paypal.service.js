@@ -15,6 +15,7 @@ function httpsRequest(options, body = null) {
       });
     });
     req.on('error', reject);
+    req.setTimeout(10000, () => req.destroy(new Error('Tiempo de espera PayPal agotado')));
     if (body) req.write(body);
     req.end();
   });
@@ -40,7 +41,7 @@ async function getAccessToken() {
   return body.access_token;
 }
 
-exports.createOrder = async (amount, pedidoId) => {
+exports.createOrder = async (amount, pedidoId, checkoutKey) => {
   const token = await getAccessToken();
   const payload = JSON.stringify({
     intent: 'CAPTURE',
@@ -58,6 +59,7 @@ exports.createOrder = async (amount, pedidoId) => {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
       'Content-Length': Buffer.byteLength(payload),
+      'PayPal-Request-Id': require('node:crypto').createHash('sha256').update(`pedido_${pedidoId}_${checkoutKey || 'legacy'}`).digest('hex').slice(0,32),
     },
   }, payload);
 
@@ -67,7 +69,7 @@ exports.createOrder = async (amount, pedidoId) => {
 exports.captureOrder = async (paypalOrderId) => {
   const token = await getAccessToken();
 
-  const { body } = await httpsRequest({
+  const { status, body } = await httpsRequest({
     hostname: BASE,
     path: `/v2/checkout/orders/${paypalOrderId}/capture`,
     method: 'POST',
@@ -75,8 +77,19 @@ exports.captureOrder = async (paypalOrderId) => {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
       'Content-Length': '0',
+      Prefer: 'return=representation',
+      'PayPal-Request-Id': `capture_${paypalOrderId}`,
     },
   });
 
+  if (status < 300 && body.purchase_units?.length) return body;
+  // A capture may already have settled if the original response was lost.
+  if (status < 300 || body.details?.some(detail => detail.issue === 'ORDER_ALREADY_CAPTURED')) {
+    const detail = await httpsRequest({
+      hostname: BASE, path: '/v2/checkout/orders/' + paypalOrderId, method:'GET',
+      headers: {Authorization:'Bearer ' + token},
+    });
+    return detail.body;
+  }
   return body;
 };

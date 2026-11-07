@@ -23,7 +23,6 @@ const BG          = "#173404";
 const BORDER      = "rgba(255,255,255,.07)";
 const TEXT_MUTED  = "#89a880";
 const TEXT_BRIGHT = "#e0edd5";
-const ACCENT      = "#639922";
 
 const TopBar = ({ user, onMenuOpen, cartCount, onCartOpen, page }) => (
   <div style={{

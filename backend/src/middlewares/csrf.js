@@ -4,7 +4,7 @@ const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 // Rutas que no requieren CSRF (webhooks de proveedores de pago externos)
 function isExempt(path) {
-  return path.includes('webhook') || path === '/api/csrf-token';
+  return ['/api/pagos/stripe/webhook','/api/pagos/mercadopago/webhook','/api/csrf-token'].includes(path);
 }
 
 // Middleware — valida X-CSRF-Token en métodos mutantes

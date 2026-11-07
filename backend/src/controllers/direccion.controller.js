@@ -2,6 +2,15 @@
 const pool = require('../config/db');
 const { isValidCP, isValidLocationName } = require('../utils/validators');
 
+function validAddressFields(body) {
+  for (const [key, max] of Object.entries({linea1:160, ciudad:80, estado:80, pais:60})) {
+    const value = body[key];
+    if (value != null && (typeof value !== 'string' || !value.trim() || value.trim().length > max)) return false;
+  }
+  return body.es_principal == null || [true,false,0,1,'0','1'].includes(body.es_principal);
+}
+const isPrimary = value => [true, 1, '1'].includes(value);
+
 
 // GET /api/direcciones
 // Lista las direcciones del usuario autenticado
@@ -38,7 +47,7 @@ exports.createDireccion = async (req, res) => {
   } = req.body;
 
   // Campos obligatorios
-  if (!linea1 || !ciudad || !estado || !cp) {
+  if (!validAddressFields(req.body) || !linea1 || !ciudad || !estado || !cp) {
     return res.status(400).json({
       message: 'linea1, ciudad, estado y cp son obligatorios'
     });
@@ -80,7 +89,8 @@ exports.createDireccion = async (req, res) => {
     await conn.beginTransaction();
 
     // Si esta nueva dirección será principal, quitar bandera a las demás
-    if (es_principal) {
+    await conn.query('SELECT id FROM usuario WHERE id=? FOR UPDATE',[userId]);
+    if (isPrimary(es_principal)) {
       await conn.query(
         'UPDATE direccion SET es_principal = 0 WHERE usuario_id = ?',
         [userId]
@@ -95,12 +105,12 @@ exports.createDireccion = async (req, res) => {
       `,
       [
         userId,
-        linea1,
-        ciudad,
-        estado,
-        cp,
-        paisFinal,
-        es_principal ? 1 : 0
+        linea1.trim(),
+        ciudad.trim(),
+        estado.trim(),
+        String(cp).trim(),
+        paisFinal.trim(),
+        isPrimary(es_principal) ? 1 : 0
       ]
     );
 
@@ -128,6 +138,7 @@ exports.createDireccion = async (req, res) => {
 // PUT /api/direcciones/:id
 // Actualiza una dirección del usuario
 exports.updateDireccion = async (req, res) => {
+  if (!validAddressFields(req.body)) return res.status(400).json({message:'Verifica los campos de la dirección'});
   const userId = req.user.id;
   const dirId = req.params.id;
   const {
@@ -144,6 +155,7 @@ exports.updateDireccion = async (req, res) => {
     await conn.beginTransaction();
 
     // Verificar que la dirección sea del usuario
+    await conn.query('SELECT id FROM usuario WHERE id=? FOR UPDATE',[userId]);
     const [existe] = await conn.query(
       'SELECT * FROM direccion WHERE id = ? AND usuario_id = ?',
       [dirId, userId]
@@ -208,12 +220,12 @@ exports.updateDireccion = async (req, res) => {
       WHERE id = ?
       `,
       [
-        linea1 || actual.linea1,
-        ciudad || actual.ciudad,
-        estado || actual.estado,
-        cp || actual.cp,
-        pais || actual.pais,
-        (es_principal === 1 || es_principal === true || es_principal === '1') ? 1 : actual.es_principal,
+        linea1?.trim() || actual.linea1,
+        ciudad?.trim() || actual.ciudad,
+        estado?.trim() || actual.estado,
+        cp == null ? actual.cp : String(cp).trim(),
+        pais?.trim() || actual.pais,
+        es_principal == null ? actual.es_principal : Number(isPrimary(es_principal)),
         dirId
       ]
     );
@@ -285,7 +297,8 @@ exports.deleteDireccion = async (req, res) => {
     return res.json({ message: 'Dirección eliminada correctamente' });
   } catch (err) {
     await conn.rollback();
-    console.error('Error deleteDireccion:', err);
+    if (err.code === 'ER_ROW_IS_REFERENCED_2') return res.status(409).json({message:'Hay pedidos asociados a esta dirección'});
+    console.error('Error deleteDireccion:', err.code);
     return res.status(500).json({ message: 'Error al eliminar dirección' });
   } finally {
     conn.release();

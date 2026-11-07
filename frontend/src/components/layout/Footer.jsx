@@ -5,7 +5,7 @@ const BG          = "#173404";
 const BORDER      = "rgba(255,255,255,.07)";
 const TEXT_MUTED  = "#89a880";
 const TEXT_BRIGHT = "#e0edd5";
-const ACCENT      = "#639922";
+const ACCENT      = "#a8c87e";
 
 const LINKS_NAV = [
   { label: "Catálogo",        id: "catalogo"        },
@@ -13,8 +13,6 @@ const LINKS_NAV = [
   { label: "Mis direcciones", id: "mis-direcciones" },
   { label: "Mi perfil",       id: "mi-perfil"       },
 ];
-
-const PAYMENT_BADGES = ["Stripe", "MercadoPago", "PayPal"];
 
 const FooterLink = ({ label, onClick }) => (
   <button
@@ -74,28 +72,9 @@ const Footer = ({ onNav, isSmall, paddingH, paddingB }) => {
             color: TEXT_MUTED, fontSize: 13, lineHeight: 1.65,
             fontFamily: "'Sora',sans-serif", margin: 0, maxWidth: 320,
           }}>
-            Tu plataforma de comercio al mayoreo en México. Precios competitivos para
-            negocios, emprendedores y revendedores de todo el país.
+            Frutas y verduras, granos, legumbres y semillas al mayoreo para comercios en México.
           </p>
 
-          {/* Badges de pago */}
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 4 }}>
-            {PAYMENT_BADGES.map((name) => (
-              <span key={name} style={{
-                display: "inline-flex", alignItems: "center", gap: 5,
-                padding: "4px 10px",
-                background: "rgba(255,255,255,.06)",
-                border: `1px solid ${BORDER}`,
-                borderRadius: 8,
-                fontSize: 11, fontWeight: 600,
-                color: TEXT_MUTED,
-                fontFamily: "'Sora',sans-serif",
-              }}>
-                <Icon name="creditCard" size={12} />
-                {name}
-              </span>
-            ))}
-          </div>
         </div>
 
         {/* Columna navegar */}
@@ -165,14 +144,14 @@ const Footer = ({ onNav, isSmall, paddingH, paddingB }) => {
         margin: "0 auto",
       }}>
         <span style={{
-          color: "rgba(137,168,128,.45)", fontSize: 12,
+          color: TEXT_MUTED, fontSize: 12,
           fontFamily: "'Sora',sans-serif",
         }}>
           © {new Date().getFullYear()} Comercio Fácil · MXFácil · Todos los derechos reservados
         </span>
         <span style={{
           display: "inline-flex", alignItems: "center", gap: 5,
-          color: "rgba(137,168,128,.45)", fontSize: 12,
+          color: TEXT_MUTED, fontSize: 12,
           fontFamily: "'Sora',sans-serif",
         }}>
           <Icon name="map" size={12} />

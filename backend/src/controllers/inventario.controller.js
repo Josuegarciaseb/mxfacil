@@ -1,5 +1,6 @@
 // src/controllers/inventario.controller.js
 const pool = require('../config/db');
+const { isPositiveInteger } = require('../utils/validators');
 
 // GET /api/inventario/:productoId
 exports.getInventarioProducto = async (req, res) => {
@@ -8,7 +9,8 @@ exports.getInventarioProducto = async (req, res) => {
   try {
     // Verificar que el producto exista
     const [prod] = await pool.query(
-      'SELECT id, nombre FROM producto WHERE id = ?',
+      `SELECT p.id FROM producto p JOIN categoria c ON c.id = p.categoria_id
+       WHERE p.id = ? AND p.activo = 1 AND c.en_catalogo = 1`,
       [productoId]
     );
     if (!prod.length) {
@@ -42,8 +44,8 @@ exports.updateStockProducto = async (req, res) => {
   const productoId = req.params.productoId;
   const { stock } = req.body;
 
-  if (stock == null || isNaN(stock)) {
-    return res.status(400).json({ message: 'stock es obligatorio y debe ser numérico' });
+  if (!isPositiveInteger(stock)) {
+    return res.status(400).json({ message: 'stock debe ser un entero mayor o igual a cero' });
   }
 
   const conn = await pool.getConnection();

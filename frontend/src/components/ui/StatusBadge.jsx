@@ -7,3 +7,10 @@ const StatusBadge = ({ estado }) => (
 );
 
 export default StatusBadge;
+
+export function ProductStatusBadge({ producto }) {
+  if (producto.categoria_en_catalogo === 0) return <span className="badge badge-gray">Fuera de catálogo</span>;
+  return producto.activo
+    ? <span className="badge badge-green">Activo</span>
+    : <span className="badge badge-red">Inactivo</span>;
+}

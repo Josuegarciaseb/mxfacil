@@ -23,7 +23,7 @@ const VendedorDashboard = ({ token, user }) => {
           provId = prov.id;
         }
         const [prodsResult, pedsResult] = await Promise.allSettled([
-          http("/productos?activo=&proveedor_id=" + provId, {}, token),
+          http("/productos/gestion?proveedor_id=" + provId, {}, token),
           http("/pedidos/admin", {}, token),
         ]);
         const prods = prodsResult.status === "fulfilled" ? prodsResult.value : [];
