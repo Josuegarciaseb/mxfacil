@@ -93,14 +93,19 @@ const Field = ({ label, hint, icon, type = "text", value, onChange, onKeyDown, p
 
 /* ─────────────────────────────────────────── */
 const AuthPage = ({ onLogin, onBack }) => {
-  const [mode,    setMode]    = useState("login");
-  const [form,    setForm]    = useState({ nombre: "", email: "", password: "", telefono: "", rol: "cliente", rfc: "" });
+  const params = new URLSearchParams(window.location.search);
+  const registrationRole = params.get("registro");
+  const isRegistration = registrationRole === "cliente" || registrationRole === "vendedor";
+  const [mode,    setMode]    = useState(isRegistration ? "register" : "login");
+  const [form,    setForm]    = useState({
+    nombre: "", email: "", password: "", telefono: "", rol: isRegistration ? registrationRole : "cliente", rfc: "",
+  });
   const [loading, setLoading] = useState(false);
   const [showPwd, setShowPwd] = useState(false);
 
   // MFA: cuando el servidor pide el código TOTP
-  const [mfaPending, setMfaPending] = useState(()=>new URLSearchParams(window.location.search).has('google_mfa') && sessionStorage.getItem('google_code') ? {google:true} : null);
-  const oauthError = new URLSearchParams(window.location.search).get('oauth_error');
+  const [mfaPending, setMfaPending] = useState(()=>params.has('google_mfa') && sessionStorage.getItem('google_code') ? {google:true} : null);
+  const oauthError = params.get('oauth_error');
   const [totpCode,   setTotpCode]   = useState("");
 
   const { isMobile } = useBreakpoint();
@@ -402,6 +407,7 @@ const AuthPage = ({ onLogin, onBack }) => {
               return (
                 <button
                   key={id}
+                  aria-pressed={active}
                   onClick={() => setMode(id)}
                   style={{
                     flex: 1, height: 36, border: "none", borderRadius: 7, cursor: "pointer",
@@ -435,6 +441,7 @@ const AuthPage = ({ onLogin, onBack }) => {
                       <button
                         key={value}
                         type="button"
+                        aria-pressed={sel}
                         onClick={() => setForm((p) => ({ ...p, rol: value }))}
                         style={{
                           flex: 1, height: 36, border: "none", borderRadius: 7, cursor: "pointer",

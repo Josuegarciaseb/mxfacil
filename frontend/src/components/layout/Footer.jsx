@@ -1,34 +1,21 @@
 import Logo from "../ui/Logo";
 import Icon from "../ui/Icon";
+import FooterDirectory from "./FooterDirectory";
+import FooterPageLink from "./FooterPageLink";
+import "./Footer.css";
 
+const CONTACT_EMAIL = "contacto@mxfacil.mx";
 const BG          = "#173404";
 const BORDER      = "rgba(255,255,255,.07)";
 const TEXT_MUTED  = "#89a880";
-const TEXT_BRIGHT = "#e0edd5";
 const ACCENT      = "#a8c87e";
 
 const LINKS_NAV = [
-  { label: "Catálogo",        id: "catalogo"        },
-  { label: "Mis pedidos",     id: "mis-pedidos"     },
-  { label: "Mis direcciones", id: "mis-direcciones" },
-  { label: "Mi perfil",       id: "mi-perfil"       },
+  { label: "Catálogo",        to: "/catalogo"        },
+  { label: "Mis pedidos",     to: "/mis-pedidos"     },
+  { label: "Mis direcciones", to: "/mis-direcciones" },
+  { label: "Mi perfil",       to: "/mi-perfil"       },
 ];
-
-const FooterLink = ({ label, onClick }) => (
-  <button
-    onClick={onClick}
-    style={{
-      background: "none", border: "none", padding: "3px 0",
-      color: TEXT_MUTED, fontFamily: "'Sora',sans-serif",
-      fontSize: 13, cursor: "pointer", textAlign: "left",
-      transition: "color .15s", display: "block",
-    }}
-    onMouseEnter={(e) => (e.currentTarget.style.color = TEXT_BRIGHT)}
-    onMouseLeave={(e) => (e.currentTarget.style.color = TEXT_MUTED)}
-  >
-    {label}
-  </button>
-);
 
 const SectionTitle = ({ children }) => (
   <div style={{
@@ -40,18 +27,15 @@ const SectionTitle = ({ children }) => (
   </div>
 );
 
-const Footer = ({ onNav, isSmall, paddingH, paddingB }) => {
+const Footer = ({ isSmall, isGuest, onCartOpen }) => {
   const innerPad = isSmall ? "32px 20px 28px" : "48px 56px 36px";
 
   return (
-    <footer style={{
-      marginTop:    isSmall ? 48 : 72,
-      marginLeft:   -paddingH,
-      marginRight:  -paddingH,
-      marginBottom: -paddingB,
-      background:   BG,
-      borderTop:    `1px solid ${BORDER}`,
+    <footer id="pie-de-pagina" style={{
+      marginTop: isSmall ? 48 : 72,
+      background: BG,
     }}>
+      <FooterDirectory isSmall={isSmall} isGuest={isGuest} onCartOpen={onCartOpen} contactEmail={CONTACT_EMAIL} />
 
       {/* ── Contenido principal ── */}
       <div style={{
@@ -81,8 +65,8 @@ const Footer = ({ onNav, isSmall, paddingH, paddingB }) => {
         <div>
           <SectionTitle>Navegar</SectionTitle>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            {LINKS_NAV.map(({ label, id }) => (
-              <FooterLink key={id} label={label} onClick={() => onNav(id)} />
+            {LINKS_NAV.map(({ label, to }) => (
+              <FooterPageLink key={to} to={to} className="footer-nav-link">{label}</FooterPageLink>
             ))}
           </div>
         </div>
@@ -96,12 +80,7 @@ const Footer = ({ onNav, isSmall, paddingH, paddingB }) => {
               padding: "3px 0",
             }}>
               <Icon name="mail" size={13} style={{ color: TEXT_MUTED, flexShrink: 0 }} />
-              <span style={{
-                color: TEXT_MUTED, fontSize: 13,
-                fontFamily: "'Sora',sans-serif",
-              }}>
-                contacto@mxfacil.mx
-              </span>
+              <a className="footer-contact" style={{ fontSize: 13 }} href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
             </div>
             <div style={{
               display: "flex", alignItems: "center", gap: 8,
@@ -149,14 +128,19 @@ const Footer = ({ onNav, isSmall, paddingH, paddingB }) => {
         }}>
           © {new Date().getFullYear()} Comercio Fácil · MXFácil · Todos los derechos reservados
         </span>
-        <span style={{
-          display: "inline-flex", alignItems: "center", gap: 5,
-          color: TEXT_MUTED, fontSize: 12,
-          fontFamily: "'Sora',sans-serif",
-        }}>
-          <Icon name="map" size={12} />
-          Hecho en México
-        </span>
+        <div className="footer-utilities">
+          <span style={{
+            display: "inline-flex", alignItems: "center", gap: 5,
+            color: TEXT_MUTED, fontSize: 12,
+            fontFamily: "'Sora',sans-serif",
+          }}>
+            <Icon name="map" size={12} />
+            Hecho en México
+          </span>
+          <a className="footer-back-to-top" href="#inicio-tienda">
+            Volver arriba <Icon name="arrowRight" size={13} style={{ transform: "rotate(-90deg)" }} />
+          </a>
+        </div>
       </div>
     </footer>
   );

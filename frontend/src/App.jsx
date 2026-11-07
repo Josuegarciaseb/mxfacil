@@ -5,9 +5,9 @@ import { injectStyles }      from "./styles/globalStyles";
 import { useBreakpoint }     from "./hooks/useBreakpoint";
 import { http } from './utils/api';
 import { exchangeGoogle } from './utils/google-auth';
-import { cartKey, cartTotals, money, readCart, mergeCart, refreshCart } from './utils/cart';
+import { cartKey, readCart, mergeCart, refreshCart } from './utils/cart';
+import "./styles/marketplace.css";
 
-import Icon                  from "./components/ui/Icon";
 import Sidebar               from "./components/layout/Sidebar";
 import TopBar                from "./components/layout/TopBar";
 import MarketplaceHeader     from "./components/layout/MarketplaceHeader";
@@ -66,8 +66,6 @@ const getDefaultPath = (u) =>
   u?.rol === "vendedor" ? "/vendedor/dashboard" :
                           "/catalogo";
 
-const MKT_H_DESKTOP = 112;
-const MKT_H_SMALL   = 58;
 const VND_H_DESKTOP = 112;
 const VND_H_SMALL   = 58;
 
@@ -86,8 +84,7 @@ export default function App() {
   const syncProducts = useCallback(products => setCart(c => refreshCart(c,products)), []);
 
   const [catalogSearch,     setCatalogSearch]     = useState("");
-  const [catalogCat,        setCatalogCat]        = useState("");
-  const [catalogCategorias, setCatalogCategorias] = useState([]);
+  const [catalogCategories, setCatalogCategories] = useState([]);
 
   const { isDesktop, isSmall } = useBreakpoint();
 
@@ -193,17 +190,13 @@ export default function App() {
 
   const mainPadding = location.pathname === "/auth"
     ? 0
-    : showMarketplaceHeader
+    : isVendedor
       ? isSmall
-        ? `${MKT_H_SMALL + 16}px 14px 80px`
-        : `${MKT_H_DESKTOP + 20}px 32px 36px`
-      : isVendedor
-        ? isSmall
-          ? `${VND_H_SMALL + 16}px 14px 80px`
-          : `${VND_H_DESKTOP + 20}px 32px 36px`
-        : isSmall
-          ? "calc(var(--topbar-h) + 16px) 14px 80px"
-          : "24px 28px";
+        ? `${VND_H_SMALL + 16}px 14px 80px`
+        : `${VND_H_DESKTOP + 20}px 32px 36px`
+      : isSmall
+        ? "calc(var(--topbar-h) + 16px) 14px 80px"
+        : "24px 28px";
 
   /* ── Rutas protegidas helpers ───────────────────────────── */
   const adminOnly    = (children) => (
@@ -223,7 +216,7 @@ export default function App() {
   );
 
   return (
-    <>
+    <div id={showMarketplaceHeader ? "inicio-tienda" : undefined} className={showMarketplaceHeader ? "marketplace" : undefined}>
       <ToastContainer />
 
       {/* ── Sidebar (admin) ── */}
@@ -274,19 +267,15 @@ export default function App() {
           onLoginClick={() => navigate("/auth")}
           cartCount={cartCount}
           onCartOpen={() => setCartOpen(true)}
-          categorias={catalogCategorias}
           search={catalogSearch}
           onSearch={setCatalogSearch}
-          catFilter={catalogCat}
-          onCatFilter={(id) => { setCatalogCat(id); navigate("/catalogo"); }}
           isSmall={isSmall}
-          isDesktop={isDesktop}
         />
       )}
 
       {/* ── Contenido principal ── */}
-      <main style={{
-        marginLeft: showMarketplaceHeader || isVendedor || isGuest ? 0 : (isDesktop ? 256 : 0),
+      <main className={showMarketplaceHeader ? "market-main" : undefined} style={showMarketplaceHeader ? undefined : {
+        marginLeft: isVendedor || isGuest ? 0 : (isDesktop ? 256 : 0),
         padding: mainPadding,
         minHeight: "100vh",
         background: location.pathname === "/auth" ? "transparent" : "var(--gray-50)",
@@ -305,9 +294,9 @@ export default function App() {
               cart={cart}
               onProductsFetched={syncProducts}
               externalSearch={catalogSearch}
-              externalCatFilter={catalogCat}
-              onCatFilter={setCatalogCat}
-              onCategoriasFetched={setCatalogCategorias}
+              onSearchChange={setCatalogSearch}
+              selectedCategories={catalogCategories}
+              onCategoriesChange={setCatalogCategories}
             />
           } />
 
@@ -315,7 +304,7 @@ export default function App() {
           <Route path="/auth" element={
             token && user
               ? <Navigate to={getDefaultPath(user)} replace />
-              : <AuthPage onLogin={handleLogin} onBack={() => navigate("/catalogo")} />
+              : <AuthPage key={location.search} onLogin={handleLogin} onBack={() => navigate("/catalogo")} />
           } />
 
           {/* OAuth callback */}
@@ -350,36 +339,9 @@ export default function App() {
           <Route path="*" element={<Navigate to="/catalogo" replace />} />
         </Routes>
 
-        {/* ── Footer (solo marketplace / invitados) ── */}
-        {showMarketplaceHeader && (
-          <Footer
-            onNav={goTo}
-            isSmall={isSmall}
-            paddingH={isSmall ? 14 : 32}
-            paddingB={isSmall ? 80 : 36}
-          />
-        )}
       </main>
 
-      {/* ── FAB carrito mobile ── */}
-      {isSmall && (isCliente || isGuest) && cartCount > 0 && location.pathname !== "/auth" && (
-        <button
-          onClick={() => setCartOpen(true)}
-          style={{
-            position: "fixed", bottom: 20, right: 16, zIndex: 180,
-            background: "linear-gradient(135deg,var(--red-light),var(--red))",
-            color: "#fff", border: "none",
-            borderRadius: 16, padding: "13px 20px",
-            display: "flex", alignItems: "center", gap: 10,
-            fontFamily: "'Sora',sans-serif", fontWeight: 700, fontSize: 15,
-            boxShadow: "var(--shadow-red)", cursor: "pointer",
-            animation: "fadeUp .3s ease",
-          }}
-        >
-          <Icon name="cart" size={18} />
-          {cartCount} {cartCount === 1 ? "producto" : "productos"} · ${money(cartTotals(cart).total)}
-        </button>
-      )}
+      {showMarketplaceHeader && <Footer isSmall={isSmall} isGuest={isGuest} onCartOpen={() => setCartOpen(true)} />}
 
       {/* ── Modal carrito ── */}
       {cartOpen && (isCliente || isGuest) && (
@@ -395,6 +357,6 @@ export default function App() {
           onNeedAuth={() => { setCartOpen(false); setReturnToCart(true); navigate("/auth"); }}
         />
       )}
-    </>
+    </div>
   );
 }

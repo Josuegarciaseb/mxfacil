@@ -21,6 +21,21 @@ describe("AuthPage — Login", () => {
 });
 
 describe("AuthPage — Registro", () => {
+  test.each([
+    ["cliente", "Soy Cliente"],
+    ["vendedor", "Soy Vendedor"],
+  ])("el enlace de registro de %s abre el formulario con ese tipo de cuenta", (role, label) => {
+    const previousUrl = window.location.href;
+    try {
+      window.history.replaceState(null, "", `/auth?registro=${role}`);
+      render(<AuthPage onLogin={vi.fn()} />);
+      expect(screen.getByRole("button", { name: "Crear cuenta" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: label })).toHaveAttribute("aria-pressed", "true");
+    } finally {
+      window.history.replaceState(null, "", previousUrl);
+    }
+  });
+
   test("muestra campo de nombre al cambiar a registro", async () => {
     const user = userEvent.setup();
     render(<AuthPage onLogin={vi.fn()} />);

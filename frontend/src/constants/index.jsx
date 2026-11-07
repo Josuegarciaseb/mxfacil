@@ -48,6 +48,7 @@ export const PAYMENT_METHOD_LABELS = Object.fromEntries(
 export const ORDER_STATES    = ["pendiente", "en_proceso", "enviado", "entregado", "cancelado"];
 
 export const ICON_PATHS = {
+  sliders:      <><path d="M3 6h7m4 0h7M3 12h12m4 0h2M3 18h3m4 0h11"/><circle cx="12" cy="6" r="2"/><circle cx="17" cy="12" r="2"/><circle cx="8" cy="18" r="2"/></>,
   store:        <><path d="M2 7l10-5 10 5v2H2V7z"/><path d="M4 9v10h16V9"/><path d="M9 9v10"/><path d="M15 9v10"/><path d="M9 14h6"/></>,
   user:         <><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></>,
   logout:       <><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></>,

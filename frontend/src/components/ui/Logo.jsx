@@ -9,22 +9,22 @@ const Logo = ({
   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
     <img
       src="/logo.svg"
-      alt={text}
+      alt={showText ? "" : text}
       draggable={false}
       style={{
-        width: size,
-        height: size,
+        width: `var(--brand-mark-size, ${size}px)`,
+        height: `var(--brand-mark-size, ${size}px)`,
         objectFit: "contain",
         flexShrink: 0,
         userSelect: "none",
-        filter: "brightness(0) invert(1)",
+        filter: "var(--brand-mark-filter, brightness(0) invert(1))",
       }}
     />
     {showText && (
       <div style={{ lineHeight: 1.2 }}>
         <div style={{
-          fontWeight: 600,
-          fontSize: 20,
+          fontWeight: "var(--brand-weight, 600)",
+          fontSize: "var(--brand-font-size, 20px)",
           color: textColor,
           letterSpacing: "-.01em",
           fontFamily: "'Sora', sans-serif",
@@ -33,7 +33,7 @@ const Logo = ({
         </div>
         {subtitle && (
           <div style={{
-            fontSize: 9,
+            fontSize: "var(--brand-sub-size, 9px)",
             fontWeight: 600,
             color: subtitleColor,
             letterSpacing: ".06em",
