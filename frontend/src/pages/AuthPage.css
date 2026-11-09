@@ -17,8 +17,8 @@
 
 .auth-carousel {
   --auth-gutter: clamp(1.75rem, 3.8vw, 4.5rem);
-  --auth-logo-size: 48px;
-  --brand-bottom: calc(var(--auth-gutter) + var(--auth-logo-size));
+  --brand-mark-size: 48px;
+  --brand-bottom: calc(var(--auth-gutter) + var(--brand-mark-size));
   --caption-fade: clamp(3rem, 8vh, 6rem);
   position: sticky;
   top: 0;
@@ -115,7 +115,7 @@
   .auth-page__form { padding: 1.5rem clamp(1.25rem, 5vw, 2.5rem) 2rem; }
   .auth-carousel {
     --auth-gutter: clamp(1rem, 4.5vw, 2.5rem);
-    --auth-logo-size: 32px;
+    --brand-mark-size: 32px;
     --brand-bottom: 3.25rem;
     --caption-fade: 2.25rem;
     position: relative;
