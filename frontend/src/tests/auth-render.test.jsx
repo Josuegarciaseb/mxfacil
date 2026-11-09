@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, test, expect, vi } from "vitest";
 import AuthPage from "../pages/AuthPage";
@@ -17,6 +17,32 @@ describe("AuthPage — Login", () => {
   test("renderiza el tab de registro", () => {
     render(<AuthPage onLogin={vi.fn()} />);
     expect(screen.getByText("Registrarse")).toBeInTheDocument();
+  });
+
+  test("las fotos cambian solas cada tres segundos y conservan el correo y su foco", () => {
+    vi.useFakeTimers();
+    try {
+      render(<AuthPage onLogin={vi.fn()} />);
+      const panel = screen.getByRole("region", { name: "Del campo mexicano" });
+      const carousel = within(panel);
+      const email = screen.getByLabelText("Correo electrónico");
+      email.focus();
+      fireEvent.change(email, { target: { value: "ana@ejemplo.mx" } });
+      fireEvent.pointerOver(panel, { pointerType: "mouse" });
+
+      expect(carousel.queryByRole("button")).not.toBeInTheDocument();
+      act(() => vi.advanceTimersByTime(2999));
+      expect(carousel.getByRole("heading", { name: "Sin maíz no hay país." })).toBeInTheDocument();
+      act(() => vi.advanceTimersByTime(1));
+      expect(carousel.getByRole("heading", { name: "El mango se antoja." })).toBeInTheDocument();
+      expect(email).toHaveFocus();
+      expect(email).toHaveValue("ana@ejemplo.mx");
+
+      act(() => vi.advanceTimersByTime(18000));
+      expect(carousel.getByRole("heading", { name: "Sin maíz no hay país." })).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

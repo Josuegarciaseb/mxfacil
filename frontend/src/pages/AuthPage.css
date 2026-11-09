@@ -1,0 +1,136 @@
+.auth-page {
+  display: grid;
+  grid-template-columns: minmax(0, 48fr) minmax(0, 52fr);
+  min-height: 100vh;
+  min-height: 100svh;
+  background: #f7f5f0;
+}
+
+.auth-page__form {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  padding: clamp(2rem, 4.5vw, 4rem);
+}
+
+.auth-carousel {
+  --auth-gutter: clamp(1.75rem, 3.8vw, 4.5rem);
+  --auth-logo-size: 48px;
+  --brand-bottom: calc(var(--auth-gutter) + var(--auth-logo-size));
+  --caption-fade: clamp(3rem, 8vh, 6rem);
+  position: sticky;
+  top: 0;
+  align-self: start;
+  isolation: isolate;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: clamp(1.4rem, 3.5vh, 2.5rem);
+  height: 100vh;
+  height: 100svh;
+  min-height: 29rem;
+  padding: var(--auth-gutter);
+  overflow: hidden;
+  background: #1a2a16;
+  color: #fff;
+}
+
+.auth-carousel__photos,
+.auth-carousel__photos img,
+.auth-carousel::before {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.auth-carousel__photos { z-index: -2; }
+.auth-carousel__photos img {
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 650ms ease;
+}
+.auth-carousel__photos img.is-current { opacity: 1; }
+
+.auth-carousel::before {
+  content: "";
+  z-index: -1;
+  background: linear-gradient(180deg, rgb(9 17 9 / 72%), rgb(9 17 9 / 60%) var(--brand-bottom), transparent calc(var(--brand-bottom) + 5rem));
+}
+
+.auth-carousel__brand {
+  align-self: start;
+  justify-self: start;
+}
+.auth-carousel__brand button {
+  display: block;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  text-align: left;
+}
+
+.auth-carousel__caption {
+  align-self: end;
+  position: relative;
+}
+.auth-carousel__caption::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: calc(0px - var(--caption-fade)) calc(0px - var(--auth-gutter)) calc(0px - var(--auth-gutter));
+  background: linear-gradient(180deg, transparent, rgb(9 17 9 / 62%) var(--caption-fade), rgb(9 17 9 / 94%));
+  pointer-events: none;
+}
+.auth-carousel__caption h2 {
+  max-width: 13ch;
+  color: #fffaf1;
+  font-family: "DM Serif Display", Georgia, serif;
+  font-size: clamp(3rem, 5vw, 5.25rem);
+  font-weight: 400;
+  line-height: 1.03;
+  letter-spacing: -.035em;
+  text-wrap: balance;
+}
+.auth-carousel__caption h2 em { white-space: nowrap; }
+.auth-carousel__caption p {
+  max-width: 37ch;
+  margin-top: .85rem;
+  color: #fffaf1;
+  font-size: clamp(.95rem, 1.1vw, 1.08rem);
+  line-height: 1.55;
+}
+
+.auth-carousel button:focus-visible {
+  outline: 3px solid #fff !important;
+  outline-offset: 3px;
+}
+
+@media (max-width: 759px) {
+  .auth-page {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+  }
+  .auth-page__form { padding: 1.5rem clamp(1.25rem, 5vw, 2.5rem) 2rem; }
+  .auth-carousel {
+    --auth-gutter: clamp(1rem, 4.5vw, 2.5rem);
+    --auth-logo-size: 32px;
+    --brand-bottom: 3.25rem;
+    --caption-fade: 2.25rem;
+    position: relative;
+    align-items: center;
+    gap: 1.3rem;
+    height: auto;
+    min-height: clamp(13rem, 27svh, 16rem);
+    padding: 1rem var(--auth-gutter) 1.25rem;
+  }
+  .auth-carousel__caption::before { bottom: -1.25rem; }
+  .auth-carousel__brand { align-self: center; }
+  .auth-carousel__caption h2 { max-width: none; font-size: clamp(1.8rem, 5.2vw, 2.4rem); }
+  .auth-carousel__caption p { max-width: 40ch; margin-top: .35rem; font-size: .86rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-carousel__photos img { transition: none; }
+}

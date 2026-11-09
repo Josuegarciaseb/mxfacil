@@ -2,9 +2,9 @@ import { useState, useId } from "react";
 import { http }          from "../utils/api";
 import { startGoogle, exchangeGoogle } from '../utils/google-auth';
 import { toast }         from "../utils/toast";
-import { useBreakpoint } from "../hooks/useBreakpoint";
+import AuthCarousel      from "../components/auth/AuthCarousel";
 import Icon              from "../components/ui/Icon";
-import Logo              from "../components/ui/Logo";
+import "./AuthPage.css";
 
 /* ── Design tokens ── */
 const G900 = "#173404";
@@ -13,36 +13,10 @@ const G700 = "#2d5a0f";
 const G400 = "#639922";
 const G100 = "#C0DD97";
 const G50  = "#EAF3DE";
-const SAND = "#f7f5f0";
 const SAND_D = "#ece8e0";
 const TEXT  = "#1a1a18";
 const MUTED = "#6b6b63";
 const BORDER = "#d9d4c8";
-
-const STATS = [
-  { value: "",  label: "Comerciantes" },
-  { value: "",  label: "Satisfacción"  },
-  { value: "", label: "Soporte"       },
-];
-
-const FEATURES = [
-  "Registro en menos de 2 minutos",
-  "Sin comisiones ocultas",
-  "Gestión de inventario en tiempo real",
-];
-
-
-const CheckCircle = () => (
-  <div style={{
-    width: 20, height: 20, borderRadius: "50%", background: G400,
-    display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-  }}>
-    <svg width={11} height={11} viewBox="0 0 24 24" fill="none"
-      stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="20 6 9 17 4 12"/>
-    </svg>
-  </div>
-);
 
 const Spin = () => (
   <div style={{
@@ -102,8 +76,6 @@ const AuthPage = ({ onLogin, onBack }) => {
   const [mfaPending, setMfaPending] = useState(()=>new URLSearchParams(window.location.search).has('google_mfa') && sessionStorage.getItem('google_code') ? {google:true} : null);
   const oauthError = new URLSearchParams(window.location.search).get('oauth_error');
   const [totpCode,   setTotpCode]   = useState("");
-
-  const { isMobile } = useBreakpoint();
 
   const set = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }));
 
@@ -167,92 +139,6 @@ const AuthPage = ({ onLogin, onBack }) => {
   const onKey      = (e) => { if (e.key === "Enter") submit(); };
   const onKeyTotp  = (e) => { if (e.key === "Enter") submitTotp(); };
 
-  /* ── Panel izquierdo ── */
-  const leftPanel = (
-    <div style={{
-      width: "48%", background: G900,
-      display: "flex", flexDirection: "column", justifyContent: "space-between",
-      padding: "3rem 3.5rem",
-      position: "relative", overflow: "hidden",
-    }}>
-      <div style={{ position: "absolute", top: -120, left: -120, width: 480, height: 480, borderRadius: "50%", background: G800, opacity: 0.5 }} />
-      <div style={{ position: "absolute", bottom: -80, right: -80, width: 320, height: 320, borderRadius: "50%", background: G400, opacity: 0.12 }} />
-
-      <div style={{ position: "relative", zIndex: 2, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <Logo size={60} />
-        {onBack && (
-          <button
-            onClick={onBack}
-            style={{
-              background: "rgba(255,255,255,.1)", border: "1px solid rgba(255,255,255,.15)",
-              borderRadius: 8, padding: "6px 12px",
-              color: "rgba(255,255,255,.7)", cursor: "pointer",
-              fontFamily: "'Sora',sans-serif", fontSize: "0.78rem", fontWeight: 500,
-              display: "flex", alignItems: "center", gap: 5,
-              transition: "all .15s",
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,.16)"; e.currentTarget.style.color = "#fff"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,.1)"; e.currentTarget.style.color = "rgba(255,255,255,.7)"; }}
-          >
-            <svg width={13} height={13} viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="15 18 9 12 15 6"/>
-            </svg>
-            Catálogo
-          </button>
-        )}
-      </div>
-
-      <div style={{ position: "relative", zIndex: 2 }}>
-        {mfaPending ? (
-          <>
-            <h1 style={{ fontFamily: "'DM Serif Display', serif", fontSize: "2.4rem", lineHeight: 1.2, color: "#fff", marginBottom: "1rem", fontWeight: 400 }}>
-              Verificación<br/><em style={{ fontStyle: "italic", color: G100 }}>en dos pasos.</em>
-            </h1>
-            <p style={{ fontSize: "0.95rem", lineHeight: 1.7, color: "rgba(255,255,255,.6)", maxWidth: 340, fontFamily: "'Sora',sans-serif" }}>
-              Tu cuenta tiene MFA activado. Abre tu app autenticadora para obtener el código.
-            </p>
-          </>
-        ) : mode === "login" ? (
-          <>
-            <h1 style={{ fontFamily: "'DM Serif Display', serif", fontSize: "2.8rem", lineHeight: 1.15, color: "#fff", marginBottom: "1.25rem", fontWeight: 400 }}>
-              El comercio<br/>mexicano en<br/><em style={{ fontStyle: "italic", color: G100 }}>tus manos.</em>
-            </h1>
-            <p style={{ fontSize: "0.95rem", lineHeight: 1.7, color: "rgba(255,255,255,.6)", maxWidth: 340, fontFamily: "'Sora',sans-serif" }}>
-              Conecta proveedores y comerciantes. Gestiona productos, pedidos e inventarios desde un solo lugar.
-            </p>
-          </>
-        ) : (
-          <>
-            <h1 style={{ fontFamily: "'DM Serif Display', serif", fontSize: "2.8rem", lineHeight: 1.15, color: "#fff", marginBottom: "1.25rem", fontWeight: 400 }}>
-              Tu negocio,<br/>tu plataforma,<br/><em style={{ fontStyle: "italic", color: G100 }}>tu México.</em>
-            </h1>
-            <p style={{ fontSize: "0.95rem", lineHeight: 1.7, color: "rgba(255,255,255,.6)", maxWidth: 340, fontFamily: "'Sora',sans-serif", marginBottom: "1.5rem" }}>
-              Únete a la red de comerciantes y proveedores más grande del país.
-            </p>
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-              {FEATURES.map((f) => (
-                <div key={f} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: "0.88rem", color: "rgba(255,255,255,.65)", fontFamily: "'Sora',sans-serif" }}>
-                  <CheckCircle />
-                  {f}
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-      </div>
-
-      <div style={{ display: "flex", gap: "2rem", position: "relative", zIndex: 2 }}>
-        {STATS.map(({ value, label }) => (
-          <div key={label} style={{ borderTop: "1px solid rgba(255,255,255,.15)", paddingTop: "1rem" }}>
-            <div style={{ fontSize: "1.6rem", fontWeight: 600, color: "#fff", lineHeight: 1, marginBottom: 4, fontFamily: "'Sora',sans-serif" }}>{value}</div>
-            <div style={{ fontSize: "0.75rem", color: "rgba(255,255,255,.5)", letterSpacing: "0.04em", textTransform: "uppercase", fontFamily: "'Sora',sans-serif" }}>{label}</div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-
   /* ── Pantalla TOTP ── */
   const totpScreen = (
     <div style={{ width: "100%", maxWidth: 400, animation: "fadeUp 0.4s ease both" }}>
@@ -273,9 +159,9 @@ const AuthPage = ({ onLogin, onBack }) => {
         <div style={{ fontSize: "0.72rem", letterSpacing: "0.1em", textTransform: "uppercase", color: G400, fontWeight: 600, marginBottom: "0.5rem", fontFamily: "'Sora',sans-serif" }}>
           Autenticación de dos factores
         </div>
-        <h2 style={{ fontFamily: "'DM Serif Display', serif", fontSize: "1.9rem", fontWeight: 400, color: TEXT, lineHeight: 1.2 }}>
+        <h1 style={{ fontFamily: "'DM Serif Display', serif", fontSize: "1.9rem", fontWeight: 400, color: TEXT, lineHeight: 1.2 }}>
           Código de verificación
-        </h2>
+        </h1>
         <p style={{ marginTop: "0.6rem", fontSize: "0.88rem", color: MUTED, fontFamily: "'Sora',sans-serif" }}>
           Ingresa el código de 6 dígitos de tu app autenticadora (Google Authenticator, Authy, etc.)
         </p>
@@ -342,17 +228,10 @@ const AuthPage = ({ onLogin, onBack }) => {
 
   /* ── Formulario principal ── */
   return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: isMobile ? "column" : "row", background: SAND }}>
+    <div className="auth-page">
+      <AuthCarousel onBack={onBack} />
 
-      {!isMobile && leftPanel}
-
-      <div style={{
-        flex: 1, display: "flex", flexDirection: "column",
-        alignItems: "center", justifyContent: "center",
-        padding: isMobile ? "2rem 1.5rem" : "3rem 4rem",
-        overflowY: "auto",
-      }}>
-
+      <div className="auth-page__form">
         {/* ── Pantalla TOTP ── */}
         {mfaPending ? (
           totpScreen
@@ -385,9 +264,9 @@ const AuthPage = ({ onLogin, onBack }) => {
             <div style={{ fontSize: "0.72rem", letterSpacing: "0.1em", textTransform: "uppercase", color: G400, fontWeight: 600, marginBottom: "0.5rem", fontFamily: "'Sora',sans-serif" }}>
               {mode === "login" ? "Bienvenido de vuelta" : "Crea tu cuenta"}
             </div>
-            <h2 style={{ fontFamily: "'DM Serif Display', serif", fontSize: "2rem", fontWeight: 400, color: TEXT, lineHeight: 1.2 }}>
+            <h1 style={{ fontFamily: "'DM Serif Display', serif", fontSize: "2rem", fontWeight: 400, color: TEXT, lineHeight: 1.2 }}>
               {mode === "login" ? "Inicia sesión" : "Únete gratis"}
-            </h2>
+            </h1>
             <p style={{ marginTop: "0.6rem", fontSize: "0.88rem", color: MUTED, fontFamily: "'Sora',sans-serif" }}>
               {mode === "login" ? "Accede a tu cuenta para continuar." : "Elige tu tipo de cuenta y completa el formulario."}
             </p>
