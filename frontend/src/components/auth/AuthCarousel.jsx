@@ -60,7 +60,7 @@ export default function AuthCarousel({ onBack }) {
   const previous = (index - 1 + SLIDES.length) % SLIDES.length;
   const next = (index + 1) % SLIDES.length;
   const active = SLIDES[index];
-  const brand = <Logo size="var(--auth-logo-size)" textColor="#fff" />;
+  const brand = <Logo size={48} textColor="#fff" />;
 
   useEffect(() => {
     const timer = window.setInterval(() => {
