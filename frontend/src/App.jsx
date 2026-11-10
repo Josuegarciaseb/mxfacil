@@ -1,3 +1,4 @@
+import Membresia from './pages/vendor/Membresia';
 import { useState, useEffect, useCallback } from "react";
 import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 
@@ -53,6 +54,7 @@ const PAGE_TO_PATH = {
   "vendedor-dashboard": "/vendedor/dashboard",
   "vendedor-productos": "/vendedor/productos",
   "vendedor-pedidos":   "/vendedor/pedidos",
+  "vendedor-membresia": "/vendedor/membresia",
   "vendedor-perfil":    "/vendedor/perfil",
 };
 const PATH_TO_PAGE = Object.fromEntries(
@@ -333,6 +335,7 @@ export default function App() {
           <Route path="/vendedor/dashboard"  element={vendedorOnly(<VendedorDashboard token={token} user={user} />)} />
           <Route path="/vendedor/productos"  element={vendedorOnly(<VendedorProductos  token={token} user={user} />)} />
           <Route path="/vendedor/pedidos"    element={vendedorOnly(<AdminPedidos        token={token} />)} />
+          <Route path="/vendedor/membresia" element={vendedorOnly(<Membresia token={token} />)} />
           <Route path="/vendedor/perfil"     element={vendedorOnly(<ClientPerfil        token={token} user={user} onUpdate={handleUserUpdate} />)} />
 
           {/* Cualquier ruta desconocida → catálogo */}

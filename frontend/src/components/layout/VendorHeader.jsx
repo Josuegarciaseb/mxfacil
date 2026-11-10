@@ -3,6 +3,7 @@ import Icon from "../ui/Icon";
 import Logo from "../ui/Logo";
 
 const NAV = [
+  { id: "vendedor-membresia", icon: "creditCard", label: "Mi membres?a" },
   { id: "vendedor-dashboard", icon: "dashboard",   label: "Mi Panel"      },
   { id: "vendedor-productos", icon: "package",     label: "Mis Productos" },
   { id: "vendedor-pedidos",   icon: "shoppingBag", label: "Pedidos"       },

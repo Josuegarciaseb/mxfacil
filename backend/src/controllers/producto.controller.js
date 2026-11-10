@@ -24,6 +24,8 @@ async function getProductoCompletoById(id, conn = null) {
       p.id,
       p.proveedor_id,
       pr.nombre AS proveedor_nombre,
+      EXISTS(SELECT 1 FROM membresia m WHERE m.proveedor_id=pr.id
+        AND m.vence_en>UTC_TIMESTAMP(3) AND pr.verificado='aprobado') AS proveedor_pro,
       p.categoria_id,
       c.nombre AS categoria_nombre,
       c.en_catalogo AS categoria_en_catalogo,
@@ -88,6 +90,8 @@ exports.listProductos = async (req, res) => {
         p.id,
         p.proveedor_id,
         pr.nombre AS proveedor_nombre,
+      EXISTS(SELECT 1 FROM membresia m WHERE m.proveedor_id=pr.id
+        AND m.vence_en>UTC_TIMESTAMP(3) AND pr.verificado='aprobado') AS proveedor_pro,
         p.categoria_id,
         c.nombre AS categoria_nombre,
         c.en_catalogo AS categoria_en_catalogo,

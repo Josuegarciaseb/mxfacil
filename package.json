@@ -1,0 +1,12 @@
+{
+  "name": "mx-facil",
+  "private": true,
+  "scripts": {
+    "start": "node scripts/dev.cjs",
+    "dev": "node scripts/dev.cjs",
+    "db:check": "node scripts/database.cjs",
+    "db:init": "node scripts/database.cjs --init",
+    "build": "npm --prefix frontend run build",
+    "test:frontend": "npm --prefix frontend test"
+  }
+}

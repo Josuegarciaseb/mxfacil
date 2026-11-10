@@ -5,6 +5,8 @@
   "main": "src/server.js",
   "scripts": {
     "test": "node --test test/checkout.test.js",
+    "test:pro": "node --test test/membresia.test.js",
+    "demo:pro": "node scripts/demo-pro.js",
     "audit:serve": "node test/serve-local.js",
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",

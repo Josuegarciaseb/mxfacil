@@ -30,7 +30,7 @@ app.set('trust proxy', 1);
 app.post(
   '/api/pagos/stripe/webhook',
   express.raw({ type: 'application/json' }),
-  require('./controllers/pago.controller').handleStripeWebhook
+  require('./utils/async-route')(require('./controllers/pago.controller').handleStripeWebhook)
 );
 
 // 1. ENCABEZADOS DE SEGURIDAD (Helmet)
@@ -155,6 +155,7 @@ app.use('/api/inventario',  inventarioRoutes);
 app.use('/api/pedidos',     pedidoRoutes);
 app.use('/api/pagos',       pagoRoutes);
 app.use('/api/envios',      envioRoutes);
+app.use('/api/membresia', require('./routes/membresia.routes'));
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'mxfacil API up', timestamp: new Date().toISOString() });
