@@ -99,6 +99,10 @@ exports.handleStripeWebhook = async (req,res) => {
   catch { fail(400,'Firma de webhook inválida'); }
   if (['payment_intent.succeeded','payment_intent.canceled','payment_intent.payment_failed'].includes(event.type)) {
     const intent = event.data.object;
+    if (intent.metadata?.membresia_compra_id) {
+      await require('../services/membresia.service').approve(intent);
+      return res.json({received:true});
+    }
     const [rows] = await pool.query('SELECT pedido_id FROM pago WHERE referencia=? AND metodo=?',[intent.id,'tarjeta']);
     // The intent creation may not have committed yet: ask Stripe to retry.
     if (!rows.length && intent.metadata?.pedido_id) fail(503,'Pago aún no registrado; reintentar notificación');

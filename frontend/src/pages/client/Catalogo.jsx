@@ -1,3 +1,4 @@
+import { featuredProducts, recordProEvent } from '../../utils/membresia';
 import { useEffect, useMemo, useState } from "react";
 import Icon from "../../components/ui/Icon";
 import Spinner from "../../components/ui/Spinner";
@@ -85,6 +86,7 @@ export default function ClientCatalogo({
   }
   if (sort === "menor") matches.sort((a, b) => a.price - b.price);
   if (sort === "mayor") matches.sort((a, b) => b.price - a.price);
+  const featured = featuredProducts(matches);
   const cartQuantities = new Map(cart.map((item) => [item.id, item.qty]));
   const singleCategory = categoryIds.length === 1 && categories.find((item) => String(item.id) === categoryIds[0]);
 
@@ -101,6 +103,7 @@ export default function ClientCatalogo({
       toast("Alcanzaste las existencias disponibles", "warn");
       return;
     }
+    recordProEvent(product, "carrito");
     setCart((current) => {
       const existing = current.find((item) => item.id === product.id);
       const qty = Math.min((existing?.qty || 0) + quantity, product.stock);
@@ -161,10 +164,16 @@ export default function ClientCatalogo({
             action={(activeCount > 0 || (query && onSearchChange)) &&
               <button className="btn-secondary" onClick={() => { resetFilters(); onSearchChange?.(""); }}>Ver todos los productos</button>} />
         ) : (
+          <>
+          {featured.length > 0 && <section className="catalog-pro-promo" aria-label="Productos promocionados">
+            <h2>Descubre proveedores Pro</h2><p>Promocionado · Selección rotativa, un producto por proveedor. Coincide con tus filtros.</p>
+            <div className="catalog-products catalog-products--grid">{featured.map(({product,price,status}) => <CatalogProduct key={product.id} product={product} price={price} status={status} inCart={cartQuantities.get(product.id) || 0} onAdd={addToCart} promoted />)}</div>
+          </section>}
           <div className={`catalog-products catalog-products--${view}`}>
             {matches.map(({ product, price, status }, index) => <CatalogProduct key={product.id} product={product}
               price={price} status={status} eager={index < 4} inCart={cartQuantities.get(product.id) || 0} onAdd={addToCart} />)}
           </div>
+          </>
         )}
       </section>
     </div>

@@ -29,3 +29,12 @@ exports.constructWebhookEvent = (rawBody, signature) => {
     process.env.STRIPE_WEBHOOK_SECRET
   );
 };
+
+exports.createMembershipIntent = async purchase => {
+  if (!/^sk_test_/.test(process.env.STRIPE_SECRET_KEY || '')) throw Object.assign(new Error('Solo se permiten pagos de prueba para Pro'), {status:503});
+  return getStripe().paymentIntents.create({
+    amount: purchase.monto_centavos, currency: 'mxn', payment_method_types: ['card'],
+    metadata: { membresia_compra_id: purchase.id, proveedor_id: String(purchase.proveedor_id) },
+    description: 'MX Facil Pro - 30 dias - pago unico de prueba',
+  }, { idempotencyKey: `membresia_${purchase.id}` });
+};

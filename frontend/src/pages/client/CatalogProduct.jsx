@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { recordProEvent } from '../../utils/membresia';
+import { useEffect, useRef, useState } from "react";
 import Icon from "../../components/ui/Icon";
 import { imageUrl } from "../../utils/config";
 import { money } from "../../utils/cart";
@@ -32,17 +33,26 @@ function ProductPhoto({ product, eager }) {
   return <span className="catalog-no-photo" role="img" aria-label="Fotografía no disponible"><Icon name="package" size={44} /></span>;
 }
 
-export default function CatalogProduct({ product, price, status, inCart, eager, onAdd }) {
+export default function CatalogProduct({ product, price, status, inCart, eager, onAdd, promoted = false }) {
+  const article = useRef(null);
+  useEffect(() => {
+    if (!product.proveedor_pro || !globalThis.IntersectionObserver) return;
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) { recordProEvent(product, 'impresion'); observer.disconnect(); }
+    }, {threshold: 0.5});
+    if (article.current) observer.observe(article.current);
+    return () => observer.disconnect();
+  }, [product]);
   const [requested, setRequested] = useState(1);
   const remaining = Math.max(0, (Number(product.stock) || 0) - inCart);
   const maxQuantity = Math.max(1, remaining);
   const quantity = Math.min(requested || 1, maxQuantity);
   const unit = product.presentacion?.trim().toLocaleLowerCase("es-MX")
     .match(/^(caja|costal|bolsa|saco|paquete|pieza|bulto|charola|manojo|atado|tarima|kg|litro)\b/)?.[1] || "unidad";
-  const titleId = `catalog-product-${product.id}`;
+  const titleId = `catalog-product-${promoted ? "promo-" : ""}${product.id}`;
 
   return (
-    <article className="catalog-product" aria-labelledby={titleId}>
+    <article ref={article} className="catalog-product" aria-labelledby={titleId}>
       <div className="catalog-image-area">
         <ProductPhoto product={product} eager={eager} />
         <span className={`catalog-stock catalog-stock--${status.id}`}>
@@ -52,6 +62,7 @@ export default function CatalogProduct({ product, price, status, inCart, eager, 
       <div className="catalog-product-info">
         <h2 id={titleId}>{product.nombre}</h2>
         {product.proveedor_nombre && <p className="catalog-supplier"><Icon name="store" size={14} />{product.proveedor_nombre}</p>}
+        {!!product.proveedor_pro && <span className="pro-badge">Proveedor Pro</span>}
         {product.presentacion && <span className="catalog-pack">{product.presentacion}</span>}
         {product.descripcion && <p className="catalog-description" title={product.descripcion}>{product.descripcion}</p>}
       </div>
