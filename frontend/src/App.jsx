@@ -324,7 +324,7 @@ export default function App() {
           <Route path="/admin"           element={<Navigate to="/admin/dashboard" replace />} />
           <Route path="/admin/dashboard" element={adminOnly(<AdminDashboard  token={token} />)} />
           <Route path="/admin/productos" element={adminOnly(<AdminProductos  token={token} />)} />
-          <Route path="/admin/pedidos"   element={adminOnly(<AdminPedidos    token={token} />)} />
+          <Route path="/admin/pedidos"   element={adminOnly(<AdminPedidos token={token} gestionarPagos />)} />
           <Route path="/admin/usuarios"  element={adminOnly(<AdminUsuarios   token={token} currentUser={user} />)} />
           <Route path="/admin/categorias"  element={adminOnly(<AdminCategorias  token={token} />)} />
           <Route path="/admin/proveedores" element={adminOnly(<AdminProveedores  token={token} />)} />

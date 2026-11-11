@@ -1,8 +1,12 @@
 // src/controllers/pedido.controller.js
 const pool = require('../config/db');
 const crypto = require('node:crypto');
+const { normalizarItems, validarCompra } = require('../services/castores.service');
+const enviaCastores = require('../services/envia-castores.service');
 const { cents, publicPriceCents } = require('../utils/money');
-const { transaction, lockOrder, reserveStock, cancelOrder, fail } = require('../services/order-state.service');
+const { transaction, lockOrder, reserveStock, cancelOrder, fail, reservationMinutes } = require('../services/order-state.service');
+const { segundosCheckout } = require('../services/piloto.service');
+const { vendorOrders } = require('../services/vendor-orders.service');
 const {
   isPositiveInteger
 } = require('../utils/validators');
@@ -40,7 +44,7 @@ exports.listPedidosCliente = async (req, res) => {
 };
 
 // Helper para detalle de pedido
-async function getPedidoDetalleCompleto(pedidoId, conn = null) {
+async function getPedidoDetalleCompleto(pedidoId, conn = null, gestion = false) {
   const executor = conn || pool;
 
   // Pedido
@@ -56,6 +60,10 @@ async function getPedidoDetalleCompleto(pedidoId, conn = null) {
       COALESCE(p.direccion_entrega->>'$.estado',d.estado) AS direccion_estado,
       COALESCE(p.direccion_entrega->>'$.cp',d.cp) AS direccion_cp,
       p.fecha,
+      UNIX_TIMESTAMP(p.reserva_vence_en) AS reserva_vence_epoch,
+      c.id AS cotizacion_castores_id, c.flete, c.servicio AS servicio_castores, c.fuente AS fuente_castores,
+      c.recibido_por, c.acuse, c.confirmacion, c.incidencia, c.canal_guia, c.embalaje, c.cp_origen AS cp_origen_flete,
+      ${gestion ? 'c.referencia AS referencia_flete,c.otros_costos_estimados,c.costo_flete_real,' : ''}
       p.estado,
       p.recibido_cliente_en,
       p.subtotal,
@@ -65,12 +73,18 @@ async function getPedidoDetalleCompleto(pedidoId, conn = null) {
     FROM pedido p
     JOIN usuario u ON u.id = p.usuario_id
     JOIN direccion d ON d.id = p.direccion_id
+    LEFT JOIN cotizacion_castores c ON c.pedido_id=p.id
     WHERE p.id = ?
     `,
     [pedidoId]
   );
   if (!pedidos.length) return null;
   const pedido = pedidos[0];
+  if (pedido.cotizacion_castores_id) {
+    const modo = enviaCastores.entorno();
+    pedido.api_envia = modo;
+    pedido.rastreo_api = Boolean(modo && pedido.canal_guia === (modo === 'sandbox' ? 'sandbox' : 'envia'));
+  }
 
   // Items
   const [items] = await executor.query(
@@ -78,15 +92,17 @@ async function getPedidoDetalleCompleto(pedidoId, conn = null) {
     SELECT
       pi.id,
       pi.producto_id,
-      pr.proveedor_id,
+      pi.proveedor_id,
       pr.nombre AS producto_nombre,
       prov.nombre AS proveedor_nombre,
       pi.cantidad,
-      pi.precio_unitario
+      pi.precio_unitario,
+      pi.iva_linea
     FROM pedido_item pi
     JOIN producto pr ON pr.id = pi.producto_id
-    JOIN proveedor prov ON prov.id = pr.proveedor_id
+    LEFT JOIN proveedor prov ON prov.id = pi.proveedor_id
     WHERE pi.pedido_id = ?
+    ORDER BY pi.producto_id, pi.id
     `,
     [pedidoId]
   );
@@ -113,7 +129,7 @@ async function getPedidoDetalleCompleto(pedidoId, conn = null) {
 }
 
 // GET /api/pedidos/:id
-exports.getPedidoDetalle = async (req, res) => {
+async function getPedidoDetalle(req, res) {
   const pedidoId = req.params.id;
   const user = req.user;
 
@@ -122,7 +138,7 @@ exports.getPedidoDetalle = async (req, res) => {
   }
 
   try {
-    const detalle = await getPedidoDetalleCompleto(pedidoId);
+    const detalle = await getPedidoDetalleCompleto(pedidoId,null,['vendedor','admin'].includes(user.rol));
     if (!detalle) {
       return res.status(404).json({ message: 'Pedido no encontrado' });
     }
@@ -137,10 +153,9 @@ exports.getPedidoDetalle = async (req, res) => {
       const proveedorId = provRows[0].id;
       detalle.items = detalle.items.filter(i=>i.proveedor_id===proveedorId);
       if (!detalle.items.length) return res.status(403).json({ message: 'No tienes acceso a este pedido' });
-      const sub = detalle.items.reduce((sum,i)=>sum+cents(i.precio_unitario)*i.cantidad,0);
-      const iva = Math.round(sub*16/100);
-      Object.assign(detalle.pedido,{subtotal:sub/100,iva:iva/100,total:(sub+iva)/100});
-      delete detalle.pedido.comision;
+      const [summary] = await vendorOrders(user.id, { pedidoId });
+      if (!summary) return res.status(403).json({ message: 'No tienes acceso a este pedido' });
+      Object.assign(detalle.pedido, summary);
       detalle.pago = null;
       return res.json(detalle);
     }
@@ -154,7 +169,8 @@ exports.getPedidoDetalle = async (req, res) => {
     console.error('Error getPedidoDetalle:', err);
     return res.status(500).json({ message: 'Error al obtener detalle del pedido' });
   }
-};
+}
+exports.getPedidoDetalle = getPedidoDetalle;
 
 // Métodos que requieren confirmación de pago antes de procesar el pedido
 const METODOS_PAGO_ONLINE = new Set(['tarjeta', 'paypal', 'mercadopago']);
@@ -164,53 +180,70 @@ exports.createPedido = async (req, res) => {
   const { direccion_id, items, metodo_pago, clave_checkout } = req.body;
   if (!isPositiveInteger(direccion_id) || Number(direccion_id) === 0 || !Array.isArray(items) || !items.length || items.length > 100) fail(400, 'Indica una dirección y entre 1 y 100 productos válidos');
   if (!require('../utils/payment-methods')().includes(metodo_pago)) fail(400, 'Método de pago no disponible');
-  if (clave_checkout != null && (typeof clave_checkout !== 'string' || !/^[a-zA-Z0-9_-]{16,64}$/.test(clave_checkout))) fail(400, 'Clave de compra inválida');
-  const quantities = new Map();
-  for (const item of items) {
-    if (!item || !isPositiveInteger(item.producto_id) || Number(item.producto_id) === 0 || !isPositiveInteger(item.cantidad) || Number(item.cantidad) === 0) fail(400, 'Cada producto debe tener ID y cantidad enteros positivos');
-    const id = Number(item.producto_id);
-    const quantity = (quantities.get(id) || 0) + Number(item.cantidad);
-    if (!isPositiveInteger(quantity)) fail(400, 'Cantidad inválida');
-    quantities.set(id, quantity);
+  if (typeof clave_checkout !== 'string' || !/^[a-zA-Z0-9_-]{16,64}$/.test(clave_checkout)) {
+    fail(400, 'Envía una clave_checkout de 16 a 64 caracteres y reutilízala al reintentar la misma compra');
   }
-  const normalized = [...quantities].sort((a,b) => a[0]-b[0]).map(([producto_id,cantidad])=>({producto_id,cantidad}));
-  const hash = crypto.createHash('sha256').update(JSON.stringify({ direccion_id:Number(direccion_id), metodo_pago, items:normalized })).digest('hex');
+  const normalized = normalizarItems(items);
+  const solicitud = { direccion_id:Number(direccion_id), metodo_pago, items:normalized };
+  const conCastores = req.body.entrega === 'castores';
+  if (req.body.entrega != null && !['castores','acordada'].includes(req.body.entrega)) fail(400,'Modalidad de entrega inválida');
+  if (conCastores) {
+    const { cotizacion_id, revision } = req.body;
+    if (!Number.isSafeInteger(cotizacion_id) || cotizacion_id < 1 || !Number.isSafeInteger(revision) ||
+        revision < 1 || req.body.total_esperado == null) fail(400,'Confirma una cotización vigente y su total');
+    Object.assign(solicitud, { cotizacion_id, revision });
+  } else if (req.body.cotizacion_id != null) fail(400,'La cotización requiere entrega con Castores');
+  const hash = crypto.createHash('sha256').update(JSON.stringify(solicitud)).digest('hex');
   const result = await transaction(async conn => {
     await conn.query('SELECT id FROM usuario WHERE id=? FOR UPDATE', [req.user.id]);
-    if (clave_checkout) {
-      const [existing] = await conn.query('SELECT id,solicitud_hash FROM pedido WHERE usuario_id=? AND clave_checkout=?', [req.user.id,clave_checkout]);
-      if (existing.length) {
-        if (existing[0].solicitud_hash !== hash) fail(409, 'La clave de compra ya se usó con otros datos');
-        return { detail: await getPedidoDetalleCompleto(existing[0].id, conn), repeated: true };
-      }
+    const [existing] = await conn.query('SELECT id,solicitud_hash FROM pedido WHERE usuario_id=? AND clave_checkout=?', [req.user.id,clave_checkout]);
+    if (existing.length) {
+      if (existing[0].solicitud_hash !== hash) fail(409, 'La clave de compra ya se usó con otros datos');
+      return { detail: await getPedidoDetalleCompleto(existing[0].id, conn), repeated: true };
     }
     const [addresses] = await conn.query('SELECT linea1,ciudad,estado,cp,pais FROM direccion WHERE id=? AND usuario_id=?', [direccion_id,req.user.id]);
     if (!addresses.length) fail(400, 'La dirección no existe o no pertenece al usuario');
     const [products] = await conn.query(
-      `SELECT p.id, p.precio, p.activo FROM producto p
+      `SELECT p.id, p.proveedor_id, p.precio, p.activo, p.nombre, p.presentacion,c.tipo FROM producto p
        JOIN categoria c ON c.id = p.categoria_id
        WHERE p.id IN (?) AND c.en_catalogo = 1 ORDER BY p.id FOR UPDATE OF p`,
       [normalized.map(i=>i.producto_id)]
     );
-    let subtotal = 0, commission = 0;
+    let subtotal = 0, commission = 0, tax = 0;
     const details = normalized.map(item => {
       const product = products.find(p=>p.id===item.producto_id);
       if (!product || product.activo !== 1) fail(409, `El producto ${item.producto_id} ya no está disponible en el catálogo`);
       const unit = publicPriceCents(product.precio);
       subtotal += unit * item.cantidad;
+      if (!Number.isSafeInteger(subtotal) || subtotal > 999999999999) fail(400, 'Total fuera de rango');
       commission += (unit - cents(product.precio)) * item.cantidad;
-      return {...item, precio_unitario:unit/100};
+      const nextTax = Math.round(subtotal * 16 / 100);
+      const lineTax = nextTax - tax;
+      tax = nextTax;
+      return {...item, precio_unitario:unit/100, proveedor_id:product.proveedor_id,
+        precio_base_unitario:product.precio, iva_linea:lineTax/100};
     });
-    const tax = Math.round(subtotal * 16 / 100);
-    const total = subtotal + tax;
+    const flete = conCastores ? await validarCompra(conn, { id:solicitud.cotizacion_id, revision:solicitud.revision,
+      comprador:req.user.id, direccionId:direccion_id, direccion:addresses[0], items:normalized, productos:products, metodo:metodo_pago }) : 0;
+    const total = subtotal + tax + flete;
     if (req.body.total_esperado != null && (!Number.isFinite(Number(req.body.total_esperado)) || Number(req.body.total_esperado) < 0 || cents(req.body.total_esperado) !== total)) fail(409,'El precio cambió. Revisa el carrito actualizado antes de confirmar');
     if (!Number.isSafeInteger(total) || total <= 0 || total > 999999999999) fail(400, 'Total fuera de rango');
     await reserveStock(conn, details);
     const [created] = await conn.query(`INSERT INTO pedido
-      (usuario_id,direccion_id,direccion_entrega,subtotal,iva,comision,total,estado,stock_reservado,clave_checkout,solicitud_hash)
-      VALUES (?,?,?,?,?,?,?,?,1,?,?)`,
-      [req.user.id,direccion_id,JSON.stringify(addresses[0]),subtotal/100,tax/100,commission/100,total/100,METODOS_PAGO_ONLINE.has(metodo_pago)?'esperando_pago':'pendiente',clave_checkout||null,hash]);
-    for (const item of details) await conn.query('INSERT INTO pedido_item (pedido_id,producto_id,cantidad,precio_unitario) VALUES (?,?,?,?)', [created.insertId,item.producto_id,item.cantidad,item.precio_unitario]);
+      (usuario_id,direccion_id,direccion_entrega,subtotal,iva,comision,total,estado,stock_reservado,clave_checkout,solicitud_hash,reserva_vence_en,checkout_segundos)
+      VALUES (?,?,?,?,?,?,?,?,1,?,?,TIMESTAMPADD(MINUTE,?,NOW()),?)`,
+      [req.user.id,direccion_id,JSON.stringify(addresses[0]),subtotal/100,tax/100,commission/100,total/100,
+        METODOS_PAGO_ONLINE.has(metodo_pago)?'esperando_pago':'pendiente',clave_checkout,hash,
+        reservationMinutes(metodo_pago),segundosCheckout(req.body.inicio_checkout,req.user.id)]);
+    if (conCastores) {
+      await conn.execute('UPDATE cotizacion_castores SET pedido_id=?, solicitud=NULL WHERE id=?',[created.insertId,solicitud.cotizacion_id]);
+    }
+    for (const item of details) {
+      await conn.query(`INSERT INTO pedido_item
+        (pedido_id,producto_id,cantidad,precio_unitario,proveedor_id,precio_base_unitario,iva_linea)
+        VALUES (?,?,?,?,?,?,?)`, [created.insertId,item.producto_id,item.cantidad,item.precio_unitario,
+        item.proveedor_id,item.precio_base_unitario,item.iva_linea]);
+    }
     await conn.query("INSERT INTO pago (pedido_id,metodo,monto,estado) VALUES (?,?,?,'pendiente')", [created.insertId,metodo_pago,total/100]);
     if (!METODOS_PAGO_ONLINE.has(metodo_pago)) await conn.query("INSERT INTO envio (pedido_id,estado) VALUES (?,'preparando')", [created.insertId]);
     return { detail:await getPedidoDetalleCompleto(created.insertId,conn), repeated:false };
@@ -224,18 +257,24 @@ exports.updateEstadoPedido = async (req, res) => {
     const {order,payment} = await lockOrder(conn,id);
     if (req.user.rol === 'vendedor') {
       const [providers] = await conn.query('SELECT id FROM proveedor WHERE usuario_id=?',[req.user.id]);
-      const [items] = await conn.query('SELECT pr.proveedor_id FROM pedido_item pi JOIN producto pr ON pr.id=pi.producto_id WHERE pi.pedido_id=?', [id]);
+      const [items] = await conn.query('SELECT proveedor_id FROM pedido_item WHERE pedido_id=?', [id]);
       if (!providers.length || !items.length || items.some(i=>i.proveedor_id!==providers[0].id)) fail(403, 'Solo puedes actualizar pedidos compuestos exclusivamente por tus productos');
     }
     if (estado === order.estado) return;
     if (estado === 'cancelado') return cancelOrder(conn,order,payment);
     const transitions = { pendiente:['en_proceso'], en_proceso:['enviado'], enviado:['entregado'] };
     if (!transitions[order.estado]?.includes(estado)) fail(409, 'Cambio de estado no permitido');
-    if (METODOS_PAGO_ONLINE.has(payment.metodo) && payment.estado !== 'aprobado') fail(409, 'El pago aún no está aprobado');
+    if (['enviado','entregado'].includes(estado)) {
+      const [[castores]] = await conn.execute('SELECT id FROM cotizacion_castores WHERE pedido_id=?',[id]);
+      if (castores) fail(409,'Registra el despacho con guía o la recepción con acuse en el envío Castores');
+    }
+    const pendingCash = payment.metodo === 'contra_entrega' && payment.estado === 'pendiente';
+    const deliveryAfterRefund = payment.estado === 'reembolsado' && order.estado === 'enviado' && estado === 'entregado';
+    if (payment.estado !== 'aprobado' && !pendingCash && !deliveryAfterRefund) fail(409, 'El pago no permite avanzar este pedido');
     await conn.query('UPDATE pedido SET estado=? WHERE id=?', [estado,id]);
     if (['enviado','entregado'].includes(estado)) await conn.query('UPDATE envio SET estado=? WHERE pedido_id=?', [estado==='enviado'?'en_transito':'entregado',id]);
   });
-  res.json(await getPedidoDetalleCompleto(id));
+  return getPedidoDetalle(req,res);
 };
 
 exports.cancelPedidoCliente = async (req,res) => {
@@ -263,28 +302,7 @@ exports.listPedidosAdmin = async (req, res) => {
 
     // Vendedor: solo pedidos que contienen sus productos
     if (user.rol === 'vendedor') {
-      const [provRows] = await pool.query('SELECT id FROM proveedor WHERE usuario_id = ?', [user.id]);
-      if (!provRows.length) return res.json([]);
-      const proveedorId = provRows[0].id;
-
-      let where = 'WHERE pr.proveedor_id = ?';
-      params.push(proveedorId);
-      if (estado) { where += ' AND p.estado = ?'; params.push(estado); }
-
-      const [rows] = await pool.query(
-        `SELECT p.id, p.usuario_id, u.nombre AS usuario_nombre, p.direccion_id, p.fecha, p.estado,
-           SUM(pit.cantidad*pit.precio_unitario) AS subtotal, ROUND(SUM(pit.cantidad*pit.precio_unitario)*0.16,2) AS iva,
-           SUM(pit.cantidad*pit.precio_unitario)+ROUND(SUM(pit.cantidad*pit.precio_unitario)*0.16,2) AS total
-         FROM pedido p
-         JOIN usuario u ON u.id = p.usuario_id
-         JOIN pedido_item pit ON pit.pedido_id = p.id
-         JOIN producto pr ON pr.id = pit.producto_id
-         ${where}
-         GROUP BY p.id,u.nombre
-         ORDER BY p.fecha DESC`,
-        params
-      );
-      return res.json(rows);
+      return res.json(await vendorOrders(user.id, { estado }));
     }
 
     // Admin: todos los pedidos

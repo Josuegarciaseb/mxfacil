@@ -12,12 +12,21 @@ import PageHeader from "../../components/ui/PageHeader";
 import Modal from "../../components/ui/Modal";
 import StatusBadge from "../../components/ui/StatusBadge";
 import Icon from "../../components/ui/Icon";
+import SeguimientoCastores from "../../components/shipping/SeguimientoCastores";
+import { money } from "../../utils/cart";
 
-const DetalleContent = ({ detalle, onResume, onCancel, token, onDelivered }) => (
+const DetalleContent = ({ detalle, onResume, onCancel, token, actualizar }) => (
   <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-    <OrderReviews key={detalle.pedido.id} detalle={detalle} token={token} onDelivered={onDelivered} />
+    <OrderReviews key={detalle.pedido.id} detalle={detalle} token={token} onDelivered={actualizar} />
+    {detalle.pedido.estado === 'cancelado' && detalle.pago?.estado === 'aprobado' && (
+      <p role="status">Recibimos el pago de este pedido cancelado. El importe completo está pendiente de devolución.</p>
+    )}
+    {detalle.pedido.reserva_vence_epoch != null && detalle.pago?.estado === 'pendiente' && (
+      <p>Plazo para pagar: {new Date(Number(detalle.pedido.reserva_vence_epoch) * 1000).toLocaleString('es-MX')}.
+        {' '}Si iniciaste un pago en línea, verificaremos su estado antes de liberar las existencias.</p>
+    )}
     {detalle.pedido.estado === 'esperando_pago' && <button className="btn-primary" onClick={()=>onResume({pedidoId:detalle.pedido.id,metodo:detalle.pago.metodo,monto:detalle.pago.monto})}>Continuar pago</button>}
-    {['esperando_pago','pendiente'].includes(detalle.pedido.estado) && detalle.pago?.estado !== 'aprobado' && !detalle.pago?.referencia && <button className="btn-secondary" onClick={()=>onCancel(detalle.pedido.id)}>Cancelar pedido</button>}
+    {['esperando_pago','pendiente'].includes(detalle.pedido.estado) && detalle.pago?.estado === 'pendiente' && <button className="btn-secondary" onClick={()=>onCancel(detalle.pedido.id)}>Cancelar pedido</button>}
     <div style={{ background: "var(--gray-50)", borderRadius: 9, padding: 12, border: "1px solid var(--gray-100)" }}>
       <div style={{ fontSize: 11, color: "var(--gray-400)", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 8 }}>Productos</div>
       {detalle.items?.map((i) => (
@@ -44,6 +53,7 @@ const DetalleContent = ({ detalle, onResume, onCancel, token, onDelivered }) => 
             </div>
           </>
         )}
+        {detalle.pedido.cotizacion_castores_id && <div className="flete-heading"><span>Flete Castores</span><span>${money(detalle.pedido.flete)}</span></div>}
         <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 800, fontSize: 14, borderTop: detalle.pedido?.subtotal != null ? "1px solid var(--gray-100)" : "none", paddingTop: detalle.pedido?.subtotal != null ? 4 : 0 }}>
           <span>Total</span>
           <span style={{ color: "var(--red)" }}>${parseFloat(detalle.pedido?.total).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
@@ -58,7 +68,7 @@ const DetalleContent = ({ detalle, onResume, onCancel, token, onDelivered }) => 
         <StatusBadge estado={detalle.pago.estado} />
       </div>
     )}
-    {detalle.envio && (
+    {detalle.pedido.cotizacion_castores_id ? <SeguimientoCastores key={detalle.pedido.id} detalle={detalle} token={token} actualizar={actualizar} /> : detalle.envio && (
       <div style={{ background: "var(--gray-50)", borderRadius: 9, padding: 10, border: "1px solid var(--gray-100)", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13 }}>
         <span style={{ color: "var(--gray-700)", display: "flex", alignItems: "center", gap: 6 }}>
           <Icon name="truck" size={13} style={{ color: "var(--gray-400)" }} />{detalle.envio.transportista || "Envío"}
@@ -163,7 +173,7 @@ const ClientPedidos = ({ token, onResume }) => {
                 <div style={{ marginTop: 10 }}><StatusBadge estado={detalle.pedido?.estado} /></div>
               </div>
               <div style={{ padding: 16 }}>
-                <DetalleContent detalle={detalle} onResume={resume} onCancel={cancel} token={token} onDelivered={() => setRevision(n=>n+1)} />
+                <DetalleContent detalle={detalle} onResume={resume} onCancel={cancel} token={token} actualizar={()=>setRevision(n=>n+1)} />
               </div>
             </div>
           )}
@@ -173,7 +183,7 @@ const ClientPedidos = ({ token, onResume }) => {
       {/* Modal detalle — mobile */}
       {isMobile && selected && detalle && (
         <Modal open={true} onClose={() => { setSelected(null); setDetalle(null); }} title={"Pedido #" + selected}>
-          <DetalleContent detalle={detalle} onResume={resume} onCancel={cancel} token={token} onDelivered={() => setRevision(n=>n+1)} />
+            <DetalleContent detalle={detalle} onResume={resume} onCancel={cancel} token={token} actualizar={()=>setRevision(n=>n+1)} />
         </Modal>
       )}
     </div>

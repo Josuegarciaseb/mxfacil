@@ -1,5 +1,7 @@
 # Auditoría de Comercio Fácil México
 
+Este documento conserva los resultados de la auditoría anterior. La [verificación posterior de economía, inventario y piloto](PILOTO.md) detalla los cambios en reservas con pagos pendientes y en los paneles.
+
 Se trabajó en la rama local `codex/auditoria-ecommerce`. El frontend usa React y Vite, la API usa Express y los pedidos se almacenan en MySQL. Las pruebas usaron datos sintéticos y una instancia MySQL 8 aislada en el puerto 3318. Producción quedó fuera del alcance.
 
 | Gravedad | Problema reproducido | Corrección y comprobación |

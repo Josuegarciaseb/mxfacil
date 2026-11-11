@@ -66,6 +66,16 @@ exports.createOrder = async (amount, pedidoId, checkoutKey) => {
   return body;
 };
 
+exports.getOrder = async id => {
+  const token = await getAccessToken();
+  const { status, body } = await httpsRequest({
+    hostname: BASE, path: '/v2/checkout/orders/' + encodeURIComponent(id), method: 'GET',
+    headers: { Authorization: 'Bearer ' + token },
+  });
+  if (status !== 200) throw Object.assign(new Error('No fue posible consultar la orden PayPal'), { status: 502 });
+  return body;
+};
+
 exports.captureOrder = async (paypalOrderId) => {
   const token = await getAccessToken();
 

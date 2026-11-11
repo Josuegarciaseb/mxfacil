@@ -4,6 +4,17 @@ const envioCtrl = require('../controllers/envio.controller');
 const asyncRoute = require('../utils/async-route');
 const auth = require('../middlewares/auth');
 const isAdmin = require('../middlewares/admin');
+const gestor = require('../middlewares/isAdminOrVendedor');
+const castores = require('../controllers/castores.controller');
+
+router.post('/castores/cotizaciones', auth, asyncRoute(castores.solicitar));
+router.get('/castores/cotizaciones', auth, gestor, asyncRoute(castores.gestion));
+router.get('/castores/cotizaciones/:id', auth, asyncRoute(castores.consultar));
+router.put('/castores/cotizaciones/:id', auth, gestor, asyncRoute(castores.ofertar));
+router.post('/castores/pedidos/:id/despacho', auth, gestor, asyncRoute(castores.despachar));
+router.post('/castores/pedidos/:id/recepcion', auth, asyncRoute(castores.recibir));
+router.post('/castores/pedidos/:id/incidencia', auth, asyncRoute(castores.incidencia));
+router.get('/castores/pedidos/:id/rastreo', auth, asyncRoute(castores.rastreo));
 
 // Cliente/admin: ver envío de un pedido
 router.get('/pedido/:pedidoId', auth, envioCtrl.getEnvioByPedido);

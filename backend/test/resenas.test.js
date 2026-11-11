@@ -19,7 +19,7 @@ async function request(path,body,user=1,method=body?'POST':'GET',extra={}) {
   return {status:response.status,data:await response.json()};
 }
 async function checkout() {
-  const result=await request('/pedidos',{direccion_id:1,items:[{producto_id:1,cantidad:1},{producto_id:2,cantidad:1}],metodo_pago:'contra_entrega',clave_checkout:randomUUID()});
+  const result=await request('/pedidos',{direccion_id:1,items:[{producto_id:1,cantidad:1},{producto_id:2,cantidad:1}],metodo_pago:'transferencia',clave_checkout:randomUUID()});
   assert.equal(result.status,201);return result.data;
 }
 test('compra pagada → recepción del dueño → reseña verificada visible sin Pro',async()=>{
@@ -32,7 +32,7 @@ test('compra pagada → recepción del dueño → reseña verificada visible sin
   assert.equal((await request(`/pedidos/${id}/entregado`,{})).status,409);
   assert.equal((await request(`/pedidos/${id}/resenas`,body)).status,409);
   // Use the existing admin payment flow, not a direct database status change.
-  assert.equal((await request(`/pagos/${detail.pago.id}/estado`,{estado:'aprobado'},3,'PATCH')).status,200);
+  assert.equal((await request(`/pagos/${detail.pago.id}/estado`,{estado:'aprobado',referencia:'TRANSFERENCIA-RESENA-PRUEBA'},3,'PATCH')).status,200);
   assert.equal((await request(`/pedidos/${id}/resenas`,body)).status,409);
   assert.equal((await request(`/pedidos/${id}/entregado`,{},1,'POST',{'X-CSRF-Token':'bad'})).status,403);
   assert.equal((await request(`/pedidos/${id}/entregado`,{})).status,409);
@@ -88,11 +88,11 @@ test('pedido cancelado y artículo de otro pedido no permiten reseñas',async()=
   assert.equal((await request(`/pedidos/${delivered.id}/resenas`,{pedido_item_id:item.id,calidad:5,servicio:5})).status,404);
 });
 test('el vendedor marca enviado y entregado; solo después confirma el comprador',async()=>{
-  const sale=await request('/pedidos',{direccion_id:1,items:[{producto_id:1,cantidad:1}],metodo_pago:'contra_entrega',clave_checkout:randomUUID()});
+  const sale=await request('/pedidos',{direccion_id:1,items:[{producto_id:1,cantidad:1}],metodo_pago:'transferencia',clave_checkout:randomUUID()});
   assert.equal(sale.status,201);
   const id=sale.data.pedido.id;
   const detail=(await request('/pedidos/'+id)).data;
-  await request(`/pagos/${detail.pago.id}/estado`,{estado:'aprobado'},3,'PATCH');
+  await request(`/pagos/${detail.pago.id}/estado`,{estado:'aprobado',referencia:'TRANSFERENCIA-RESENA-PRUEBA'},3,'PATCH');
   assert.equal((await request(`/pedidos/${id}/entregado`,{})).status,409);
   assert.equal((await request(`/pedidos/${id}/estado`,{estado:'enviado'},4,'PATCH')).status,200);
   assert.equal((await request(`/pedidos/${id}/entregado`,{})).status,409);

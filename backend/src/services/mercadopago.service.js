@@ -6,12 +6,15 @@ const client = new MercadoPagoConfig({
   options: { timeout: 5000 },
 });
 
-exports.createPreference = async ({ items, pedidoId, frontendUrl }) => {
+exports.createPreference = async ({ items, pedidoId, frontendUrl, venceEpoch }) => {
   const preference = new Preference(client);
 
   const response = await preference.create({
     body: {
       items,
+      expires: true,
+      expiration_date_from: new Date().toISOString(),
+      expiration_date_to: new Date(venceEpoch * 1000).toISOString(),
       back_urls: {
         success: `${frontendUrl}/pago-retorno?pedido_id=${pedidoId}`,
         failure: `${frontendUrl}/pago-retorno?pedido_id=${pedidoId}`,
@@ -33,6 +36,38 @@ exports.getPayment = async (paymentId) => {
 
 exports.getPreference = (id) => new Preference(client).get({preferenceId:id});
 exports.getMerchantOrder = (id) => new MerchantOrder(client).get({merchantOrderId:id});
+
+exports.expirePreference = async (id, orderId) => {
+  const preference = await exports.getPreference(id);
+  if (preference.id !== id || String(preference.external_reference) !== String(orderId)) {
+    throw Object.assign(new Error('La preferencia no corresponde al pedido'), { status: 409 });
+  }
+  if (preference.expires && Date.parse(preference.expiration_date_to) <= Date.now()) return preference;
+  const now = Date.now();
+  return new Preference(client).update({ id, updatePreferenceRequest: {
+    expires: true,
+    expiration_date_from: new Date(now - 60000).toISOString(),
+    expiration_date_to: new Date(now - 1000).toISOString(),
+  } });
+};
+
+exports.findMerchantOrders = async preferenceId => {
+  const orders = [];
+  const api = new MerchantOrder(client);
+  let offset = 0;
+  while (true) {
+    const page = await api.search({ options: { preference_id: preferenceId, offset, limit: 50 } });
+    if (!Array.isArray(page.elements) || !Number.isInteger(page.total) || page.total < 0) {
+      throw Object.assign(new Error('Consulta incompleta de Mercado Pago'), { status: 502 });
+    }
+    orders.push(...page.elements);
+    if (orders.length >= page.total) return orders;
+    if (!page.elements.length || page.next_offset <= offset || !Number.isInteger(page.next_offset)) {
+      throw Object.assign(new Error('Paginación incompleta de Mercado Pago'), { status: 502 });
+    }
+    offset = page.next_offset;
+  }
+};
 
 exports.verifyWebhook = (req) => {
   const secret = process.env.MERCADOPAGO_WEBHOOK_SECRET;

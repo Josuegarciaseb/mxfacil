@@ -19,6 +19,9 @@ exports.retrievePaymentIntent = async (paymentIntentId) => {
   return await getStripe().paymentIntents.retrieve(paymentIntentId);
 };
 
+exports.cancelPaymentIntent = id => getStripe().paymentIntents.cancel(id, {},
+  { idempotencyKey: 'cancel_' + id });
+
 exports.constructWebhookEvent = (rawBody, signature) => {
   return getStripe().webhooks.constructEvent(
     rawBody,

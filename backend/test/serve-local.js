@@ -3,6 +3,8 @@
 // to keep its orders when restarting the API after a local migration.
 const { testEnvironment, seed } = require('./helpers');
 testEnvironment('mxfacil_audit_ui');
+process.env.ALLOWED_ORIGINS = 'http://127.0.0.1:5173,http://localhost:5173,http://127.0.0.1:5174,http://localhost:5174';
+process.env.FRONTEND_URL = 'http://localhost:5173';
 for (const name of ['STRIPE_SECRET_KEY', 'PAYPAL_CLIENT_ID', 'MERCADOPAGO_ACCESS_TOKEN', 'GOOGLE_CLIENT_ID']) {
   delete process.env[name];
 }
