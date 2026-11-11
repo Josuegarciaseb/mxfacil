@@ -77,6 +77,21 @@ test('compra pagada → recepción del dueño → reseña verificada visible sin
   assert.equal((await request(`/productos/${productId}/resenas`,null,null)).status,404);
   assert.equal((await request(`/pedidos/${id}/resenas`)).data.length,2);
   await pool.query('UPDATE producto SET activo=1 WHERE id=?',[productId]);
+  const supplierId = (await pool.query('SELECT proveedor_id FROM producto WHERE id=?',[productId]))[0][0].proveedor_id;
+  const profile = await request(`/proveedores/${supplierId}/perfil`,null,null);
+  assert.equal(profile.status,200);
+  assert.equal(profile.data.resumen.total,1);
+  assert.equal(Number(profile.data.resumen.servicio),4);
+  assert.equal(profile.data.proveedor.proveedor_pro,0);
+  assert.deepEqual(Object.keys(profile.data.proveedor).sort(),['id','nombre','proveedor_pro']);
+  assert.deepEqual(Object.keys(profile.data.resenas[0]).sort(),['calidad','comentario','creado_en','id','producto_nombre','servicio']);
+  assert.equal((await request(`/proveedores/${supplierId}/perfil?antes=${profile.data.resenas[0].id}`,null,null)).data.resenas.length,0);
+  assert.equal((await request('/proveedores/999999/perfil',null,null)).status,404);
+  assert.equal((await request(`/proveedores/${supplierId}/perfil?antes=bad`,null,null)).status,400);
+  await pool.query('INSERT INTO membresia (proveedor_id,vence_en) VALUES (?,TIMESTAMPADD(DAY,30,UTC_TIMESTAMP(3)))',[supplierId]);
+  assert.equal((await request(`/proveedores/${supplierId}/perfil`,null,null)).data.proveedor.proveedor_pro,1);
+  await pool.query('UPDATE membresia SET vence_en=TIMESTAMPADD(DAY,-1,UTC_TIMESTAMP(3)) WHERE proveedor_id=?',[supplierId]);
+  assert.equal((await request(`/proveedores/${supplierId}/perfil`,null,null)).data.proveedor.proveedor_pro,0);
 });
 test('pedido cancelado y artículo de otro pedido no permiten reseñas',async()=>{
   const sale=await checkout();const id=sale.pedido.id;

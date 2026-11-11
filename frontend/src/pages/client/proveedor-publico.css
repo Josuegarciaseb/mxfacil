@@ -1,0 +1,18 @@
+.seller-profile{max-width:1280px;margin:0 auto;padding:24px 16px;color:var(--gray-800)}
+.seller-back{display:inline-flex;align-items:center;min-height:44px;color:#245326}
+.seller-hero{display:flex;align-items:center;gap:24px;background:linear-gradient(115deg,#e4eed8,#f6f8f1);border:1px solid #d4dfc7;border-radius:20px;padding:32px;margin:16px 0 24px}
+.seller-hero h1{font-size:clamp(26px,4vw,38px);margin:8px 0 12px;color:#184725;overflow-wrap:anywhere}
+.seller-hero p{margin:10px 0}.seller-hero>.btn-primary{margin-left:auto;white-space:nowrap;text-decoration:none;min-height:44px;display:flex;align-items:center}
+.seller-avatar{flex-shrink:0;width:88px;height:88px;border-radius:24px;background:#245326;color:white;display:grid;place-items:center;font-size:42px;font-weight:700}
+.seller-eyebrow{font-weight:600}.seller-reputation{background:white;border:1px solid #dce3d5;border-radius:16px;padding:24px;margin-bottom:32px}
+.seller-reputation h2{margin-top:0}.seller-scores{display:flex;flex-wrap:wrap;gap:24px;margin:24px 0}.seller-scores>div{flex:1;min-width:220px;background:#faf9f4;padding:20px;border-radius:12px}
+.seller-scores h3{margin-top:0;font-size:18px}.seller-scores strong{font-size:32px}.seller-scores small{font-size:16px;font-weight:400}
+.seller-stars{display:inline-block;position:relative;font-size:26px;line-height:1.2;white-space:nowrap;vertical-align:middle;color:#956800}
+.seller-stars>span:last-child{position:absolute;left:0;top:0;overflow:hidden;color:#b47b00}
+.seller-opinions{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:16px;margin-bottom:20px}
+.seller-opinions article{border:1px solid #e3e6dd;border-radius:12px;padding:20px}.seller-opinions h3{font-size:18px}.seller-verified{color:#356329;font-size:14px}.seller-comment{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6}
+.seller-empty{padding:20px;background:#f6f8f1;border-radius:12px;line-height:1.6}.seller-profile button:focus-visible,.seller-profile a:focus-visible{outline:3px solid #956800;outline-offset:4px}
+#seller-products{scroll-margin-top:100px}.catalog-supplier a{color:inherit;text-underline-offset:3px}
+.seller-profile .catalog-layout{grid-template-areas:"filters toolbar" "filters results";grid-template-rows:auto 1fr}
+.seller-profile .catalog-toolbar h2{margin:0;font-size:26px;line-height:1.2}
+@media(max-width:640px){.seller-hero{padding:20px;gap:16px;flex-wrap:wrap}.seller-avatar{width:64px;height:64px;font-size:32px}.seller-hero>.btn-primary{margin-left:0;width:100%;justify-content:center}.seller-reputation{padding:18px}.seller-profile{padding:12px}}

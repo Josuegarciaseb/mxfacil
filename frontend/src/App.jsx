@@ -22,6 +22,7 @@ import AdminPedidos          from "./pages/admin/Pedidos";
 import AdminUsuarios         from "./pages/admin/Usuarios";
 import AdminCategorias       from "./pages/admin/Categorias";
 import AdminProveedores      from "./pages/admin/Proveedores";
+import ProveedorPublico from "./pages/client/ProveedorPublico";
 import AdminInventario       from "./pages/admin/Inventario";
 
 import VendedorDashboard     from "./pages/vendor/Dashboard";
@@ -302,6 +303,7 @@ export default function App() {
             />
           } />
 
+          <Route path="/proveedores/:id" element={<ProveedorPublico token={token} cart={cart} setCart={setCart} onProductsFetched={syncProducts} />} />
           {/* Auth — redirige si ya tiene sesión */}
           <Route path="/auth" element={
             token && user

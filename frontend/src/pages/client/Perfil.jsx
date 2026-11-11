@@ -317,6 +317,7 @@ const ClientPerfil = ({ token, user, onUpdate }) => {
                 <h3 style={{ fontSize: 15, fontWeight: 700, color: "var(--gray-800)" }}>Verificación de empresa</h3>
               </div>
 
+              <p><a href={`/proveedores/${proveedor.id}`} className="btn-secondary">Ver mi perfil público</a></p>
               <div style={{ background: "var(--gray-50)", borderRadius: 9, padding: "10px 14px", border: "1px solid var(--gray-100)", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
                 <div style={{ fontSize: 13, color: "var(--gray-600)" }}>
                   {proveedor.rfc

@@ -18,7 +18,7 @@ const toggle = (values, value) => values.includes(value) ? values.filter((item) 
 
 export default function ClientCatalogo({
   token, setCart, cart = [], onProductsFetched, externalSearch = "", onSearchChange,
-  selectedCategories, onCategoriesChange,
+  selectedCategories, onCategoriesChange, supplierId,
 }) {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -42,7 +42,7 @@ export default function ClientCatalogo({
       try {
         const [items, groups] = await Promise.all([http("/productos", {}, token), http("/categorias", {}, token)]);
         if (!active) return;
-        setProducts(items);
+    setProducts(supplierId ? items.filter(item => String(item.proveedor_id) === String(supplierId)) : items);
         setCategories(groups);
         setLoadError(false);
         onProductsFetched?.(items);
@@ -53,7 +53,7 @@ export default function ClientCatalogo({
       }
     })();
     return () => { active = false; };
-  }, [token, onProductsFetched, attempt]);
+  }, [token, onProductsFetched, attempt, supplierId]);
 
   const entries = useMemo(() => products.map((product) => ({
     product,
@@ -86,7 +86,7 @@ export default function ClientCatalogo({
   }
   if (sort === "menor") matches.sort((a, b) => a.price - b.price);
   if (sort === "mayor") matches.sort((a, b) => b.price - a.price);
-  const featured = featuredProducts(matches);
+  const featured = supplierId ? [] : featuredProducts(matches);
   const cartQuantities = new Map(cart.map((item) => [item.id, item.qty]));
   const singleCategory = categoryIds.length === 1 && categories.find((item) => String(item.id) === categoryIds[0]);
 
@@ -115,10 +115,10 @@ export default function ClientCatalogo({
 
   return (
     <div className="catalog-layout">
-      <div className="catalog-banner"><p>Abastece tu negocio en un solo lugar</p></div>
+      {!supplierId && <div className="catalog-banner"><p>Abastece tu negocio en un solo lugar</p></div>}
       <div className="catalog-toolbar">
         <div>
-          <h1 id="catalog-heading">{singleCategory?.nombre || "Catálogo"}</h1>
+          {supplierId ? <h2 id="catalog-heading">{singleCategory?.nombre || "Productos de este vendedor"}</h2> : <h1 id="catalog-heading">{singleCategory?.nombre || "Catálogo"}</h1>}
           {!loading && !loadError && <p className="catalog-count" aria-live="polite">
             {matches.length} {matches.length === 1 ? "producto encontrado" : "productos encontrados"}
             {query && ` para “${externalSearch.trim()}”`}

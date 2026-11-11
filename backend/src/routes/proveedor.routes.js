@@ -11,6 +11,7 @@ router.get('/admin', auth, isAdmin, provCtrl.listProveedores);
 // Vendedor: su propio proveedor (debe ir ANTES de /:id)
 router.get('/me',    auth, provCtrl.getMiProveedor);
 router.patch('/me',  auth, provCtrl.updateMiRFC);
+router.get('/:id/perfil', require('../utils/async-route')(require('../controllers/perfil-proveedor.controller').publicProfile));
 
 // Admin
 router.post('/',      auth, isAdmin, provCtrl.createProveedor);

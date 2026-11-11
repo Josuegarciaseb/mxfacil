@@ -63,7 +63,7 @@ export default function CatalogProduct({ product, price, status, inCart, eager, 
       </div>
       <div className="catalog-product-info">
         <h2 id={titleId}>{product.nombre}</h2>
-        {product.proveedor_nombre && <p className="catalog-supplier"><Icon name="store" size={14} />{product.proveedor_nombre}</p>}
+        {product.proveedor_nombre && <p className="catalog-supplier"><Icon name="store" size={14} /><a href={`/proveedores/${product.proveedor_id}`}>{product.proveedor_nombre}</a></p>}
         {!!product.proveedor_pro && <span className="pro-badge">Proveedor Pro</span>}
         <button className="review-link" type="button" onClick={()=>setReviewsOpen(true)}>
           {Number(product.resenas_total)>0 ? `Ver reseñas · ${Number(product.calidad_promedio).toFixed(1)}/5 (${product.resenas_total})` : 'Ver reseñas · Sin calificaciones'}
