@@ -7,6 +7,7 @@ import EmptyState         from "../../components/ui/EmptyState";
 import PageHeader         from "../../components/ui/PageHeader";
 import StatusBadge        from "../../components/ui/StatusBadge";
 import Icon               from "../../components/ui/Icon";
+import Piloto             from "./Piloto";
 
 const STAT_CARDS = [
   { key: "productos",   label: "Productos",   icon: "package",  bg: "var(--red-pale)", color: "var(--red)"  },
@@ -18,6 +19,8 @@ const STAT_CARDS = [
 const AdminDashboard = ({ token }) => {
   const [stats,   setStats]   = useState({ productos: 0, pedidos: 0, usuarios: 0, proveedores: 0 });
   const [recent,  setRecent]  = useState([]);
+  const [usuarios, setUsuarios] = useState([]);
+  const [proveedores, setProveedores] = useState([]);
   const [loading, setLoading] = useState(true);
   const { isMobile } = useBreakpoint();
 
@@ -32,6 +35,8 @@ const AdminDashboard = ({ token }) => {
         ]);
         setStats({ productos: prods.length, pedidos: peds.length, usuarios: users.length, proveedores: provs.length });
         setRecent(peds.slice(0, 5));
+        setUsuarios(users);
+        setProveedores(provs);
       } catch (e) { toast(e.message, "error"); }
       finally { setLoading(false); }
     })();
@@ -76,6 +81,7 @@ const AdminDashboard = ({ token }) => {
           </div>
         )}
       </div>
+      <Piloto token={token} usuarios={usuarios} proveedores={proveedores} />
     </div>
   );
 };

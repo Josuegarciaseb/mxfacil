@@ -28,7 +28,13 @@ describe('Carrito y regreso de una pasarela', () => {
     expect(merged[0].qty).toBe(5);
     expect(refreshCart(merged,[{id:1,stock:2,precio:50}])).toEqual([{id:1,stock:2,precio:51,qty:2}]);
   });
-  it.each([['pendiente','Pago pendiente de confirmación'],['aprobado','Pago confirmado']])(
+  it('asigna el centavo de IVA por producto independientemente de su orden en el carrito', () => {
+    const cart = [{id:2, precio:0.03, qty:1}, {id:1, precio:0.03, qty:1}];
+    const totals = cartTotals(cart);
+    expect(totals).toEqual({subtotal:0.06, iva:0.01, total:0.07, lines:{1:0.03, 2:0.04}});
+    expect(cartTotals([...cart].reverse())).toEqual(totals);
+  });
+  it.each([['pendiente','Pago pendiente de confirmación'],['aprobado','Pago confirmado'],['reembolsado','Pago reembolsado']])(
     'muestra el estado %s consultado al servidor aunque la URL anuncie éxito', async (estado,title) => {
       localStorage.setItem('token','fixture');
       http.mockResolvedValue({estado});

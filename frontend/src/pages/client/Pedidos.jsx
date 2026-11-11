@@ -14,8 +14,15 @@ import Icon from "../../components/ui/Icon";
 
 const DetalleContent = ({ detalle, onResume, onCancel }) => (
   <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    {detalle.pedido.estado === 'cancelado' && detalle.pago?.estado === 'aprobado' && (
+      <p role="status">Recibimos el pago de este pedido cancelado. El importe completo está pendiente de devolución.</p>
+    )}
+    {detalle.pedido.reserva_vence_epoch != null && detalle.pago?.estado === 'pendiente' && (
+      <p>Plazo para pagar: {new Date(Number(detalle.pedido.reserva_vence_epoch) * 1000).toLocaleString('es-MX')}.
+        {' '}Si iniciaste un pago en línea, verificaremos su estado antes de liberar las existencias.</p>
+    )}
     {detalle.pedido.estado === 'esperando_pago' && <button className="btn-primary" onClick={()=>onResume({pedidoId:detalle.pedido.id,metodo:detalle.pago.metodo,monto:detalle.pago.monto})}>Continuar pago</button>}
-    {['esperando_pago','pendiente'].includes(detalle.pedido.estado) && detalle.pago?.estado !== 'aprobado' && !detalle.pago?.referencia && <button className="btn-secondary" onClick={()=>onCancel(detalle.pedido.id)}>Cancelar pedido</button>}
+    {['esperando_pago','pendiente'].includes(detalle.pedido.estado) && detalle.pago?.estado === 'pendiente' && <button className="btn-secondary" onClick={()=>onCancel(detalle.pedido.id)}>Cancelar pedido</button>}
     <div style={{ background: "var(--gray-50)", borderRadius: 9, padding: 12, border: "1px solid var(--gray-100)" }}>
       <div style={{ fontSize: 11, color: "var(--gray-400)", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 8 }}>Productos</div>
       {detalle.items?.map((i) => (

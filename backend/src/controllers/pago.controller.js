@@ -2,8 +2,8 @@ const pool = require('../config/db');
 const stripeService = require('../services/stripe.service');
 const paypalService = require('../services/paypal.service');
 const mpService = require('../services/mercadopago.service');
-const { cents } = require('../utils/money');
-const { transaction, lockOrder, approvePayment, cancelOrder, fail } = require('../services/order-state.service');
+const { transaction, lockOrder, approvePayment, cancelOrder, refundPayment, fail } = require('../services/order-state.service');
+const { validateAmount, validateStripe, validateStripeIdentity, validatePaypal } = require('../services/payment-reconciliation.service');
 
 async function ownedPayment(conn, req, method) {
   const id = req.body.pedido_id;
@@ -12,21 +12,24 @@ async function ownedPayment(conn, req, method) {
   if (locked.order.usuario_id !== req.user.id) fail(403, 'Acceso denegado');
   if (locked.payment.metodo !== method) fail(409, 'La pasarela no corresponde al método del pedido');
   if (locked.order.estado === 'cancelado') fail(409, 'El pedido está cancelado');
+  if (locked.payment.estado === 'reembolsado') fail(409, 'El pago fue reembolsado');
   return locked;
 }
 
-function validateAmount(amount, currency, expected) {
-  if (typeof currency !== 'string' || currency.toUpperCase() !== 'MXN' || amount == null || cents(amount) !== cents(expected)) fail(409, 'El importe o moneda del pago no coincide con el pedido');
+function requireActiveReservation(order) {
+  if (order.vencida) fail(409, 'El plazo del pedido venció. Consulta su estado antes de volver a comprar.');
 }
 
-function validateStripe(intent, order, payment) {
-  if (intent.id !== payment.referencia || String(intent.metadata?.pedido_id) !== String(order.id)) fail(409, 'La referencia de pago no corresponde al pedido');
-  validateAmount(intent.amount_received / 100, intent.currency, payment.monto);
-  if (intent.status !== 'succeeded') fail(409, 'El pago aún no está confirmado');
+// Llamar con el folio bloqueado después de validar identidad, moneda e importe
+// de la notificación. Un cobro tardío queda disponible para devolución.
+async function recordGatewayApproval(conn, order, payment) {
+  if (order.estado !== 'cancelado') return approvePayment(conn, order, payment);
+  await conn.query(
+    "UPDATE pago SET estado = 'aprobado' WHERE id = ? AND estado IN ('pendiente','rechazado')", [payment.id]);
 }
 
 exports.getPagoByPedido = async (req,res) => {
-  const [rows] = await pool.query('SELECT pg.*, p.usuario_id FROM pago pg JOIN pedido p ON p.id=pg.pedido_id WHERE pg.pedido_id=?', [req.params.pedidoId]);
+  const [rows] = await pool.query('SELECT pg.id, pg.pedido_id, pg.metodo, pg.monto, pg.estado, pg.referencia, pg.fecha, p.usuario_id FROM pago pg JOIN pedido p ON p.id=pg.pedido_id WHERE pg.pedido_id=?', [req.params.pedidoId]);
   if (!rows.length) fail(404, 'Pago no encontrado');
   if (req.user.rol !== 'admin' && rows[0].usuario_id !== req.user.id) fail(403, 'No tienes acceso a este pago');
   const {usuario_id,...payment} = rows[0];
@@ -35,18 +38,30 @@ exports.getPagoByPedido = async (req,res) => {
 
 exports.updateEstadoPago = async (req,res) => {
   const {estado,referencia} = req.body;
-  if (!['pendiente','aprobado','rechazado'].includes(estado)) fail(400,'Estado de pago inválido');
+  if (!['pendiente','aprobado','rechazado','reembolsado'].includes(estado)) fail(400,'Estado de pago inválido');
+  if (referencia != null && typeof referencia !== 'string') fail(400,'El comprobante debe ser texto');
   const [rows] = await pool.query('SELECT pedido_id FROM pago WHERE id=?',[req.params.id]);
   if (!rows.length) fail(404,'Pago no encontrado');
   const result = await transaction(async conn => {
     const {order,payment} = await lockOrder(conn,rows[0].pedido_id);
-    if (estado === payment.estado) return payment;
-    if (['tarjeta','paypal','mercadopago'].includes(payment.metodo)) fail(409,'Los pagos en línea se confirman con la pasarela');
-    if (payment.estado === 'aprobado') fail(409,'Un pago aprobado requiere un proceso de devolución');
-    if (estado === 'aprobado') await approvePayment(conn,order,payment);
-    else if (estado === 'rechazado') await cancelOrder(conn,order,payment);
-    else fail(409,'No se puede restablecer un pago cancelado');
-    if (referencia != null) await conn.query('UPDATE pago SET referencia=? WHERE id=?',[String(referencia).slice(0,100),payment.id]);
+    if (estado === 'aprobado' && order.estado === 'cancelado') fail(409,'El pedido está cancelado');
+    if (estado === 'reembolsado') {
+      await refundPayment(conn,order,payment,req.body.referencia_reembolso);
+    } else if (estado === payment.estado) {
+      if (estado === 'aprobado' && referencia && referencia.trim() !== payment.referencia) fail(409,'El cobro ya tiene otro comprobante');
+      return payment;
+    } else {
+      if (!['contra_entrega','transferencia','plataforma'].includes(payment.metodo)) fail(409,'Los pagos en línea se confirman con la pasarela');
+      if (payment.estado !== 'pendiente') fail(409,'El pago ya se cerró');
+      if (estado === 'aprobado') {
+        if (typeof referencia !== 'string' || !referencia.trim() || referencia.trim().length > 100) fail(400,'Indica el comprobante de cobro (hasta 100 caracteres)');
+        if (payment.metodo === 'contra_entrega' && order.estado !== 'entregado') fail(409,'Confirma la entrega antes de registrar el cobro');
+        requireActiveReservation(order);
+        await approvePayment(conn,order,payment);
+        await conn.query('UPDATE pago SET referencia=? WHERE id=?',[referencia.trim(),payment.id]);
+      } else if (estado === 'rechazado') await cancelOrder(conn,order,payment);
+      else fail(409,'No se puede restablecer un pago cerrado');
+    }
     return (await conn.query('SELECT * FROM pago WHERE id=?',[payment.id]))[0][0];
   });
   res.json(result);
@@ -55,6 +70,7 @@ exports.updateEstadoPago = async (req,res) => {
 exports.createStripeIntent = async (req,res) => {
   const result = await transaction(async conn => {
     const {order,payment} = await ownedPayment(conn,req,'tarjeta');
+    requireActiveReservation(order);
     if (payment.estado === 'aprobado') fail(409,'El pago ya fue procesado');
     const intent = payment.referencia
       ? await stripeService.retrievePaymentIntent(payment.referencia)
@@ -81,15 +97,22 @@ exports.handleStripeWebhook = async (req,res) => {
   let event;
   try { event = stripeService.constructWebhookEvent(req.body,req.headers['stripe-signature']); }
   catch { fail(400,'Firma de webhook inválida'); }
-  if (event.type === 'payment_intent.succeeded') {
+  if (['payment_intent.succeeded','payment_intent.canceled','payment_intent.payment_failed'].includes(event.type)) {
     const intent = event.data.object;
     const [rows] = await pool.query('SELECT pedido_id FROM pago WHERE referencia=? AND metodo=?',[intent.id,'tarjeta']);
     // The intent creation may not have committed yet: ask Stripe to retry.
     if (!rows.length && intent.metadata?.pedido_id) fail(503,'Pago aún no registrado; reintentar notificación');
     if (rows.length) await transaction(async conn => {
       const {order,payment} = await lockOrder(conn,rows[0].pedido_id);
-      validateStripe(intent,order,payment);
-      await approvePayment(conn,order,payment);
+      validateStripeIdentity(intent,order,payment);
+      if (event.type === 'payment_intent.succeeded') {
+        validateStripe(intent,order,payment);
+        await recordGatewayApproval(conn,order,payment);
+      } else if (payment.estado === 'pendiente') {
+        // Un intento fallido puede reintentarse antes del vencimiento. Un
+        // evento anterior al cobro nunca deshace una aprobación posterior.
+        if (event.type === 'payment_intent.canceled' || order.vencida) await cancelOrder(conn,order,payment);
+      }
     });
   }
   // A failed attempt is retryable. It must not cancel a later successful payment.
@@ -99,6 +122,7 @@ exports.handleStripeWebhook = async (req,res) => {
 exports.createPaypalOrder = async (req,res) => {
   const result = await transaction(async conn => {
     const {order,payment} = await ownedPayment(conn,req,'paypal');
+    requireActiveReservation(order);
     if (payment.estado === 'aprobado') fail(409,'El pago ya fue procesado');
     if (payment.referencia) return {paypal_order_id:payment.referencia.slice(7)};
     const remote = await paypalService.createOrder(payment.monto,order.id,order.clave_checkout);
@@ -110,17 +134,23 @@ exports.createPaypalOrder = async (req,res) => {
 };
 
 exports.capturePaypalOrder = async (req,res) => {
+  const remoteId = req.body.paypal_order_id;
+  // Persistir el intento por separado: una caída tras la captura externa
+  // debe dejar evidencia aunque la transacción que registra el cobro revierta.
   await transaction(async conn => {
     const {order,payment} = await ownedPayment(conn,req,'paypal');
-    const remoteId = req.body.paypal_order_id;
     if (typeof remoteId !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(remoteId) || payment.referencia !== `paypal_${remoteId}`) fail(409,'La referencia PayPal no corresponde al pedido');
     if (payment.estado === 'aprobado') return;
+    requireActiveReservation(order);
+    await conn.query('UPDATE pago SET captura_solicitada=1 WHERE id=?',[payment.id]);
+  });
+  await transaction(async conn => {
+    const {order,payment} = await ownedPayment(conn,req,'paypal');
+    if (payment.estado === 'aprobado') return;
+    // La autorización de esta captura se obtuvo antes del vencimiento. El
+    // bloqueo serializa con el conciliador y con otra captura del mismo folio.
     const capture = await paypalService.captureOrder(remoteId);
-    const unit = capture.purchase_units?.[0];
-    const payments = unit?.payments?.captures;
-    if (capture.id !== remoteId || capture.status !== 'COMPLETED' || capture.purchase_units?.length !== 1 || unit.reference_id !== `pedido_${order.id}` || !payments?.length || payments.some(p=>p.status!=='COMPLETED')) fail(409,'El pago PayPal no fue completado para este pedido');
-    for (const p of payments) if (p.amount?.currency_code !== 'MXN') fail(409,'Moneda PayPal inválida');
-    validateAmount(payments.reduce((s,p)=>s+cents(p.amount.value),0)/100,'MXN',payment.monto);
+    validatePaypal(capture,order,payment);
     await approvePayment(conn,order,payment);
   });
   res.json({success:true});
@@ -129,12 +159,13 @@ exports.capturePaypalOrder = async (req,res) => {
 exports.createMercadoPagoPreference = async (req,res) => {
   const result = await transaction(async conn => {
     const {order,payment} = await ownedPayment(conn,req,'mercadopago');
+    requireActiveReservation(order);
     if (payment.estado === 'aprobado') fail(409,'El pago ya fue procesado');
     const preference = payment.referencia
       ? await mpService.getPreference(payment.referencia.slice(3))
       : await mpService.createPreference({
           items:[{title:`Pedido #${order.id} (IVA incluido)`,quantity:1,unit_price:Number(payment.monto),currency_id:'MXN'}],
-          pedidoId:order.id, frontendUrl:process.env.FRONTEND_URL || 'http://localhost:5173',
+          pedidoId:order.id, venceEpoch:order.vence_epoch, frontendUrl:process.env.FRONTEND_URL || 'http://localhost:5173',
         });
     if (!payment.referencia) await conn.query('UPDATE pago SET referencia=? WHERE id=?',[`mp_${preference.id}`,payment.id]);
     const sandbox = process.env.MERCADOPAGO_ENV ? process.env.MERCADOPAGO_ENV === 'sandbox' : process.env.NODE_ENV !== 'production';
@@ -158,7 +189,7 @@ exports.handleMercadoPagoWebhook = async (req,res) => {
       if (payment.referencia !== 'mp_' + merchantOrder.preference_id || String(merchantOrder.external_reference) !== String(order.id)) {
         fail(409,'La preferencia de Mercado Pago no corresponde al pedido');
       }
-      await approvePayment(conn,order,payment);
+      await recordGatewayApproval(conn,order,payment);
     });
   }
   res.json({received:true});

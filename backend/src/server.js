@@ -5,6 +5,7 @@ const https  = require('https');
 const fs     = require('fs');
 const path   = require('path');
 const app    = require('./app');
+require('./services/reservas.service').startReservationWorker();
 
 const HTTP_PORT  = process.env.PORT       || 3000;
 const HTTPS_PORT = process.env.HTTPS_PORT || 3443;

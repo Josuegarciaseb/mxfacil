@@ -37,6 +37,8 @@
 
 **Comercio Fácil México** es una plataforma digital fullstack de comercio electrónico desarrollada como proyecto académico. Su propósito es **facilitar la intermediación entre proveedores y pequeños comerciantes en México**, simplificando la gestión de productos, pedidos, inventarios y envíos.
 
+La [guía operativa del piloto](qa/PILOTO.md) explica los cobros por proveedor, los plazos de inventario, el registro de costos, la migración 011 y la prueba de compra con tres perfiles.
+
 El proyecto está organizado como un **monorepo** con dos partes bien separadas:
 
 - **Backend:** API REST con Node.js y Express, autenticación JWT y base de datos MySQL.
@@ -436,6 +438,8 @@ Authorization: Bearer <tu_token_jwt>
 | GET | `/api/pedidos/:id` | Detalle completo de un pedido | Autenticado |
 | POST | `/api/pedidos` | Crear nuevo pedido | Autenticado |
 | PATCH | `/api/pedidos/:id/estado` | Cambiar estado del pedido | Admin |
+
+Para crear un pedido, envía `clave_checkout` en el cuerpo (por ejemplo, un UUID). Reutiliza esa clave si se corta la conexión. La misma cuenta, clave y compra devuelven el folio original. Una compra diferente requiere una clave nueva.
 
 ###  Pagos — `/api/pagos`
 

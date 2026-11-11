@@ -4,7 +4,7 @@
   "description": "Backend API seguro para Comercio Fácil México",
   "main": "src/server.js",
   "scripts": {
-    "test": "node --test test/checkout.test.js",
+    "test": "node --test test/*.test.js",
     "audit:serve": "node test/serve-local.js",
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",

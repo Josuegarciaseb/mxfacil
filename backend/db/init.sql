@@ -112,6 +112,12 @@ CREATE TABLE pedido (
   iva          DECIMAL(12,2) NOT NULL DEFAULT 0,
   comision     DECIMAL(12,2) NOT NULL DEFAULT 0,
   stock_reservado TINYINT(1) NOT NULL DEFAULT 0,
+  reserva_vence_en DATETIME DEFAULT NULL,
+  checkout_segundos INT UNSIGNED DEFAULT NULL,
+  costo_variable DECIMAL(12,2) DEFAULT NULL,
+  CONSTRAINT chk_pedido_costo_variable CHECK (costo_variable >= 0),
+  KEY idx_reserva_vence (reserva_vence_en, id),
+  KEY idx_pedido_fecha (fecha, id),
   direccion_entrega JSON DEFAULT NULL,
   clave_checkout VARCHAR(64) DEFAULT NULL,
   solicitud_hash CHAR(64) DEFAULT NULL,
@@ -125,7 +131,11 @@ CREATE TABLE pedido_item (
   pedido_id       INT NOT NULL,
   producto_id     INT NOT NULL,
   cantidad        INT NOT NULL,
-  precio_unitario DECIMAL(10,2) NOT NULL,
+  precio_unitario DECIMAL(12,2) NOT NULL,
+  precio_base_unitario DECIMAL(12,2) DEFAULT NULL,
+  proveedor_id INT DEFAULT NULL,
+  iva_linea DECIMAL(12,2) DEFAULT NULL,
+  FOREIGN KEY (proveedor_id) REFERENCES proveedor(id) ON DELETE RESTRICT ON UPDATE CASCADE,
   FOREIGN KEY (pedido_id)   REFERENCES pedido(id)   ON DELETE CASCADE   ON UPDATE CASCADE,
   FOREIGN KEY (producto_id) REFERENCES producto(id) ON DELETE RESTRICT  ON UPDATE CASCADE
 ) ENGINE=InnoDB;
@@ -136,8 +146,10 @@ CREATE TABLE pago (
   pedido_id  INT NOT NULL UNIQUE,
   metodo     ENUM('tarjeta','paypal','mercadopago','transferencia','contra_entrega','plataforma') NOT NULL,
   monto      DECIMAL(12,2) NOT NULL,
-  estado     ENUM('pendiente','aprobado','rechazado') DEFAULT 'pendiente',
+  estado     ENUM('pendiente','aprobado','rechazado','reembolsado') DEFAULT 'pendiente',
   referencia VARCHAR(100),
+  referencia_reembolso VARCHAR(100) DEFAULT NULL,
+  captura_solicitada TINYINT(1) NOT NULL DEFAULT 0,
   fecha      DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (pedido_id) REFERENCES pedido(id)
     ON DELETE CASCADE ON UPDATE CASCADE

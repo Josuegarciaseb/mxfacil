@@ -70,6 +70,7 @@ exports.updateEnvio = async (req, res) => {
 
     const [parents] = await conn.query('SELECT pedido_id FROM envio WHERE id = ?', [envioId]);
     const [orders] = await conn.query('SELECT estado FROM pedido WHERE id = ? FOR UPDATE', [parents[0]?.pedido_id || 0]);
+    const [payments] = await conn.query('SELECT metodo, estado FROM pago WHERE pedido_id = ? FOR UPDATE', [parents[0]?.pedido_id || 0]);
     const [envios] = await conn.query(
       'SELECT * FROM envio WHERE id = ? FOR UPDATE',
       [envioId]
@@ -80,6 +81,13 @@ exports.updateEnvio = async (req, res) => {
     }
 
     const actual = envios[0];
+    const payment = payments[0];
+    const deliveryAfterRefund = payment?.estado === 'reembolsado' && orders[0]?.estado === 'enviado' && estado === 'entregado';
+    if (estado !== actual.estado && ['en_transito','entregado'].includes(estado) &&
+        !(payment?.estado === 'aprobado' || (payment?.metodo === 'contra_entrega' && payment.estado === 'pendiente') || deliveryAfterRefund)) {
+      await conn.rollback();
+      return res.status(409).json({message:'El pago aún no permite despachar este pedido'});
+    }
     if (orders[0]?.estado === 'cancelado' ||
         (estado && estado !== actual.estado && (actual.estado === 'entregado' || (orders[0]?.estado === 'enviado' && estado === 'preparando')))) {
       await conn.rollback();

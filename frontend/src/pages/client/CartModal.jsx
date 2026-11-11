@@ -25,6 +25,8 @@ const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth, initialPay
   const [loadError, setLoadError] = useState('');
   const [retry, setRetry] = useState(0);
   const submitting = useRef(false);
+  const inicioCheckout = useRef(null);
+  const tieneArticulos = cart.length > 0;
   const [placing,     setPlacing]       = useState(false);
   const [paymentStep, setPaymentStep]   = useState(initialPayment || null);
   const [showAddrForm, setShowAddrForm] = useState(false);
@@ -33,6 +35,14 @@ const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth, initialPay
   const { isMobile } = useBreakpoint();
 
   const dialog = useDialog(open,placing ? undefined : onClose);
+  useEffect(() => {
+    if (!open || !token || !tieneArticulos || initialPayment) return;
+    let activo = true;
+    http('/piloto/inicio-compra', { method: 'POST' }, token)
+      .then(data => { if (activo) inicioCheckout.current = data.inicio_checkout; })
+      .catch(() => { /* La compra también admite sesiones sin medición. */ });
+    return () => { activo = false; inicioCheckout.current = null; };
+  }, [open, token, tieneArticulos, initialPayment]);
   useEffect(() => {
     if (!open || !token || initialPayment) return;
     let active = true;
@@ -98,10 +108,16 @@ const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth, initialPay
           direccion_id: parseInt(orderForm.direccion_id),
           metodo_pago:  orderForm.metodo_pago,
           items, clave_checkout:attempt.key, total_esperado:cartTotal,
+          inicio_checkout: inicioCheckout.current,
         }),
       }, token);
 
       sessionStorage.removeItem(storageKey);
+      if (result.pedido.estado === 'cancelado' || ['reembolsado', 'rechazado'].includes(result.pago.estado)) {
+        toast(`El pedido #${result.pedido.id} ya se cerró. Consulta su detalle.`, 'warn');
+        onOrdered(result.pedido.id);
+        return;
+      }
       if (!DIGITAL_METHODS.includes(orderForm.metodo_pago) || result.pago.estado === 'aprobado') {
         toast(`Pedido #${result.pedido.id} confirmado`);
         setCart([]);
@@ -344,7 +360,7 @@ const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth, initialPay
                 </span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontSize: 12, color: "rgba(255,255,255,.55)" }}>IVA (16%)</span>
+                <span style={{ fontSize: 12, color: "rgba(255,255,255,.55)" }}>IVA del pedido (16 % sobre el subtotal)</span>
                 <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,.75)" }}>
                   +${cartIva.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
