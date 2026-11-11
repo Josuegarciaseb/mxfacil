@@ -37,6 +37,10 @@
 
 **Comercio Fácil México** es una plataforma digital fullstack de comercio electrónico desarrollada como proyecto académico. Su propósito es **facilitar la intermediación entre proveedores y pequeños comerciantes en México**, simplificando la gestión de productos, pedidos, inventarios y envíos.
 
+La [guía operativa del piloto](qa/PILOTO.md) explica los cobros por proveedor, los plazos de inventario, el registro de costos, la migración 011 y la prueba de compra con tres perfiles.
+
+La [guía de envíos con Castores](qa/LOGISTICA.md) incluye la demostración de cotización, margen, guía, incidencias y acuse, la migración 012 y la configuración opcional de Envia.com.
+
 El proyecto está organizado como un **monorepo** con dos partes bien separadas:
 
 - **Backend:** API REST con Node.js y Express, autenticación JWT y base de datos MySQL.
@@ -74,11 +78,12 @@ Desarrollar una plataforma digital que facilite el comercio entre proveedores y 
 - Vistas de catálogo, carrito, checkout, pedidos, perfil y panel de administración.
 - Validación de datos tanto en el cliente como en el servidor.
 - Endpoint de salud (`/api/health`) para verificar disponibilidad.
+- Cotización de flete Castores, despacho con guía y recepción con acuse para pedidos nacionales de mercancía seca.
 
 ###  No Incluye (por ahora)
 
 - Pasarela de pagos reales en línea.
-- Integración con servicios externos de paquetería.
+- Compra automática de guías y contratación de recolecciones. El operador las realiza con el transportista.
 - Notificaciones por correo o push.
 
 ---
@@ -436,6 +441,8 @@ Authorization: Bearer <tu_token_jwt>
 | GET | `/api/pedidos/:id` | Detalle completo de un pedido | Autenticado |
 | POST | `/api/pedidos` | Crear nuevo pedido | Autenticado |
 | PATCH | `/api/pedidos/:id/estado` | Cambiar estado del pedido | Admin |
+
+Para crear un pedido, envía `clave_checkout` en el cuerpo (por ejemplo, un UUID). Reutiliza esa clave si se corta la conexión. La misma cuenta, clave y compra devuelven el folio original. Una compra diferente requiere una clave nueva.
 
 ###  Pagos — `/api/pagos`
 

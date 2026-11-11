@@ -155,6 +155,8 @@ app.use('/api/inventario',  inventarioRoutes);
 app.use('/api/pedidos',     pedidoRoutes);
 app.use('/api/pagos',       pagoRoutes);
 app.use('/api/envios',      envioRoutes);
+app.use('/api/envios', envioRoutes);
+app.use('/api/piloto', require('./routes/piloto.routes'));
 app.use('/api/membresia', require('./routes/membresia.routes'));
 
 app.get('/api/health', (req, res) => {

@@ -7,10 +7,37 @@ import EmptyState from "../../components/ui/EmptyState";
 import PageHeader from "../../components/ui/PageHeader";
 import StatusBadge from "../../components/ui/StatusBadge";
 import Icon from "../../components/ui/Icon";
+import { money } from "../../utils/cart";
+
+const amounts = [
+  ["importe_proveedor", "Mercancía a precio base"],
+  ["comision", "Comisión de plataforma"],
+  ["iva", "IVA del pedido"],
+  ["total", "Importe al cliente"],
+];
+
+function collectionGroup(order) {
+  if (order.pago_estado === "reembolsado") return "Reembolsado";
+  if (order.estado === "cancelado" && order.pago_estado === "aprobado") return "Cobro por devolver";
+  if (order.estado === "cancelado" || order.pago_estado === "rechazado") return "Cancelado o rechazado";
+  if (order.pago_estado === "aprobado") return "Cobrado";
+  if (order.pago_estado === "pendiente") return "Por cobrar";
+  return "Por conciliar";
+}
+
+function amountSummary(orders, field, group) {
+  if (group === "Cobro por devolver" && field !== "total") {
+    return field === "comision" ? "$0.00" : "—";
+  }
+  if (orders.some(order => order[field] == null)) return "Sin desglose";
+  const cents = orders.reduce((sum, order) => sum + Math.round(Number(order[field]) * 100), 0);
+  return "$" + money(cents / 100);
+}
 
 const VendedorDashboard = ({ token, user }) => {
-  const [stats,   setStats]   = useState({ productos: 0, pedidos: 0, ingresos: 0 });
-  const [recent,  setRecent]  = useState([]);
+  const [productos, setProductos] = useState(0);
+  const [orders, setOrders] = useState([]);
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const { isMobile } = useBreakpoint();
 
@@ -22,33 +49,37 @@ const VendedorDashboard = ({ token, user }) => {
           const prov = await http("/proveedores/me", {}, token);
           provId = prov.id;
         }
-        const [prodsResult, pedsResult] = await Promise.allSettled([
+        const [prods, peds] = await Promise.all([
           http("/productos/gestion?proveedor_id=" + provId, {}, token),
           http("/pedidos/admin", {}, token),
         ]);
-        const prods = prodsResult.status === "fulfilled" ? prodsResult.value : [];
-        const peds  = pedsResult.status  === "fulfilled" ? pedsResult.value  : [];
-        const ingresos = peds.reduce((s, p) => s + parseFloat(p.total || 0), 0);
-        setStats({ productos: prods.length, pedidos: peds.length, ingresos });
-        setRecent(peds.slice(0, 5));
-      } catch (e) { toast(e.message, "error"); }
+        setProductos(prods.length);
+        setOrders(peds);
+        setError("");
+      } catch (e) { setError(e.message); toast(e.message, "error"); }
       finally { setLoading(false); }
     })();
   }, [token, user.proveedor_id]);
 
   const statCards = [
-    { label: "Productos", value: stats.productos,  icon: "package",     bg: "var(--red-pale)", color: "var(--red)" },
-    { label: "Pedidos",   value: stats.pedidos,    icon: "shoppingBag", bg: "#eff6ff",         color: "#2563eb" },
-    { label: "Ingresos",  value: "$" + stats.ingresos.toLocaleString("es-MX", { minimumFractionDigits: 2 }), icon: "zap", bg: "#f0fdf4", color: "#16a34a" },
+    { label: "Productos", value: productos, icon: "package", bg: "var(--red-pale)", color: "var(--red)" },
+    { label: "Pedidos", value: orders.length, icon: "shoppingBag", bg: "#eff6ff", color: "#2563eb" },
   ];
 
   if (loading) return <Spinner />;
+  if (error) return <p role="alert">No se pudo cargar el panel. {error}</p>;
+  const groups = ["Por cobrar", "Cobrado", "Cancelado o rechazado", "Reembolsado"];
+  if (orders.some(order => collectionGroup(order) === "Cobro por devolver")) groups.push("Cobro por devolver");
+  if (orders.some(order => collectionGroup(order) === "Por conciliar")) groups.push("Por conciliar");
+  const recent = orders.slice(0, 5);
+  const columnas = orders.some(p => Number(p.flete) > 0)
+    ? [...amounts.slice(0,-1), ['flete','Flete Castores'], amounts[amounts.length - 1]] : amounts;
 
   return (
     <div className="fade-up">
       <PageHeader title="Mi Panel" subtitle={"Bienvenido, " + user.nombre} />
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(" + (isMobile ? 1 : 3) + ", 1fr)", gap: isMobile ? 10 : 16, marginBottom: 24 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: isMobile ? 10 : 16, marginBottom: 24 }}>
         {statCards.map(({ label, value, icon, bg, color }) => (
           <div key={label} className="card" style={{ padding: isMobile ? 14 : 20 }}>
             <div style={{ width: 38, height: 38, borderRadius: 10, background: bg, display: "flex", alignItems: "center", justifyContent: "center", color, marginBottom: 12 }}>
@@ -60,6 +91,20 @@ const VendedorDashboard = ({ token, user }) => {
         ))}
       </div>
 
+      <section className="card" style={{ padding: 16, marginBottom: 24 }}>
+        <h3>Cobros de tus productos</h3>
+        <p>Importes en MXN. El cobro contra entrega figura como cobrado cuando se registra la recepción del dinero.</p>
+        <div className="table-scroll">
+          <table aria-label="Desglose por estado de cobro">
+            <thead><tr><th>Estado de cobro</th><th>Folios</th>{columnas.map(([key,title]) => <th key={key}>{title}</th>)}</tr></thead>
+            <tbody>{groups.map(group => {
+              const subset = orders.filter(order => collectionGroup(order) === group);
+              return <tr key={group}><th scope="row">{group}</th><td>{subset.length}</td>
+                {columnas.map(([field]) => <td key={field}>{amountSummary(subset,field,group)}</td>)}</tr>;
+            })}</tbody>
+          </table>
+        </div>
+      </section>
       <div className="card" style={{ padding: 0, overflow: "hidden" }}>
         <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--gray-100)" }}>
           <h3 style={{ fontSize: 15, fontWeight: 700 }}>Pedidos recientes</h3>
@@ -73,7 +118,7 @@ const VendedorDashboard = ({ token, user }) => {
                   <tr key={p.id}>
                     <td style={{ fontWeight: 700, color: "var(--red)" }}>#{p.id}</td>
                     <td>{p.usuario_nombre}</td>
-                    <td style={{ fontWeight: 700 }}>${parseFloat(p.total).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</td>
+                    <td style={{ fontWeight: 700 }}>{p.total == null ? "Sin desglose" : "$" + money(p.total)}</td>
                     <td><StatusBadge estado={p.estado} /></td>
                     <td style={{ color: "var(--gray-500)", fontSize: 13 }}>{new Date(p.fecha).toLocaleDateString("es-MX")}</td>
                   </tr>

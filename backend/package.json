@@ -4,15 +4,16 @@
   "description": "Backend API seguro para Comercio Fácil México",
   "main": "src/server.js",
   "scripts": {
-    "test": "node --test test/checkout.test.js",
-    "test:pro": "node --test test/membresia.test.js",
-    "demo:pro": "node scripts/demo-pro.js",
-    "audit:serve": "node test/serve-local.js",
-    "dev": "nodemon src/server.js",
-    "start": "node src/server.js",
-    "docker:build": "docker-compose build",
-    "docker:up": "docker-compose up -d",
-    "docker:down": "docker-compose down"
+  "test": "node --test test/*.test.js",
+  "test:checkout": "node --test test/checkout.test.js",
+  "test:pro": "node --test test/membresia.test.js",
+  "demo:pro": "node scripts/demo-pro.js",
+  "audit:serve": "node test/serve-local.js",
+  "dev": "nodemon src/server.js",
+  "start": "node src/server.js",
+  "docker:build": "docker-compose build",
+  "docker:up": "docker-compose up -d",
+  "docker:down": "docker-compose down"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

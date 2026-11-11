@@ -5,7 +5,8 @@ export const money = value => Number(value).toLocaleString('es-MX',{minimumFract
 export function cartTotals(cart) {
   let subtotal = 0, tax = 0;
   const lines = {};
-  for (const item of cart) {
+  // Match the checkout API's product order when allocating rounding cents.
+  for (const item of [...cart].sort((a,b) => a.id - b.id)) {
     const net = cents(item.precio) * item.qty;
     subtotal += net;
     const nextTax = Math.round(subtotal * 16 / 100);

@@ -6,6 +6,8 @@ const bcrypt = require('bcryptjs');
 
 // Deliberately never loads .env: tests cannot use production payment credentials.
 function testEnvironment(database = 'mxfacil_audit') {
+  delete process.env.ENVIA_API_TOKEN;
+  delete process.env.ENVIA_ORIGENES_MX;
   Object.assign(process.env, {
     NODE_ENV: 'test', DB_HOST: '127.0.0.1', DB_PORT: '3318', DB_USER: 'root',
     DB_PASS: '', DB_PASSWORD: '', DB_NAME: `${database}_${crypto.randomBytes(6).toString('hex')}`,

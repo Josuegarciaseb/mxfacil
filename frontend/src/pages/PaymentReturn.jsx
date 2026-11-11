@@ -15,7 +15,8 @@ export default function PaymentReturn() {
     window.opener?.postMessage(notice,window.location.origin);
     return ()=>{active=false;};
   },[id]);
-  const title = status === 'aprobado' ? 'Pago confirmado' : status === 'rechazado' ? 'Pago rechazado' : 'Pago pendiente de confirmación';
+  const titles = { aprobado: 'Pago confirmado', rechazado: 'Pago rechazado', reembolsado: 'Pago reembolsado' };
+  const title = titles[status] || 'Pago pendiente de confirmación';
   return <section className="card" style={{margin:'32px auto',maxWidth:420,padding:28,textAlign:'center'}}>
     <h1>{title}</h1>
     <p style={{margin:'12px 0 20px'}}>Consulta el estado actualizado en Mis pedidos.</p>

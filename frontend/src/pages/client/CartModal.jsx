@@ -10,6 +10,8 @@ import Btn from "../../components/ui/Btn";
 import EmptyState from "../../components/ui/EmptyState";
 import { SelectField, InputField } from "../../components/ui/FormFields";
 import Icon from "../../components/ui/Icon";
+import CotizacionCarrito from "../../components/shipping/CotizacionCarrito";
+import "../../components/shipping/flete.css";
 const StripeCheckout = lazy(()=>import('../../components/payments/StripeCheckout'));
 const PayPalCheckout = lazy(()=>import('../../components/payments/PayPalCheckout'));
 const MercadoPagoCheckout = lazy(()=>import('../../components/payments/MercadoPagoCheckout'));
@@ -22,9 +24,13 @@ const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth, initialPay
   const [direcciones, setDirecciones]   = useState([]);
   const [orderForm,   setOrderForm]     = useState({ direccion_id: "", metodo_pago: "" });
   const [methods, setMethods] = useState([]);
+  const [modalidad, setModalidad] = useState('acordada');
+  const [respuesta, setRespuesta] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [retry, setRetry] = useState(0);
   const submitting = useRef(false);
+  const inicioCheckout = useRef(null);
+  const tieneArticulos = cart.length > 0;
   const [placing,     setPlacing]       = useState(false);
   const [paymentStep, setPaymentStep]   = useState(initialPayment || null);
   const [showAddrForm, setShowAddrForm] = useState(false);
@@ -33,6 +39,14 @@ const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth, initialPay
   const { isMobile } = useBreakpoint();
 
   const dialog = useDialog(open,placing ? undefined : onClose);
+  useEffect(() => {
+    if (!open || !token || !tieneArticulos || initialPayment) return;
+    let activo = true;
+    http('/piloto/inicio-compra', { method: 'POST' }, token)
+      .then(data => { if (activo) inicioCheckout.current = data.inicio_checkout; })
+      .catch(() => { /* La compra también admite sesiones sin medición. */ });
+    return () => { activo = false; inicioCheckout.current = null; };
+  }, [open, token, tieneArticulos, initialPayment]);
   useEffect(() => {
     if (!open || !token || initialPayment) return;
     let active = true;
@@ -76,16 +90,27 @@ const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth, initialPay
 
   const {subtotal:cartSubtotal,iva:cartIva,total:cartTotal,lines} = cartTotals(cart);
   const cartCount    = cart.reduce((s, i) => s + i.qty, 0);
+  const conCastores = Boolean(token && modalidad === 'castores');
+  const direccion = direcciones.find(d => String(d.id) === String(orderForm.direccion_id));
+  const opcionesPago = conCastores ? methods.filter(m => m.value !== 'contra_entrega') : methods;
+  const metodo = opcionesPago.some(m => m.value === orderForm.metodo_pago) ? orderForm.metodo_pago : (opcionesPago[0]?.value || '');
+  const claveCarga = JSON.stringify([userId,direccion,metodo,cart.map(i => [i.id,i.qty,i.precio,i.proveedor_id])]);
+  const q = conCastores && respuesta?.clave === claveCarga ? respuesta.q : null;
+  const listo = Boolean(q?.vigente && q.flete != null && !q.pedido_id && !q.motivo_rechazo);
+  const totalPagar = (Math.round(cartTotal*100) + (listo ? Math.round(Number(q.flete)*100) : 0)) / 100;
 
   const handleConfirm = async () => {
     if (submitting.current) return;
     if (!orderForm.direccion_id) return toast("Selecciona una dirección", "warn");
+    if (conCastores && !listo) return toast("Solicita y revisa el flete antes de confirmar", "warn");
     submitting.current = true;
     setPlacing(true);
     try {
       const storageKey = `checkout_attempt_${userId}`;
       const items = cart.map(i=>({producto_id:i.id,cantidad:i.qty}));
-      const fingerprint = JSON.stringify([orderForm.direccion_id,orderForm.metodo_pago,items,cartTotal]);
+      const componentes = [orderForm.direccion_id,metodo,items,totalPagar];
+      if (conCastores) componentes.push(q.id,q.revision);
+      const fingerprint = JSON.stringify(componentes);
       let attempt;
       try { attempt = JSON.parse(sessionStorage.getItem(storageKey)); } catch { /* discard invalid saved state */ }
       if (attempt?.fingerprint !== fingerprint) {
@@ -96,13 +121,20 @@ const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth, initialPay
         method: "POST",
         body: JSON.stringify({
           direccion_id: parseInt(orderForm.direccion_id),
-          metodo_pago:  orderForm.metodo_pago,
-          items, clave_checkout:attempt.key, total_esperado:cartTotal,
+          metodo_pago: metodo,
+          items, clave_checkout:attempt.key, total_esperado:totalPagar,
+          ...(conCastores && {entrega:'castores',cotizacion_id:q.id,revision:q.revision}),
+          inicio_checkout: inicioCheckout.current,
         }),
       }, token);
 
       sessionStorage.removeItem(storageKey);
-      if (!DIGITAL_METHODS.includes(orderForm.metodo_pago) || result.pago.estado === 'aprobado') {
+      if (result.pedido.estado === 'cancelado' || ['reembolsado', 'rechazado'].includes(result.pago.estado)) {
+        toast(`El pedido #${result.pedido.id} ya se cerró. Consulta su detalle.`, 'warn');
+        onOrdered(result.pedido.id);
+        return;
+      }
+      if (!DIGITAL_METHODS.includes(metodo) || result.pago.estado === 'aprobado') {
         toast(`Pedido #${result.pedido.id} confirmado`);
         setCart([]);
         onOrdered(result.pedido.id);
@@ -112,12 +144,13 @@ const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth, initialPay
       setPaymentStep({
         pedidoId: result.pedido.id,
         monto:    result.pedido.total,
-        metodo:   orderForm.metodo_pago,
+        metodo,
       });
       setCart([]);
     } catch (e) {
       toast(e.message, "error");
       if (e.status===409) {
+        setRespuesta(null);
         try { const products=await http('/productos',{},token); setCart(c=>refreshCart(c,products)); } catch { /* keep cart on network failure */ }
       }
     } finally {
@@ -344,17 +377,18 @@ const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth, initialPay
                 </span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontSize: 12, color: "rgba(255,255,255,.55)" }}>IVA (16%)</span>
+                <span style={{ fontSize: 12, color: "rgba(255,255,255,.55)" }}>IVA del pedido (16 % sobre el subtotal)</span>
                 <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,.75)" }}>
                   +${cartIva.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
+              {conCastores && <div className="flete-total"><span>Flete Castores</span><strong>{listo ? '$' + money(q.flete) : 'Por cotizar'}</strong></div>}
               <div style={{ borderTop: "1px solid rgba(255,255,255,.15)", paddingTop: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,.5)", letterSpacing: ".06em", textTransform: "uppercase" }}>
-                  Total del pedido
+                  {conCastores && !listo ? 'Mercancía con IVA' : 'Total del pedido'}
                 </div>
                 <span style={{ fontWeight: 900, color: "#FDE68A", fontSize: isMobile ? 19 : 22, letterSpacing: "-.025em" }}>
-                  ${cartTotal.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  ${money(totalPagar)}
                   <span style={{ fontSize: 12, fontWeight: 500, color: "rgba(255,255,255,.5)", marginLeft: 4 }}>MXN</span>
                 </span>
               </div>
@@ -385,10 +419,10 @@ const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth, initialPay
 
               <SelectField
                 label="Método de pago"
-                value={orderForm.metodo_pago}
+                value={metodo}
                 onChange={(e) => setOrderForm((f) => ({ ...f, metodo_pago: e.target.value }))}
               >
-                {methods.map((m) => (
+                {opcionesPago.map((m) => (
                   <option key={m.value} value={m.value}>{m.label}</option>
                 ))}
               </SelectField>
@@ -396,6 +430,12 @@ const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth, initialPay
             )}
 
             {/* ── Sin direcciones: aviso + botón (solo autenticados) ── */}
+            {token && <SelectField label="Forma de entrega" value={modalidad} onChange={e => setModalidad(e.target.value)}>
+              <option value="acordada">Entrega acordada con el proveedor</option>
+              <option value="castores">Castores · flete cotizado y pago previo</option>
+            </SelectField>}
+            {conCastores && <CotizacionCarrito key={claveCarga} clave={claveCarga} token={token} direccionId={orderForm.direccion_id}
+              metodo={metodo} cart={cart} cotizacion={q} setRespuesta={setRespuesta} onClose={onClose} />}
             {loadError && <div role="alert">{loadError} <button className="btn-secondary" onClick={()=>setRetry(n=>n+1)}>Reintentar</button></div>}
             {token && methods.length > 0 && !direcciones.length && !showAddrForm && (
               <div style={{ border: "1.5px dashed #fbbf24", borderRadius: 10, padding: "14px 16px", background: "#fffbeb", display: "flex", flexDirection: "column", gap: 10 }}>
@@ -476,7 +516,7 @@ const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth, initialPay
               </div>
             )}
 
-            {DIGITAL_METHODS.includes(orderForm.metodo_pago) && token && (
+            {DIGITAL_METHODS.includes(metodo) && token && (
               <div style={{ display: "flex", gap: 8, alignItems: "flex-start", background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 9, padding: "10px 12px" }}>
                 <Icon name="info" size={16} style={{ color: "#2563eb", flexShrink: 0, marginTop: 1 }} />
                 <span style={{ fontSize: 12, color: "#1d4ed8" }}>Al confirmar se creará tu pedido y podrás completar el pago en el siguiente paso.</span>
@@ -525,12 +565,12 @@ const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth, initialPay
               </Btn>
               <Btn
                 onClick={handleConfirm}
-                disabled={placing || !direcciones.length || !orderForm.metodo_pago || !!loadError || showAddrForm}
+                disabled={placing || !direcciones.length || !metodo || !!loadError || showAddrForm || (conCastores && !listo)}
                 style={{ flex: isMobile ? "unset" : 2, justifyContent: "center" }}
               >
                 {placing
                   ? <><div style={{ width: 16, height: 16, border: "2px solid rgba(255,255,255,.3)", borderTop: "2px solid #fff", borderRadius: "50%", animation: "spin 1s linear infinite" }} />Procesando...</>
-                  : DIGITAL_METHODS.includes(orderForm.metodo_pago)
+                  : DIGITAL_METHODS.includes(metodo)
                     ? <><Icon name="arrowRight" size={16} />Continuar al pago</>
                     : <><Icon name="check" size={16} />Confirmar pedido</>}
               </Btn>

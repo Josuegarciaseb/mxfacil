@@ -1,0 +1,16 @@
+.flete-panel { margin-bottom: 16px; padding: 14px 16px; }
+.flete-panel > summary { cursor: pointer; color: var(--gray-900); font-weight: 700; }
+.flete-panel > div { margin-top: 12px; }
+.flete-box { display: grid; gap: 10px; padding: 14px; border: 1px solid var(--gray-200); border-radius: 10px; background: var(--gray-50); color: var(--gray-900); }
+.flete-box p, .flete-form p { margin: 0; font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; }
+.flete-box a { color: var(--red); text-decoration: underline; }
+.flete-form { display: grid; gap: 12px; min-width: 0; }
+.flete-form label { display: grid; gap: 5px; font-size: 13px; font-weight: 600; }
+.flete-form input:not([type=checkbox]), .flete-form select, .flete-form textarea { width: 100%; min-width: 0; box-sizing: border-box; padding: 8px; border: 1px solid var(--gray-200); border-radius: 6px; background: white; color: var(--gray-900); }
+.flete-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(180px,100%),1fr)); gap: 12px; }
+.flete-actions, .flete-heading, .flete-form .flete-check { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.flete-heading, .flete-total { display: flex; justify-content: space-between; gap: 6px; flex-wrap: wrap; }
+.flete-total { font-size: 13px; color: white; }
+.flete-form > button, .flete-box > button { justify-self: start; }
+.flete-box [role=alert], .flete-form [role=alert] { color: #963015; }
+.flete-guia { user-select: all; overflow-wrap: anywhere; }
