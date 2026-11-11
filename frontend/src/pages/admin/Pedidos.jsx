@@ -11,6 +11,8 @@ import StatusBadge        from "../../components/ui/StatusBadge";
 import { SelectField }    from "../../components/ui/FormFields";
 import Icon               from "../../components/ui/Icon";
 import { money } from "../../utils/cart";
+import SolicitudesCastores from "../../components/shipping/SolicitudesCastores";
+import SeguimientoCastores from "../../components/shipping/SeguimientoCastores";
 
 const totalVisible = total => total == null ? "Sin desglose histórico" : "$" + money(total);
 
@@ -82,6 +84,7 @@ const AdminPedidos = ({ token, gestionarPagos = false }) => {
         title="Pedidos" subtitle={`${pedidos.length} pedidos`}
         actions={<select value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)} style={{ minWidth: isMobile ? 150 : 180, fontSize: 13 }}>{["", ...ORDER_STATES].map((e) => <option key={e} value={e}>{e || "Todos"}</option>)}</select>}
       />
+      <SolicitudesCastores token={token} />
       <div className="card" style={{ padding: 0, overflow: "hidden" }}>
         {loading ? <Spinner /> : pedidos.length === 0 ? <EmptyState icon="cart" title="Sin pedidos" sub="" /> : (
           <div className="table-scroll">
@@ -106,9 +109,13 @@ const AdminPedidos = ({ token, gestionarPagos = false }) => {
       <Modal open={!!selected} onClose={() => { setSelected(null); setDetalle(null); }} title={`Pedido #${selected}`}>
         {loadingDetalle ? <Spinner size={28} /> : detalle && detalle.pedido.id === selected ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <SelectField label="Cambiar estado" value={detalle.pedido.estado} onChange={(e) => cambiarEstado(selected, e.target.value)}>
+            {!detalle.pedido.cotizacion_castores_id && <SelectField label="Cambiar estado" value={detalle.pedido.estado} onChange={(e) => cambiarEstado(selected, e.target.value)}>
               {ORDER_STATES.map((e) => <option key={e} value={e}>{e}</option>)}
-            </SelectField>
+            </SelectField>}
+            {detalle.pedido.cotizacion_castores_id && <><p>Estado del pedido <StatusBadge estado={detalle.pedido.estado} /></p>
+              <p>Entregar a {detalle.pedido.direccion_linea1}, {detalle.pedido.direccion_ciudad}, {detalle.pedido.direccion_estado}, CP {detalle.pedido.direccion_cp}.</p>
+              {['pendiente','esperando_pago'].includes(detalle.pedido.estado) && <button type="button" className="btn-secondary"
+                onClick={() => { if (window.confirm('¿Cancelar este pedido y conciliar su pago?')) cambiarEstado(selected,'cancelado'); }}>Cancelar pedido</button>}</>}
             <div style={{ background: "var(--gray-50)", borderRadius: 10, padding: 14, border: "1px solid var(--gray-100)" }}>
               <div style={{ fontSize: 11, color: "var(--gray-400)", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 10 }}>Productos</div>
               {detalle.items.map((i) => (
@@ -122,6 +129,7 @@ const AdminPedidos = ({ token, gestionarPagos = false }) => {
                   <span style={{ fontWeight: 700, flexShrink: 0, marginLeft: 8 }}>${(i.precio_unitario * i.cantidad).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
                 </div>
               ))}
+              {detalle.pedido.cotizacion_castores_id && <p>Flete Castores {totalVisible(detalle.pedido.flete)}</p>}
               <div style={{ borderTop: "1px solid var(--gray-200)", marginTop: 8, paddingTop: 8, display: "flex", justifyContent: "space-between", fontWeight: 800 }}>
                 <span>Total</span><span style={{ color: "var(--red)" }}>{totalVisible(detalle.pedido.total)}</span>
               </div>
@@ -136,7 +144,8 @@ const AdminPedidos = ({ token, gestionarPagos = false }) => {
               <RegistroPago key={detalle.pago.id + detalle.pago.estado} token={token}
                 pedido={detalle.pedido} pago={detalle.pago} onRecorded={() => openDetalle(selected)} />
             )}
-            {detalle.envio && (
+            {detalle.pedido.cotizacion_castores_id ? <SeguimientoCastores key={selected} detalle={detalle} token={token} operador administrador={gestionarPagos}
+              actualizar={async () => { await openDetalle(selected); await load(); }} /> : detalle.envio && (
               <div style={{ background: "var(--gray-50)", borderRadius: 10, padding: 12, border: "1px solid var(--gray-100)", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13 }}>
                 <span style={{ color: "var(--gray-700)" }}><Icon name="truck" size={14} style={{ marginRight: 6, color: "var(--gray-400)", verticalAlign: "middle" }} />{detalle.envio.transportista || "Sin asignar"}</span>
                 <StatusBadge estado={detalle.envio.estado} />

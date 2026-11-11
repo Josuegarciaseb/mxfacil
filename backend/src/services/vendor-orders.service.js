@@ -23,6 +23,7 @@ async function vendorOrders(userId, { estado, pedidoId } = {}) {
     )
     SELECT p.id,p.usuario_id,u.nombre AS usuario_nombre,p.direccion_id,p.fecha,p.estado,
       g.estado AS pago_estado,
+      COALESCE(f.flete,0.00) AS flete,
       IF(d.exclusivo,p.subtotal,d.importe_lineas) AS subtotal,
       IF(d.exclusivo,p.iva,d.impuesto_lineas) AS iva,
       IF(d.exclusivo,p.total,d.importe_lineas+d.impuesto_lineas) AS total,
@@ -30,6 +31,7 @@ async function vendorOrders(userId, { estado, pedidoId } = {}) {
       IF(d.exclusivo,p.comision,d.importe_lineas-d.base_lineas) AS comision
     FROM desglose d JOIN pedido p ON p.id=d.id JOIN usuario u ON u.id=p.usuario_id
     LEFT JOIN pago g ON g.pedido_id=p.id
+    LEFT JOIN cotizacion_castores f ON f.pedido_id=p.id AND f.proveedor_id=d.proveedor_id
     ORDER BY p.fecha DESC,p.id DESC`, params);
   return rows;
 }

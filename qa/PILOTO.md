@@ -55,6 +55,8 @@ Un reembolso previo al despacho puede cancelar el pedido y devolver las unidades
 
 ## Medición con comercios
 
+En pedidos con Castores, el informe muestra por separado el flete cobrado, el gasto de transporte y los demás costos de la plataforma. El comprobante del despacho proporciona el costo real del flete. Administración puede ajustarlo con la factura definitiva. [Guía de logística](LOGISTICA.md)
+
 En `Administración → Panel de Control → Medición del piloto`, elige las fechas de creación de pedidos, las cuentas de tienda y, si corresponde, los proveedores. Ambos extremos del periodo se incluyen según el calendario de la base. El filtro de proveedores conserva folios con todas sus líneas en el grupo seleccionado, para poder atribuir el costo completo a ese grupo. Los resultados muestran el **estado actual** de esos folios y pueden cambiar si después se entrega o reembolsa un pedido.
 
 | Indicador | Cómo se obtiene |
@@ -70,6 +72,8 @@ El guardado de costos comprueba el valor anterior para evitar sobrescribir una e
 La propuesta de dos semanas, dos proveedores y cinco tiendas aún requiere reclutamiento y actividad real. Antes de comenzar, acuerden las cuentas participantes, quién registra costos, los horarios y responsabilidades de conciliación, y cómo medir una compra comparable por el canal habitual. Al terminar podrán contrastar tiempos, recompra y margen con sus observaciones. Las cifras de prueba de esta guía corresponden a cuentas ficticias.
 
 ## Instalación y actualización
+
+Para usar la versión con envíos Castores en una base existente, aplica también la migración 012 después de la 011 y antes de iniciar esta versión de la API. Las instalaciones nuevas ya incluyen ambas. [Configuración de logística](LOGISTICA.md)
 
 1. **Base nueva.** Inicializar con `backend/db/init.sql`. Incluye la estructura 011.
 2. **Base existente hasta 010.** Respaldar y comprobar la restauración en ensayo. Detener escrituras de la aplicación, seleccionar la base correcta y ejecutar con el cliente `mysql` la migración `backend/migrations/011_economia_reservas_piloto.sql`. Usa MySQL 8.0.16 o posterior con InnoDB, y permisos para tablas y rutinas temporales de migración. Un ejemplo desde la raíz en una base local de ensayo es `mysql -h 127.0.0.1 -u USUARIO -p NOMBRE_BASE -e "SOURCE backend/migrations/011_economia_reservas_piloto.sql"`.

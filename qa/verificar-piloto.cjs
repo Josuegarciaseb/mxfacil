@@ -47,6 +47,10 @@ async function run() {
       const product = seller.getByRole('row').filter({ hasText: 'Semilla de calabaza de prueba' });
       return product.locator('[data-label="Stock"] .badge').innerText();
     };
+    if (process.argv.includes('--castores')) {
+      await require('./flujo-castores.cjs')({ buyer,seller,admin,origin,stock,pool });
+      return;
+    }
     assert.equal(await stock(), '4');
     await buyer.getByRole('checkbox', { name: 'Semillas', exact: true }).check();
     await buyer.getByRole('article', {name:/Semilla de calabaza/}).getByRole('button', {name:/Agregar/}).click();

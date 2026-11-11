@@ -8,5 +8,6 @@ router.use(auth);
 router.post('/inicio-compra', piloto.inicioCompra);
 router.get('/', admin, wrap(piloto.informe));
 router.patch('/pedidos/:id/costo', admin, wrap(piloto.guardarCosto));
+router.patch('/pedidos/:id/flete', admin, wrap(piloto.guardarFlete));
 
 module.exports = router;

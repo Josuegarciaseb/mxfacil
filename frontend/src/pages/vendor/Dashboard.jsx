@@ -72,6 +72,8 @@ const VendedorDashboard = ({ token, user }) => {
   if (orders.some(order => collectionGroup(order) === "Cobro por devolver")) groups.push("Cobro por devolver");
   if (orders.some(order => collectionGroup(order) === "Por conciliar")) groups.push("Por conciliar");
   const recent = orders.slice(0, 5);
+  const columnas = orders.some(p => Number(p.flete) > 0)
+    ? [...amounts.slice(0,-1), ['flete','Flete Castores'], amounts[amounts.length - 1]] : amounts;
 
   return (
     <div className="fade-up">
@@ -94,11 +96,11 @@ const VendedorDashboard = ({ token, user }) => {
         <p>Importes en MXN. El cobro contra entrega figura como cobrado cuando se registra la recepción del dinero.</p>
         <div className="table-scroll">
           <table aria-label="Desglose por estado de cobro">
-            <thead><tr><th>Estado de cobro</th><th>Folios</th>{amounts.map(([key,title]) => <th key={key}>{title}</th>)}</tr></thead>
+            <thead><tr><th>Estado de cobro</th><th>Folios</th>{columnas.map(([key,title]) => <th key={key}>{title}</th>)}</tr></thead>
             <tbody>{groups.map(group => {
               const subset = orders.filter(order => collectionGroup(order) === group);
               return <tr key={group}><th scope="row">{group}</th><td>{subset.length}</td>
-                {amounts.map(([field]) => <td key={field}>{amountSummary(subset,field,group)}</td>)}</tr>;
+                {columnas.map(([field]) => <td key={field}>{amountSummary(subset,field,group)}</td>)}</tr>;
             })}</tbody>
           </table>
         </div>

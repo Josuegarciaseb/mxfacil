@@ -41,13 +41,17 @@ exports.informe = async (req, res) => {
     `WITH operaciones AS (
        SELECT p.id, p.usuario_id, u.nombre AS tienda, p.fecha, p.estado,
          g.estado AS pago_estado, p.checkout_segundos, p.costo_variable,
+         c.id AS cotizacion_castores_id, c.costo_flete_real,
+         CASE WHEN g.estado='aprobado' AND p.estado<>'cancelado' THEN COALESCE(c.flete,0.00) ELSE 0.00 END AS flete_recuperado,
          CASE WHEN g.estado = 'aprobado' AND p.estado <> 'cancelado'
               THEN p.comision ELSE 0.00 END AS comision_obtenida
        FROM pedido p JOIN usuario u ON u.id = p.usuario_id
        LEFT JOIN pago g ON g.pedido_id = p.id
+       LEFT JOIN cotizacion_castores c ON c.pedido_id=p.id
        WHERE p.fecha >= ? AND p.fecha < DATE_ADD(?, INTERVAL 1 DAY)${filtro}
      )
-     SELECT operaciones.*, comision_obtenida - costo_variable AS margen,
+     SELECT operaciones.*, comision_obtenida + flete_recuperado - costo_variable
+       - IF(cotizacion_castores_id IS NULL,0.00,costo_flete_real) AS margen,
        SUM(comision_obtenida) OVER () AS comision_periodo
      FROM operaciones ORDER BY fecha DESC, id DESC`, params);
 
@@ -81,19 +85,24 @@ function costoValido(valor) {
   return valor === null || (['string', 'number'].includes(typeof valor) && /^\d{1,10}(\.\d{1,2})?$/.test(String(valor)));
 }
 
-exports.guardarCosto = async (req, res) => {
+async function guardarCosto(req, res, esFlete) {
   const { costo_variable, anterior } = req.body;
   if (!/^[1-9]\d{0,9}$/.test(req.params.id) || !costoValido(costo_variable) || !costoValido(anterior)) {
     fail(400, 'Indica el costo anterior y el nuevo en MXN con hasta dos decimales o null');
   }
   await transaction(async conn => {
+    const tabla = esFlete ? 'cotizacion_castores' : 'pedido';
+    const campo = esFlete ? 'costo_flete_real' : 'costo_variable';
+    const clave = esFlete ? 'pedido_id' : 'id';
     const [rows] = await conn.execute(
-      'SELECT costo_variable <=> CAST(? AS DECIMAL(12,2)) AS igual, costo_variable <=> CAST(? AS DECIMAL(12,2)) AS vigente FROM pedido WHERE id = ? FOR UPDATE',
+      `SELECT ${campo} <=> CAST(? AS DECIMAL(12,2)) AS igual, ${campo} <=> CAST(? AS DECIMAL(12,2)) AS vigente FROM ${tabla} WHERE ${clave} = ? FOR UPDATE`,
       [costo_variable, anterior, req.params.id]);
     if (!rows.length) fail(404, 'Pedido no encontrado');
     if (rows[0].igual) return;
     if (!rows[0].vigente) fail(409, 'Otra persona modificó el costo. Actualiza el informe antes de editarlo.');
-    await conn.execute('UPDATE pedido SET costo_variable = ? WHERE id = ?', [costo_variable, req.params.id]);
+    await conn.execute(`UPDATE ${tabla} SET ${campo} = ? WHERE ${clave} = ?`, [costo_variable, req.params.id]);
   });
   res.json({ guardado: true });
-};
+}
+exports.guardarCosto = (req,res) => guardarCosto(req,res,false);
+exports.guardarFlete = (req,res) => guardarCosto(req,res,true);

@@ -19,6 +19,7 @@ const guides = {
     content: (
       <>
         <p>El carrito muestra los métodos habilitados para tu pedido. Pueden incluir tarjeta, PayPal, Mercado Pago, transferencia bancaria o pago contra entrega.</p>
+        <p>Para enviar productos secos con Castores, elige esa forma de entrega en el carrito y solicita el flete. Podrás revisar el total antes de pagar. Después del despacho encontrarás la guía y el botón de recepción en <strong>Mis pedidos</strong>.</p>
         <p>Si un pago en línea queda pendiente, abre el pedido en <strong>Mis pedidos</strong> y selecciona <strong>Continuar pago</strong>.</p>
       </>
     ),
