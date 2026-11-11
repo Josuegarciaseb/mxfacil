@@ -24,6 +24,9 @@ async function getProductoCompletoById(id, conn = null) {
       p.id,
       p.proveedor_id,
       pr.nombre AS proveedor_nombre,
+      (SELECT COUNT(*) FROM resena r WHERE r.producto_id=p.id) AS resenas_total,
+      (SELECT AVG(r.calidad) FROM resena r WHERE r.producto_id=p.id) AS calidad_promedio,
+      (SELECT AVG(r.servicio) FROM resena r WHERE r.proveedor_id=pr.id) AS servicio_promedio,
       EXISTS(SELECT 1 FROM membresia m WHERE m.proveedor_id=pr.id
         AND m.vence_en>UTC_TIMESTAMP(3) AND pr.verificado='aprobado') AS proveedor_pro,
       p.categoria_id,
@@ -90,6 +93,9 @@ exports.listProductos = async (req, res) => {
         p.id,
         p.proveedor_id,
         pr.nombre AS proveedor_nombre,
+      (SELECT COUNT(*) FROM resena r WHERE r.producto_id=p.id) AS resenas_total,
+      (SELECT AVG(r.calidad) FROM resena r WHERE r.producto_id=p.id) AS calidad_promedio,
+      (SELECT AVG(r.servicio) FROM resena r WHERE r.proveedor_id=pr.id) AS servicio_promedio,
       EXISTS(SELECT 1 FROM membresia m WHERE m.proveedor_id=pr.id
         AND m.vence_en>UTC_TIMESTAMP(3) AND pr.verificado='aprobado') AS proveedor_pro,
         p.categoria_id,

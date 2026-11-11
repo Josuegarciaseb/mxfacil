@@ -1,3 +1,4 @@
+import OrderReviews from '../../components/reviews/OrderReviews';
 import { useState, useEffect } from "react";
 import { useLocation, useSearchParams } from 'react-router-dom';
 import { http } from "../../utils/api";
@@ -12,8 +13,9 @@ import Modal from "../../components/ui/Modal";
 import StatusBadge from "../../components/ui/StatusBadge";
 import Icon from "../../components/ui/Icon";
 
-const DetalleContent = ({ detalle, onResume, onCancel }) => (
+const DetalleContent = ({ detalle, onResume, onCancel, token, onDelivered }) => (
   <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    <OrderReviews key={detalle.pedido.id} detalle={detalle} token={token} onDelivered={onDelivered} />
     {detalle.pedido.estado === 'esperando_pago' && <button className="btn-primary" onClick={()=>onResume({pedidoId:detalle.pedido.id,metodo:detalle.pago.metodo,monto:detalle.pago.monto})}>Continuar pago</button>}
     {['esperando_pago','pendiente'].includes(detalle.pedido.estado) && detalle.pago?.estado !== 'aprobado' && !detalle.pago?.referencia && <button className="btn-secondary" onClick={()=>onCancel(detalle.pedido.id)}>Cancelar pedido</button>}
     <div style={{ background: "var(--gray-50)", borderRadius: 9, padding: 12, border: "1px solid var(--gray-100)" }}>
@@ -161,7 +163,7 @@ const ClientPedidos = ({ token, onResume }) => {
                 <div style={{ marginTop: 10 }}><StatusBadge estado={detalle.pedido?.estado} /></div>
               </div>
               <div style={{ padding: 16 }}>
-                <DetalleContent detalle={detalle} onResume={resume} onCancel={cancel} />
+                <DetalleContent detalle={detalle} onResume={resume} onCancel={cancel} token={token} onDelivered={() => setRevision(n=>n+1)} />
               </div>
             </div>
           )}
@@ -171,7 +173,7 @@ const ClientPedidos = ({ token, onResume }) => {
       {/* Modal detalle — mobile */}
       {isMobile && selected && detalle && (
         <Modal open={true} onClose={() => { setSelected(null); setDetalle(null); }} title={"Pedido #" + selected}>
-          <DetalleContent detalle={detalle} onResume={resume} onCancel={cancel} />
+          <DetalleContent detalle={detalle} onResume={resume} onCancel={cancel} token={token} onDelivered={() => setRevision(n=>n+1)} />
         </Modal>
       )}
     </div>

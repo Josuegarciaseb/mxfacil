@@ -6,6 +6,7 @@
   "scripts": {
     "test": "node --test test/checkout.test.js",
     "test:pro": "node --test test/membresia.test.js",
+    "test:resenas": "node --test test/resenas.test.js",
     "demo:pro": "node scripts/demo-pro.js",
     "audit:serve": "node test/serve-local.js",
     "dev": "nodemon src/server.js",

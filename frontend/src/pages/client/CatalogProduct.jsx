@@ -1,3 +1,4 @@
+import ProductReviews from '../../components/reviews/ProductReviews';
 import { recordProEvent } from '../../utils/membresia';
 import { useEffect, useRef, useState } from "react";
 import Icon from "../../components/ui/Icon";
@@ -34,6 +35,7 @@ function ProductPhoto({ product, eager }) {
 }
 
 export default function CatalogProduct({ product, price, status, inCart, eager, onAdd, promoted = false }) {
+  const [reviewsOpen, setReviewsOpen] = useState(false);
   const article = useRef(null);
   useEffect(() => {
     if (!product.proveedor_pro || !globalThis.IntersectionObserver) return;
@@ -63,6 +65,11 @@ export default function CatalogProduct({ product, price, status, inCart, eager, 
         <h2 id={titleId}>{product.nombre}</h2>
         {product.proveedor_nombre && <p className="catalog-supplier"><Icon name="store" size={14} />{product.proveedor_nombre}</p>}
         {!!product.proveedor_pro && <span className="pro-badge">Proveedor Pro</span>}
+        <button className="review-link" type="button" onClick={()=>setReviewsOpen(true)}>
+          {Number(product.resenas_total)>0 ? `Ver reseñas · ${Number(product.calidad_promedio).toFixed(1)}/5 (${product.resenas_total})` : 'Ver reseñas · Sin calificaciones'}
+        </button>
+        {product.servicio_promedio != null && <span className="review-supplier-score">Servicio del proveedor: {Number(product.servicio_promedio).toFixed(1)}/5</span>}
+        {reviewsOpen && <ProductReviews product={product} onClose={()=>setReviewsOpen(false)} />}
         {product.presentacion && <span className="catalog-pack">{product.presentacion}</span>}
         {product.descripcion && <p className="catalog-description" title={product.descripcion}>{product.descripcion}</p>}
       </div>

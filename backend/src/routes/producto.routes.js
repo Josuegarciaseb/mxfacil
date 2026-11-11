@@ -8,6 +8,7 @@ const upload = require('../middlewares/upload');
 
 // Rutas públicas (catálogo)
 router.get('/', prodCtrl.listProductos);
+router.get('/:id/resenas', asyncRoute(require('../controllers/resena.controller').publicList));
 router.get('/gestion', auth, isAdminOrVendedor, prodCtrl.listProductos);
 router.get('/:id', prodCtrl.getProducto);
 

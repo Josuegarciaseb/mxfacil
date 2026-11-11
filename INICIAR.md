@@ -25,6 +25,15 @@ El inicializador rechaza bases que ya tienen tablas para conservar los datos.
 Las bases existentes pueden requerir las migraciones de `backend/migrations`.
 Los archivos `.env` contienen secretos locales y estan excluidos de Git.
 
+Para activar las reseñas en una base existente, ejecuta
+`backend/migrations/012_resenas.sql` y después `013_confirmacion_cliente.sql`
+en esa base; no vuelvas a ejecutar `init.sql`.
+El vendedor marca el pedido como **Enviado** y después **Entregado**.
+En **Mis pedidos**, el cliente abre ese pedido pagado y pulsa **Confirmar recibido**.
+Después de confirmar la recepción de todos los artículos podrás calificar la
+calidad y el servicio de cada producto. Las opiniones se consultan desde
+**Ver reseñas** en el catálogo. La membresía Pro no es necesaria para recibir reseñas.
+
 ## Verificaciones
 
 ```powershell
