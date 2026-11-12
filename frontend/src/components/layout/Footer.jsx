@@ -128,6 +128,8 @@ const Footer = ({ isSmall, isGuest, onCartOpen, onChooseAddress }) => {
           © {new Date().getFullYear()} Comercio Fácil · MXFácil · Todos los derechos reservados
         </span>
         <div className="footer-utilities">
+          <FooterPageLink to="/terminos" className="footer-nav-link">Términos y condiciones</FooterPageLink>
+          <FooterPageLink to="/privacidad" className="footer-nav-link">Aviso de privacidad</FooterPageLink>
           <span style={{
             display: "inline-flex", alignItems: "center", gap: 5,
             color: TEXT_MUTED, fontSize: 12,
