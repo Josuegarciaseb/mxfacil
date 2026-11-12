@@ -1,3 +1,5 @@
+import Terminos from './pages/Terminos';
+import Privacidad from './pages/Privacidad';
 import Membresia from './pages/vendor/Membresia';
 import { useState, useEffect, useCallback } from "react";
 import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
@@ -302,7 +304,8 @@ export default function App() {
               onCategoriesChange={setCatalogCategories}
             />
           } />
-
+          <Route path="/terminos" element={<Terminos />} />
+          <Route path="/privacidad" element={<Privacidad />} /> 
           <Route path="/proveedores/:id" element={<ProveedorPublico token={token} cart={cart} setCart={setCart} onProductsFetched={syncProducts} />} />
           {/* Auth — redirige si ya tiene sesión */}
           <Route path="/auth" element={
@@ -339,7 +342,7 @@ export default function App() {
           <Route path="/vendedor/pedidos"    element={vendedorOnly(<AdminPedidos        token={token} />)} />
           <Route path="/vendedor/membresia" element={vendedorOnly(<Membresia token={token} />)} />
           <Route path="/vendedor/perfil"     element={vendedorOnly(<ClientPerfil        token={token} user={user} onUpdate={handleUserUpdate} />)} />
-
+        
           {/* Cualquier ruta desconocida → catálogo */}
           <Route path="*" element={<Navigate to="/catalogo" replace />} />
         </Routes>
