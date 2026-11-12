@@ -53,9 +53,9 @@ const DetalleContent = ({ detalle, onResume, onCancel, token, actualizar }) => (
             </div>
           </>
         )}
-        {detalle.pedido.cotizacion_castores_id && <div className="flete-heading"><span>Flete Castores</span><span>${money(detalle.pedido.flete)}</span></div>}
+        {!!detalle.pedido.cotizacion_castores_id && !detalle.pedido.domicilio_id && <div className="flete-heading"><span>Flete incluido</span><span>${money(detalle.pedido.flete)}</span></div>}
         <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 800, fontSize: 14, borderTop: detalle.pedido?.subtotal != null ? "1px solid var(--gray-100)" : "none", paddingTop: detalle.pedido?.subtotal != null ? 4 : 0 }}>
-          <span>Total</span>
+          <span>{detalle.pedido.domicilio_id ? 'Total de mercancía con IVA' : 'Total'}</span>
           <span style={{ color: "var(--red)" }}>${parseFloat(detalle.pedido?.total).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
         </div>
       </div>

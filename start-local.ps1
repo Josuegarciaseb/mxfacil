@@ -6,7 +6,7 @@ $mysqlExe = "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysqld.exe"
 $mysqlData = "$root\.audit\mysql"
 
 Write-Host "==========================================================" -ForegroundColor Green
-Write-Host " Iniciando Comercio Fácil México (Entorno Local Completo) " -ForegroundColor Green
+Write-Host " Iniciando Comercio Facil Mexico (Entorno Local Completo) " -ForegroundColor Green
 Write-Host "==========================================================" -ForegroundColor Green
 
 # 1. Iniciar MySQL (puerto 3318)

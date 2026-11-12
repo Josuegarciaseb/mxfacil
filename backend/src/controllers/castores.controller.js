@@ -1,9 +1,14 @@
 const pool = require('../config/db');
-const { transaction, lockOrder, fail } = require('../services/order-state.service');
+const { transaction, lockOrder, releaseOrder, cancelOrder, fail } = require('../services/order-state.service');
 const { cents } = require('../utils/money');
 const { contexto, firmaSolicitud, normalizarItems, importe, texto, leerCotizacion, esGestor, vistaPublica } = require('../services/castores.service');
 const paymentMethods = require('../utils/payment-methods');
 const envia = require('../services/envia-castores.service');
+const domicilio = require('../services/domicilio.service');
+
+exports.estimarDomicilio = async (req,res) => {
+  res.json(await domicilio.vistaPrevia(pool,req.user.id,req.body.direccion_id,req.body.items));
+};
 
 exports.solicitar = async (req, res) => {
   if (req.user.rol !== 'cliente') fail(403, 'La cotización debe solicitarla el comprador');
@@ -100,34 +105,106 @@ exports.ofertar = async (req, res) => {
 };
 
 async function envioAutorizado(conn, id, user, soloGestor = false) {
-  const [[q]] = await conn.execute(`SELECT c.*,pr.usuario_id AS vendedor_id FROM cotizacion_castores c
-    JOIN proveedor pr ON pr.id=c.proveedor_id WHERE c.pedido_id=?`, [id]);
-  if (!q) fail(404, 'Este pedido no tiene un envío con Castores');
+  const [[q]] = await conn.execute(`SELECT c.*,pr.usuario_id AS vendedor_id,fd.cotizacion_id AS domicilio_id,
+    fd.importe_destino,fd.autorizado_hasta FROM cotizacion_castores c
+    JOIN proveedor pr ON pr.id=c.proveedor_id LEFT JOIN flete_domicilio fd ON fd.cotizacion_id=c.id WHERE c.pedido_id=?`, [id]);
+  if (!q) fail(404, 'Este pedido no tiene un envío por paquetería');
   if (!esGestor(q,user) && (soloGestor || q.comprador_id !== user.id)) fail(403, 'Acceso denegado');
   return q;
 }
 
+function validarRevision(q, revision) {
+  // Los clientes anteriores a 014 solo conocen el flujo de Castores.
+  if (revision == null && q.transportista === 'Castores') return;
+  if (q.revision !== revision) fail(409,'La propuesta de envío cambió. Actualiza el pedido.');
+}
+
+exports.precioDomicilio = async (req,res) => {
+  const precio = importe(req.body.importe,'flete por pagar al recibir',true);
+  const referencia = texto(req.body.referencia,100,'referencia de la paquetería');
+  const transportista = req.body.transportista ?? 'Castores';
+  if (!['Castores','FedEx','DHL'].includes(transportista)) fail(400,'Selecciona una paquetería disponible');
+  const servicio = transportista === 'Castores' ? null : texto(req.body.servicio,100,'servicio y plazo confirmados');
+  if (servicio && req.body.cobertura_confirmada !== true) fail(400,'Confirma con la paquetería la aceptación del producto y las condiciones de entrega');
+  await transaction(async conn => {
+    const {order} = await lockOrder(conn,req.params.id);
+    const q = await envioAutorizado(conn,order.id,req.user,true);
+    if (!q.domicilio_id || q.guia || order.estado === 'cancelado') fail(409,'El pedido no admite cambios de flete');
+    if (q.perecedero && transportista === 'Castores') fail(409,'Para perecederos selecciona un servicio confirmado de FedEx o DHL');
+    if (q.importe_destino != null && cents(q.importe_destino) === precio && q.referencia === referencia &&
+        q.transportista === transportista && q.servicio === servicio) return;
+    validarRevision(q,req.body.revision);
+    const anterior = req.body.anterior == null ? null : importe(req.body.anterior,'flete anterior',true);
+    if ((q.importe_destino == null ? null : cents(q.importe_destino)) !== anterior) fail(409,'El flete cambió. Actualiza el pedido.');
+    const cambiaServicio = q.transportista !== transportista || q.servicio !== servicio;
+    await conn.execute('UPDATE flete_domicilio SET importe_destino=?, autorizado_hasta=IF(?,NULL,autorizado_hasta) WHERE cotizacion_id=?',
+      [precio/100,cambiaServicio,q.id]);
+    await conn.execute('UPDATE cotizacion_castores SET referencia=?,transportista=?,servicio=?,revision=revision+1 WHERE id=?',
+      [referencia,transportista,servicio,q.id]);
+  });
+  res.json({guardado:true});
+};
+
+exports.aceptarFlete = async (req,res) => {
+  const precio = importe(req.body.importe,'flete autorizado',true);
+  await transaction(async conn => {
+    const {order} = await lockOrder(conn,req.params.id);
+    const q = await envioAutorizado(conn,order.id,req.user);
+    if (q.comprador_id !== req.user.id) fail(403,'Solo el comprador puede autorizar este flete');
+    validarRevision(q,req.body.revision);
+    if (!q.domicilio_id || q.guia || order.estado === 'cancelado' || q.importe_destino == null || cents(q.importe_destino) !== precio) {
+      fail(409,'El flete cambió. Revisa el importe actual del pedido.');
+    }
+    await conn.execute('UPDATE flete_domicilio SET autorizado_hasta=? WHERE cotizacion_id=?',[precio/100,q.id]);
+  });
+  res.json({guardado:true});
+};
+
+exports.cancelarDomicilio = async (req,res) => {
+  await transaction(async conn => {
+    let {order,payment} = await lockOrder(conn,req.params.id);
+    const q = await envioAutorizado(conn,order.id,req.user);
+    if (!q.domicilio_id || q.guia || ['enviado','entregado'].includes(order.estado)) fail(409,'El envío ya no admite cancelación');
+    if (order.estado === 'cancelado') return;
+    if (payment.estado === 'pendiente') {
+      await cancelOrder(conn,order,payment);
+      ({order,payment} = await lockOrder(conn,order.id));
+    }
+    // Si ya hubo cobro, el folio cancelado queda por devolver hasta que
+    // administración registre el comprobante del reembolso efectivo.
+    if (order.estado !== 'cancelado' && payment.estado === 'aprobado') await releaseOrder(conn,order);
+  });
+  res.json({guardado:true});
+};
+
 exports.despachar = async (req,res) => {
   const guia = texto(req.body.guia,40,'guía o talón').toUpperCase();
-  if (!/^(\d{11}|[A-Z]{3}-(?:\d{5}|\d{7}))$/.test(guia)) fail(400, 'Usa el talón de 11 dígitos o una guía como ABC-12345 o ABC-1234567');
-  const costo = importe(req.body.costo_flete_real,'costo real del transporte',true) / 100;
   await transaction(async conn => {
     const {order,payment} = await lockOrder(conn,req.params.id);
     const q = await envioAutorizado(conn,order.id,req.user,true);
+    if (q.domicilio_id) validarRevision(q,req.body.revision);
+    if (!q.transportista) fail(409,'Registra la paquetería y el flete antes de despachar');
+    if (q.transportista === 'Castores') {
+      if (!/^(\d{11}|[A-Z]{3}-(?:\d{5}|\d{7}))$/.test(guia)) fail(400,'Usa el talón de 11 dígitos o la guía de Castores');
+    } else if (!/^[A-Z0-9][A-Z0-9-]{4,39}$/.test(guia)) fail(400,'Ingresa el identificador de rastreo emitido por la paquetería');
     if (q.guia) {
       if (q.guia === guia) return; // El costo conciliado puede haberse corregido en el piloto.
       fail(409,'Este despacho ya tiene guía y costo registrados');
     }
-    if (order.estado !== 'en_proceso' || payment.estado !== 'aprobado') fail(409,'Confirma el cobro antes de entregar el paquete a Castores');
-    const canal = req.body.canal_guia || 'castores';
-    if (!['castores','envia'].includes(canal) || (canal === 'envia' && !envia.entorno())) fail(400,'Canal de emisión de guía no disponible');
+    if (order.estado !== 'en_proceso' || payment.estado !== 'aprobado') fail(409,'Confirma el cobro antes de entregar el paquete a la paquetería');
+    if (q.domicilio_id && (q.importe_destino == null || q.autorizado_hasta == null ||
+        cents(q.importe_destino) > cents(q.autorizado_hasta))) fail(409,'El flete final debe estar autorizado antes del despacho');
+    const costo = q.domicilio_id ? null : importe(req.body.costo_flete_real,'costo real del transporte',true) / 100;
+    const canales = q.transportista === 'Castores' ? ['castores','envia'] : ['directo'];
+    const canal = req.body.canal_guia || canales[0];
+    if (!canales.includes(canal) || (canal === 'envia' && !envia.entorno())) fail(400,'Canal de emisión de guía no disponible');
     const emision = canal === 'envia' && envia.entorno() === 'sandbox' ? 'sandbox' : canal;
     if (q.costo_flete_real != null && Number(q.costo_flete_real) !== costo) fail(409,'El costo real ya fue registrado. Revisa el importe en el informe del piloto.');
     try {
       await conn.execute('UPDATE cotizacion_castores SET guia=?,costo_flete_real=?,canal_guia=? WHERE id=?',[guia,costo,emision,q.id]);
     } catch (err) { if (err.code === 'ER_DUP_ENTRY') fail(409,'La guía ya se asignó a otro folio'); throw err; }
-    const [shipment] = await conn.execute(`UPDATE envio SET transportista='Castores',guia=?,estado='en_transito',
-      fecha_envio=NOW() WHERE pedido_id=?`,[guia,order.id]);
+    const [shipment] = await conn.execute(`UPDATE envio SET transportista=?,guia=?,estado='en_transito',
+      fecha_envio=NOW() WHERE pedido_id=?`,[q.transportista,guia,order.id]);
     if (!shipment.affectedRows) fail(409,'Falta el registro de envío del pedido');
     await conn.execute("UPDATE pedido SET estado='enviado' WHERE id=?",[order.id]);
   });
@@ -167,6 +244,7 @@ exports.incidencia = async (req,res) => {
 exports.rastreo = async (req,res) => {
   const q = await envioAutorizado(pool,req.params.id,req.user);
   if (!q.guia) fail(409,'Todavía no se ha registrado una guía');
+  if (q.transportista !== 'Castores') fail(409,'Consulta esta guía en el portal de ' + q.transportista);
   if (!envia.entorno()) fail(503,'Consulta el portal oficial de Castores con la guía registrada');
   const canal = envia.entorno() === 'sandbox' ? 'sandbox' : 'envia';
   if (q.canal_guia !== canal) fail(409,'Esta guía se consulta en el portal de Castores');

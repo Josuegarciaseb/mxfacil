@@ -118,7 +118,7 @@ export default function Piloto({ token, usuarios, proveedores = [] }) {
           <tbody>{actual.datos.pedidos.map(pedido => <tr key={pedido.id}>
             <td>#{pedido.id}</td><td>{pedido.tienda} (#{pedido.usuario_id})</td><td>{pedido.estado} / {pedido.pago_estado || 'sin registro'}</td>
             <td>{pedido.checkout_segundos == null ? 'Sin medición' : pedido.checkout_segundos + ' s'}</td><td>{mxn(pedido.comision_obtenida)}</td>
-            {hayFletes && <><td>{mxn(pedido.flete_recuperado)}</td><td>{pedido.cotizacion_castores_id
+            {hayFletes && <><td>{mxn(pedido.flete_recuperado)}</td><td>{pedido.domicilio_id ? 'Pago directo a paquetería' : pedido.cotizacion_castores_id
               ? <CostoPedido key={pedido.id + '/flete/' + pedido.costo_flete_real} flete pedido={pedido} actualizar={actualizar} token={token} />
               : 'No aplica'}</td></>}
             <td><CostoPedido key={pedido.id + '/' + pedido.costo_variable} pedido={pedido} actualizar={actualizar} token={token} /></td>

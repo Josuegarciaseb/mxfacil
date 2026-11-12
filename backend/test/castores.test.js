@@ -34,6 +34,41 @@ async function call(user, method, path, body, status = 200) {
   return data;
 }
 const stock = async () => (await pool.query('SELECT stock FROM inventario WHERE producto_id=4'))[0][0].stock;
+
+for (const transportista of ['FedEx','DHL']) {
+  test('domicilio con perecederos, autorización, despacho y recepción por ' + transportista, async () => {
+    const carga = {direccion_id:1,items:[{producto_id:1,cantidad:1}]};
+    const visto = await call(1,'POST','/envios/domicilio/estimado',carga);
+    assert.deepEqual(visto,{estimado:null,fuente:null,perecedero:true});
+    const venta = await call(1,'POST','/pedidos',{...carga,metodo_pago:'transferencia',entrega:'domicilio',clave_checkout:randomUUID()},201);
+    const id = venta.pedido.id, base = '/envios/domicilio/pedidos/' + id;
+    const oferta = {transportista,importe:'60',anterior:null,revision:0,referencia:'QA',servicio:'Servicio de prueba, 24 h',cobertura_confirmada:true};
+    await call(5,'PUT',base+'/flete',oferta,403);
+    await call(4,'PUT',base+'/flete',{...oferta,transportista:'Castores'},409);
+    await call(4,'PUT',base+'/flete',{...oferta,cobertura_confirmada:false},400);
+    await call(4,'PUT',base+'/flete',oferta);
+    assert.equal((await call(1,'GET','/pedidos/'+id)).pedido.paqueteria,transportista);
+    await call(3,'PATCH','/pagos/'+venta.pago.id+'/estado',{estado:'aprobado',referencia:'DEP-QA'});
+    const despacho = {guia:'123456789012',revision:2};
+    await call(4,'POST',base+'/despacho',{...despacho,revision:1},409);
+    await call(1,'POST',base+'/aceptar',{importe:60,revision:1});
+    await call(4,'PUT',base+'/flete',{...oferta,anterior:'60',revision:1,servicio:'Servicio de prueba, 48 h'});
+    await call(1,'POST',base+'/aceptar',{importe:'60',revision:1},409);
+    await call(4,'POST',base+'/despacho',despacho,409);
+    await call(1,'POST',base+'/aceptar',{importe:60,revision:2});
+    await call(4,'POST',base+'/despacho',{...despacho,canal_guia:'envia'},400);
+    await call(4,'POST',base+'/despacho',despacho);
+    await call(4,'POST',base+'/despacho',despacho);
+    for (const user of [1,4]) {
+      const detalle = await call(user,'GET','/pedidos/'+id);
+      assert.equal(detalle.envio.transportista,transportista);
+      assert.equal(detalle.envio.guia,despacho.guia);
+      assert.equal(detalle.pedido.rastreo_api,false);
+    }
+    await call(1,'POST',base+'/recepcion',{recibido_por:'QA',acuse:'REC-QA'});
+    assert.equal((await call(4,'GET','/pedidos/'+id)).pedido.estado,'entregado');
+  });
+}
 const solicitar = (carga = items,metodo_pago = 'transferencia') => call(1,'POST',quotes,{direccion_id:1,metodo_pago,items:carga});
 const oferta = () => ({ revision:0, flete:'80.00', otros_costos_estimados:'2.50', vigencia,
   cp_origen:'72000', referencia:'COT-PRUEBA', servicio:'Domicilio, 2 días de prueba', cobertura_confirmada:true });
@@ -66,6 +101,7 @@ test('compra con tarifa vinculada, guía y acuse; el margen usa el costo efectiv
   const ruta = quotes + '/' + solicitud.id;
   const q = await call(4,'PUT',ruta,{...oferta(),revision:solicitud.revision});
   assert.equal(q.flete,'80.00');
+  assert.deepEqual(await call(1,'POST','/envios/domicilio/estimado',{direccion_id:1,items}),{estimado:80,fuente:'historial'});
   const body = compra(q);
   await call(1,'POST','/pedidos',{...body,revision:q.revision+1},409);
   await call(1,'POST','/pedidos',{...body,items:[{producto_id:4,cantidad:2}],total_esperado:'908.24'},409);
@@ -186,4 +222,56 @@ test('la pasarela recibe exactamente el importe de mercancía más el flete conf
   await call(1,'POST','/pagos/stripe/intent',{pedido_id:venta.pedido.id});
   assert.equal(intento.mock.callCount(),1);
   assert.equal(venta.envio,null);
+});
+
+test('domicilio crea el folio en un paso, conserva el cobro de mercancía y aprende del flete entregado', async () => {
+  const carga = {direccion_id:1,items:[{producto_id:2,cantidad:1}]};
+  const estimar = '/envios/domicilio/estimado';
+  const ver = () => call(1,'POST',estimar,carga);
+  assert.deepEqual(await ver(),{estimado:247,fuente:'referencia'});
+  await call(2,'POST',estimar,carga,404);
+  const compraDirecta = {...carga,metodo_pago:'transferencia',entrega:'domicilio',clave_checkout:randomUUID(),
+    total_esperado:'0.35',flete_autorizado:247};
+  await call(1,'POST','/pedidos',{...compraDirecta,flete_autorizado:1},409);
+  await call(1,'POST','/pedidos',{...compraDirecta,metodo_pago:'contra_entrega'},409);
+  const venta = await call(1,'POST','/pedidos',compraDirecta,201);
+  const id = venta.pedido.id, base = '/envios/domicilio/pedidos/'+id;
+  assert.deepEqual([venta.pedido.flete,venta.pedido.flete_estimado,venta.pago.monto],[null,'247.00','0.35']);
+  assert.equal((await call(1,'POST','/pedidos',compraDirecta)).pedido.id,id);
+  await call(1,'POST','/pedidos',{...compraDirecta,entrega:'acordada'},409);
+  const [{stock:disponible}] = (await pool.query('SELECT stock FROM inventario WHERE producto_id=2'))[0];
+  assert.equal(disponible,99);
+  const ofertaFinal={importe:'242.00',referencia:'COT-QA',anterior:null};
+  await call(4,'PUT',base+'/flete',ofertaFinal,403);
+  await call(5,'PUT',base+'/flete',ofertaFinal);
+  await call(3,'PATCH','/pagos/'+venta.pago.id+'/estado',{estado:'aprobado',referencia:'DEP-TEST'});
+  const despacho = '/envios/castores/pedidos/'+id+'/despacho';
+  await call(5,'POST',despacho,{guia:'QAT-34567'});
+  await call(5,'POST',despacho,{guia:'QAT-34567'});
+  await call(5,'PUT',base+'/flete',{...ofertaFinal,importe:'999.00',anterior:'242.00'},409);
+  await call(1,'POST','/envios/castores/pedidos/'+id+'/recepcion',{recibido_por:'QA',acuse:'A-QA'});
+  assert.deepEqual(await ver(),{estimado:242,fuente:'historial'});
+  await call(3,'PATCH','/piloto/pedidos/'+id+'/costo',{anterior:null,costo_variable:0});
+  const informe = (await call(3,'GET','/piloto?desde='+fecha+'&hasta='+fecha)).pedidos.find(p=>p.id===id);
+  assert.deepEqual([informe.flete_recuperado,informe.margen],['0.00','0.01']);
+});
+
+test('un pedido sin estimado exige autorización del precio final o permite cancelar y devolver la mercancía una vez', async () => {
+  const carga = {direccion_id:1,items:[{producto_id:2,cantidad:7}]};
+  assert.deepEqual(await call(1,'POST','/envios/domicilio/estimado',carga),{estimado:null,fuente:null});
+  const pedido = await call(1,'POST','/pedidos',{...carga,metodo_pago:'transferencia',entrega:'domicilio',clave_checkout:randomUUID()},201);
+  const id=pedido.pedido.id, base='/envios/domicilio/pedidos/'+id;
+  await call(3,'PATCH','/pagos/'+pedido.pago.id+'/estado',{estado:'aprobado',referencia:'DEP-2'});
+  await call(5,'PUT',base+'/flete',{importe:'300.00',anterior:null,referencia:'COT-QA'});
+  await call(5,'POST','/envios/castores/pedidos/'+id+'/despacho',{guia:'QAT-99999'},409);
+  await call(1,'POST',base+'/aceptar',{importe:'247.00'},409);
+  await call(2,'POST',base+'/aceptar',{importe:'300.00'},403);
+  await call(1,'POST',base+'/aceptar',{importe:'300.00'});
+  await call(5,'PUT',base+'/flete',{importe:'350.00',anterior:'300.00',referencia:'COT-QA2'});
+  await call(5,'POST','/envios/castores/pedidos/'+id+'/despacho',{guia:'QAT-99999'},409);
+  await Promise.all([call(1,'POST',base+'/cancelar',{}),call(1,'POST',base+'/cancelar',{})]);
+  const detalle = await call(1,'GET','/pedidos/'+id);
+  assert.deepEqual([detalle.pedido.estado,detalle.pago.estado],['cancelado','aprobado']);
+  await call(3,'PATCH','/pagos/'+pedido.pago.id+'/estado',{estado:'reembolsado',referencia_reembolso:'DEV-QA'});
+  assert.equal((await pool.query('SELECT stock FROM inventario WHERE producto_id=2'))[0][0].stock,99);
 });

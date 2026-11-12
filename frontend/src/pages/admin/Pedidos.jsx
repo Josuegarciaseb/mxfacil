@@ -114,7 +114,7 @@ const AdminPedidos = ({ token, gestionarPagos = false }) => {
             </SelectField>}
             {detalle.pedido.cotizacion_castores_id && <><p>Estado del pedido <StatusBadge estado={detalle.pedido.estado} /></p>
               <p>Entregar a {detalle.pedido.direccion_linea1}, {detalle.pedido.direccion_ciudad}, {detalle.pedido.direccion_estado}, CP {detalle.pedido.direccion_cp}.</p>
-              {['pendiente','esperando_pago'].includes(detalle.pedido.estado) && <button type="button" className="btn-secondary"
+              {!detalle.pedido.domicilio_id && ['pendiente','esperando_pago'].includes(detalle.pedido.estado) && <button type="button" className="btn-secondary"
                 onClick={() => { if (window.confirm('¿Cancelar este pedido y conciliar su pago?')) cambiarEstado(selected,'cancelado'); }}>Cancelar pedido</button>}</>}
             <div style={{ background: "var(--gray-50)", borderRadius: 10, padding: 14, border: "1px solid var(--gray-100)" }}>
               <div style={{ fontSize: 11, color: "var(--gray-400)", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 10 }}>Productos</div>
@@ -129,9 +129,9 @@ const AdminPedidos = ({ token, gestionarPagos = false }) => {
                   <span style={{ fontWeight: 700, flexShrink: 0, marginLeft: 8 }}>${(i.precio_unitario * i.cantidad).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
                 </div>
               ))}
-              {detalle.pedido.cotizacion_castores_id && <p>Flete Castores {totalVisible(detalle.pedido.flete)}</p>}
+              {!!detalle.pedido.cotizacion_castores_id && !detalle.pedido.domicilio_id && <p>Flete incluido {totalVisible(detalle.pedido.flete)}</p>}
               <div style={{ borderTop: "1px solid var(--gray-200)", marginTop: 8, paddingTop: 8, display: "flex", justifyContent: "space-between", fontWeight: 800 }}>
-                <span>Total</span><span style={{ color: "var(--red)" }}>{totalVisible(detalle.pedido.total)}</span>
+                <span>{detalle.pedido.domicilio_id ? 'Total de mercancía con IVA' : 'Total'}</span><span style={{ color: "var(--red)" }}>{totalVisible(detalle.pedido.total)}</span>
               </div>
             </div>
             {detalle.pago && (

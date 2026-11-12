@@ -37,9 +37,9 @@ export const STATUS_ICONS = {
 };
 
 export const PAYMENT_METHODS = [
-  { value: "tarjeta",       label: "Tarjeta de crédito/débito" },
+  { value: "tarjeta",       label: "Tarjeta de crédito o débito (Stripe)" },
   { value: "paypal",        label: "PayPal"                    },
-  { value: "mercadopago",   label: "MercadoPago"               },
+  { value: "mercadopago",   label: "Mercado Pago"              },
   { value: "transferencia", label: "Transferencia bancaria"    },
   { value: "contra_entrega",label: "Pago contra entrega"       },
 ];

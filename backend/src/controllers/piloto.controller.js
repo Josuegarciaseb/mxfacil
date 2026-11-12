@@ -41,17 +41,18 @@ exports.informe = async (req, res) => {
     `WITH operaciones AS (
        SELECT p.id, p.usuario_id, u.nombre AS tienda, p.fecha, p.estado,
          g.estado AS pago_estado, p.checkout_segundos, p.costo_variable,
-         c.id AS cotizacion_castores_id, c.costo_flete_real,
+         c.id AS cotizacion_castores_id, c.costo_flete_real, fd.cotizacion_id AS domicilio_id,
          CASE WHEN g.estado='aprobado' AND p.estado<>'cancelado' THEN COALESCE(c.flete,0.00) ELSE 0.00 END AS flete_recuperado,
          CASE WHEN g.estado = 'aprobado' AND p.estado <> 'cancelado'
               THEN p.comision ELSE 0.00 END AS comision_obtenida
        FROM pedido p JOIN usuario u ON u.id = p.usuario_id
        LEFT JOIN pago g ON g.pedido_id = p.id
        LEFT JOIN cotizacion_castores c ON c.pedido_id=p.id
+       LEFT JOIN flete_domicilio fd ON fd.cotizacion_id=c.id
        WHERE p.fecha >= ? AND p.fecha < DATE_ADD(?, INTERVAL 1 DAY)${filtro}
      )
      SELECT operaciones.*, comision_obtenida + flete_recuperado - costo_variable
-       - IF(cotizacion_castores_id IS NULL,0.00,costo_flete_real) AS margen,
+       - IF(cotizacion_castores_id IS NULL OR domicilio_id IS NOT NULL,0.00,costo_flete_real) AS margen,
        SUM(comision_obtenida) OVER () AS comision_periodo
      FROM operaciones ORDER BY fecha DESC, id DESC`, params);
 
@@ -91,6 +92,11 @@ async function guardarCosto(req, res, esFlete) {
     fail(400, 'Indica el costo anterior y el nuevo en MXN con hasta dos decimales o null');
   }
   await transaction(async conn => {
+    if (esFlete) {
+      const [[directo]] = await conn.execute(`SELECT fd.cotizacion_id FROM flete_domicilio fd
+        JOIN cotizacion_castores c ON c.id=fd.cotizacion_id WHERE c.pedido_id=?`,[req.params.id]);
+      if (directo) fail(409,'El destinatario liquida este flete al transportista');
+    }
     const tabla = esFlete ? 'cotizacion_castores' : 'pedido';
     const campo = esFlete ? 'costo_flete_real' : 'costo_variable';
     const clave = esFlete ? 'pedido_id' : 'id';

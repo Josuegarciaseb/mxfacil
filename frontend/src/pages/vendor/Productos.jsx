@@ -13,7 +13,7 @@ import Icon from "../../components/ui/Icon";
 
 const EMPTY_FORM = {
   categoria_id: "", nombre: "", descripcion: "", precio: "",
-  presentacion: "", activo: 1, stock_inicial: "", image_url: "", imagen_modo: "url",
+  presentacion: "", activo: 1, stock_inicial: "", stock_agregar: "", image_url: "", imagen_modo: "url",
 };
 
 import { ASSET_BASE as IMG_BASE } from '../../utils/config';
@@ -78,7 +78,7 @@ const VendedorProductos = ({ token }) => {
       descripcion: p.descripcion || "", precio: p.precio,
       presentacion: p.presentacion || "",
       activo: p.activo, image_url: p.image_url || "",
-      imagen_modo: "url",
+      imagen_modo: "url", stock_agregar: "",
     });
     setPreview(null);
     setModal(p);
@@ -105,6 +105,11 @@ const VendedorProductos = ({ token }) => {
   };
 
   const save = async () => {
+    const stockAgregar = form.stock_agregar === "" ? null : Number(form.stock_agregar);
+    if (modal !== "create" && stockAgregar !== null &&
+        (!Number.isSafeInteger(stockAgregar) || stockAgregar <= 0 || stockAgregar > 2147483647)) {
+      return toast("El stock a agregar debe ser un entero mayor a 0", "error");
+    }
     setSaving(true);
     try {
       const body = {
@@ -114,12 +119,14 @@ const VendedorProductos = ({ token }) => {
         image_url: form.image_url || null,
       };
       delete body.imagen_modo;
+      delete body.stock_agregar;
 
       if (modal === "create") {
         if (form.stock_inicial !== "") body.stock_inicial = parseInt(form.stock_inicial);
         await http("/productos", { method: "POST", body: JSON.stringify(body) }, token);
         toast("Producto creado");
       } else {
+        if (stockAgregar !== null) body.stock_agregar = stockAgregar;
         await http("/productos/" + modal.id, { method: "PUT", body: JSON.stringify(body) }, token);
         toast("Producto actualizado");
       }
@@ -201,7 +208,7 @@ const VendedorProductos = ({ token }) => {
                     {!isMobile && <td data-label="Estado"><ProductStatusBadge producto={p} /></td>}
                     <td data-label="Acciones">
                       <div style={{ display: "flex", gap: 6 }}>
-                        <button className="btn-ghost btn-sm" onClick={() => openEdit(p)}>
+                        <button className="btn-ghost btn-sm" aria-label={`Editar ${p.nombre}`} onClick={() => openEdit(p)}>
                           <Icon name="edit" size={14} />
                         </button>
                         <button className="btn-danger btn-sm" onClick={() => deactivate(p.id)}>
@@ -231,7 +238,15 @@ const VendedorProductos = ({ token }) => {
               <InputField label="Stock inicial"  type="number" min="0" value={form.stock_inicial} onChange={set("stock_inicial")} placeholder="0" />
             </div>
           ) : (
-            <InputField label="Precio (MXN)" type="number" min="0" step="0.01" value={form.precio} onChange={set("precio")} placeholder="0.00" />
+            <>
+              <div className="form-grid">
+                <InputField label="Precio (MXN)" type="number" min="0" step="0.01" value={form.precio} onChange={set("precio")} placeholder="0.00" />
+                <InputField label="Stock a agregar" type="number" min="1" max="2147483647" step="1" value={form.stock_agregar} onChange={set("stock_agregar")} placeholder="Sin cambios" aria-describedby="stock-agregar-ayuda" />
+              </div>
+              <p id="stock-agregar-ayuda" style={{ fontSize: 13, color: "var(--gray-600)", margin: 0 }}>
+                Stock actual: <strong>{modal?.stock ?? 0}</strong>{form.presentacion && ` (${form.presentacion})`}. La cantidad se sumará al guardar. Deja el campo vacío para conservar el stock.
+              </p>
+            </>
           )}
           <div className="input-group">
             <label className="input-label">Descripcion</label>

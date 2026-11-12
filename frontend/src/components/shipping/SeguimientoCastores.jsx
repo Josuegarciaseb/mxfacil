@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { http } from '../../utils/api';
 import StatusBadge from '../ui/StatusBadge';
+import FletePorCobrar from './FletePorCobrar';
 import { money } from '../../utils/cart';
+import { paqueterias } from './paqueterias';
 import './flete.css';
 
 export default function SeguimientoCastores({ detalle, token, operador = false, administrador = false, actualizar }) {
@@ -13,13 +15,18 @@ export default function SeguimientoCastores({ detalle, token, operador = false, 
   const [costo, setCosto] = useState('');
   const { pedido,envio,pago } = detalle;
   const cobrado = (pago?.estado || pedido.pago_estado) === 'aprobado';
-  const base = '/envios/castores/pedidos/' + pedido.id;
+  const autorizado = pedido.importe_destino != null && pedido.autorizado_hasta != null &&
+    Number(pedido.importe_destino) <= Number(pedido.autorizado_hasta);
+  const empresa = envio?.transportista || pedido.paqueteria || (pedido.domicilio_id ? null : 'Castores');
+  const enlaces = paqueterias[empresa];
+  const base = '/envios/' + (pedido.domicilio_id ? 'domicilio' : 'castores') + '/pedidos/' + pedido.id;
   const margen = operador && costo !== '' && pedido.otros_costos_estimados != null
     ? Number(pedido.comision) + Number(pedido.flete) - Number(costo) - Number(pedido.otros_costos_estimados) : null;
   function elegir(siguiente) { setAccion(siguiente); setError(''); }
   async function guardar(e) {
     e.preventDefault();
     const datos = Object.fromEntries(new FormData(e.currentTarget));
+    if (pedido.domicilio_id && accion === 'despacho') datos.revision = pedido.revision_flete;
     setOcupado(true);
     setError('');
     try {
@@ -36,15 +43,16 @@ export default function SeguimientoCastores({ detalle, token, operador = false, 
     catch (err) { setError(err.message); }
     finally { setOcupado(false); }
   }
-  return <section className="flete-box" aria-label="Seguimiento con Castores">
-    <div className="flete-heading"><strong>Envío con Castores</strong>{envio && <StatusBadge estado={envio.estado} />}</div>
-    <p>{pedido.servicio_castores} · Flete <b>${money(pedido.flete)} MXN</b>{pedido.fuente_castores === 'sandbox' && ' · Tarifa de prueba'}</p>
-    {operador && pedido.referencia_flete && <p>Referencia de tarifa {pedido.referencia_flete} · CP de origen {pedido.cp_origen_flete}.</p>}
+  return <section className="flete-box" aria-label={empresa ? 'Seguimiento con ' + empresa : 'Seguimiento del envío'}>
+    <div className="flete-heading"><strong>{pedido.domicilio_id ? 'Envío a domicilio' : 'Envío con Castores'}</strong>{envio && <StatusBadge estado={envio.estado} />}</div>
+    {pedido.domicilio_id ? <FletePorCobrar pedido={pedido} token={token} operador={operador} aprobado={autorizado} actualizar={actualizar} /> :
+      <p>{pedido.servicio_castores} · Flete <b>${money(pedido.flete)} MXN</b>{pedido.fuente_castores === 'sandbox' && ' · Tarifa de prueba'}</p>}
+    {operador && pedido.referencia_flete && <p>Referencia de tarifa {pedido.referencia_flete}{pedido.cp_origen_flete && ' · CP de origen ' + pedido.cp_origen_flete}.</p>}
     {operador && pedido.embalaje && <p>{pedido.embalaje.tipo === 'pallet' ? 'Tarima' : 'Caja'} de {pedido.embalaje.peso} kg · {pedido.embalaje.largo} × {pedido.embalaje.ancho} × {pedido.embalaje.alto} cm.</p>}
     {!envio?.guia && pedido.estado !== 'cancelado' && <p>{cobrado ? 'En preparación. La guía aparecerá al despachar.' : 'El despacho comienza al confirmar el pago.'}</p>}
     {envio?.guia && <>
       <p>Guía o talón <strong className="flete-guia">{envio.guia}</strong></p>
-      <p>Salida {new Date(envio.fecha_envio).toLocaleString('es-MX')}. Introduce la guía en el <a href="https://www.castores.com.mx/" target="_blank" rel="noreferrer">rastreador oficial de Castores</a>.</p>
+      <p>Salida {new Date(envio.fecha_envio).toLocaleString('es-MX')}. {enlaces && <>Introduce la guía en el <a href={enlaces.rastreo} target="_blank" rel="noreferrer">rastreador oficial de {empresa}</a>.</>}</p>
       {navigator.clipboard && <button type="button" className="btn-secondary" onClick={async () => {
         try { await navigator.clipboard.writeText(envio.guia); setCopiada(true); }
         catch { setError('Selecciona el número de guía para copiarlo.'); }
@@ -58,20 +66,20 @@ export default function SeguimientoCastores({ detalle, token, operador = false, 
     {pedido.acuse && <p>Recibió <strong>{pedido.recibido_por}</strong> el {new Date(envio.fecha_entrega).toLocaleString('es-MX')}. Acuse {pedido.acuse}. Confirmó {pedido.confirmacion === 'comprador' ? 'el comprador' : 'administración'}.</p>}
     {pedido.incidencia && <p role="status"><strong>Incidencia registrada.</strong> {pedido.incidencia}</p>}
     {!accion && <div className="flete-actions">
-      {operador && cobrado && pedido.estado === 'en_proceso' && <button className="btn-primary" type="button" onClick={() => elegir('despacho')}>Registrar despacho</button>}
+      {operador && cobrado && pedido.estado === 'en_proceso' && <button className="btn-primary" type="button" disabled={!!pedido.domicilio_id && !autorizado} onClick={() => elegir('despacho')}>Registrar despacho</button>}
       {pedido.estado === 'enviado' && (!operador || administrador) && <button className="btn-primary" type="button" onClick={() => elegir('recepcion')}>Confirmar recepción</button>}
       {['enviado','entregado'].includes(pedido.estado) && !pedido.incidencia &&
         <button className="btn-secondary" type="button" onClick={() => elegir('incidencia')}>Reportar incidencia</button>}
     </div>}
     {accion && <form className="flete-form" onSubmit={guardar}>
       {accion === 'despacho' && <>
-        <label>Guía o talón de Castores<input name="guia" required maxLength={40} placeholder="Talón de 11 dígitos o guía ABC-12345" /></label>
-        {pedido.api_envia && <label>Quién emitió la guía<select name="canal_guia">
+        <label>{empresa === 'Castores' ? 'Guía o talón de Castores' : 'Guía de ' + empresa}<input name="guia" required maxLength={40} /></label>
+        {empresa === 'Castores' && pedido.api_envia && <label>Quién emitió la guía<select name="canal_guia">
           <option value="castores">Castores directamente</option><option value="envia">Cuenta de Envia.com{pedido.api_envia === 'sandbox' ? ' de prueba' : ''}</option>
         </select></label>}
-        <label>Costo real del flete (MXN)<input type="number" name="costo_flete_real" value={costo} onChange={e => setCosto(e.target.value)} required min="0" step="0.01" /></label>
+        {!pedido.domicilio_id && <label>Costo real del flete (MXN)<input type="number" name="costo_flete_real" value={costo} onChange={e => setCosto(e.target.value)} required min="0" step="0.01" /></label>}
         {margen != null && <p role={margen <= 0 ? 'alert' : 'status'}>Margen con este flete y los demás costos previstos: <strong>${money(margen)} MXN</strong>.</p>}
-        <p><a href="https://www.castores.com.mx/servicios/paqueteria.html" target="_blank" rel="noreferrer">Consultar opciones de recolección y entrega a Castores</a>. Registra la remisión cuando el transportista reciba el paquete.</p>
+        <p>{enlaces && <a href={enlaces.envios} target="_blank" rel="noreferrer">Gestionar el envío con {empresa}</a>}. Registra la guía cuando la paquetería reciba el paquete.</p>
       </>}
       {accion === 'recepcion' && <>
         <label>Nombre de quien recibió<input name="recibido_por" required maxLength={100} /></label>

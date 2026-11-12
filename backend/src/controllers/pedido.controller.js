@@ -3,6 +3,7 @@ const pool = require('../config/db');
 const crypto = require('node:crypto');
 const { normalizarItems, validarCompra } = require('../services/castores.service');
 const enviaCastores = require('../services/envia-castores.service');
+const domicilio = require('../services/domicilio.service');
 const { cents, publicPriceCents } = require('../utils/money');
 const { transaction, lockOrder, reserveStock, cancelOrder, fail, reservationMinutes } = require('../services/order-state.service');
 const { segundosCheckout } = require('../services/piloto.service');
@@ -62,6 +63,9 @@ async function getPedidoDetalleCompleto(pedidoId, conn = null, gestion = false) 
       p.fecha,
       UNIX_TIMESTAMP(p.reserva_vence_en) AS reserva_vence_epoch,
       c.id AS cotizacion_castores_id, c.flete, c.servicio AS servicio_castores, c.fuente AS fuente_castores,
+      fd.cotizacion_id AS domicilio_id, fd.estimado AS flete_estimado, fd.fuente_estimado,
+      fd.importe_destino, fd.autorizado_hasta, c.transportista AS paqueteria, c.perecedero,
+      c.revision AS revision_flete, c.servicio AS servicio_envio,
       c.recibido_por, c.acuse, c.confirmacion, c.incidencia, c.canal_guia, c.embalaje, c.cp_origen AS cp_origen_flete,
       ${gestion ? 'c.referencia AS referencia_flete,c.otros_costos_estimados,c.costo_flete_real,' : ''}
       p.estado,
@@ -74,6 +78,7 @@ async function getPedidoDetalleCompleto(pedidoId, conn = null, gestion = false) 
     JOIN usuario u ON u.id = p.usuario_id
     JOIN direccion d ON d.id = p.direccion_id
     LEFT JOIN cotizacion_castores c ON c.pedido_id=p.id
+    LEFT JOIN flete_domicilio fd ON fd.cotizacion_id=c.id
     WHERE p.id = ?
     `,
     [pedidoId]
@@ -81,7 +86,7 @@ async function getPedidoDetalleCompleto(pedidoId, conn = null, gestion = false) 
   if (!pedidos.length) return null;
   const pedido = pedidos[0];
   if (pedido.cotizacion_castores_id) {
-    const modo = enviaCastores.entorno();
+    const modo = pedido.paqueteria === 'Castores' ? enviaCastores.entorno() : null;
     pedido.api_envia = modo;
     pedido.rastreo_api = Boolean(modo && pedido.canal_guia === (modo === 'sandbox' ? 'sandbox' : 'envia'));
   }
@@ -186,7 +191,13 @@ exports.createPedido = async (req, res) => {
   const normalized = normalizarItems(items);
   const solicitud = { direccion_id:Number(direccion_id), metodo_pago, items:normalized };
   const conCastores = req.body.entrega === 'castores';
-  if (req.body.entrega != null && !['castores','acordada'].includes(req.body.entrega)) fail(400,'Modalidad de entrega inválida');
+  const aDomicilio = req.body.entrega === 'domicilio';
+  if (req.body.entrega != null && !['castores','acordada','domicilio'].includes(req.body.entrega)) fail(400,'Modalidad de entrega inválida');
+  if (aDomicilio) {
+    if (req.user.rol !== 'cliente') fail(403,'Se requiere una cuenta compradora');
+    solicitud.entrega = 'domicilio';
+    solicitud.flete_autorizado = req.body.flete_autorizado ?? null;
+  }
   if (conCastores) {
     const { cotizacion_id, revision } = req.body;
     if (!Number.isSafeInteger(cotizacion_id) || cotizacion_id < 1 || !Number.isSafeInteger(revision) ||
@@ -238,6 +249,10 @@ exports.createPedido = async (req, res) => {
     if (conCastores) {
       await conn.execute('UPDATE cotizacion_castores SET pedido_id=?, solicitud=NULL WHERE id=?',[created.insertId,solicitud.cotizacion_id]);
     }
+    if (aDomicilio) {
+      await domicilio.registrar(conn, {pedido:created.insertId, comprador:req.user.id, direccionId:direccion_id,
+        direccion:addresses[0], items:normalized, productos:products, metodo:metodo_pago, aceptado:solicitud.flete_autorizado});
+    }
     for (const item of details) {
       await conn.query(`INSERT INTO pedido_item
         (pedido_id,producto_id,cantidad,precio_unitario,proveedor_id,precio_base_unitario,iva_linea)
@@ -266,7 +281,7 @@ exports.updateEstadoPedido = async (req, res) => {
     if (!transitions[order.estado]?.includes(estado)) fail(409, 'Cambio de estado no permitido');
     if (['enviado','entregado'].includes(estado)) {
       const [[castores]] = await conn.execute('SELECT id FROM cotizacion_castores WHERE pedido_id=?',[id]);
-      if (castores) fail(409,'Registra el despacho con guía o la recepción con acuse en el envío Castores');
+      if (castores) fail(409,'Registra el despacho con guía o la recepción con acuse en el seguimiento del envío');
     }
     const pendingCash = payment.metodo === 'contra_entrega' && payment.estado === 'pendiente';
     const deliveryAfterRefund = payment.estado === 'reembolsado' && order.estado === 'enviado' && estado === 'entregado';

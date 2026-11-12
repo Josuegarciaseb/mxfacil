@@ -91,4 +91,4 @@ async function refundPayment(conn, order, payment, reference) {
   await conn.query("UPDATE pago SET estado = 'reembolsado', referencia_reembolso = ? WHERE id = ?", [reference.trim(), payment.id]);
 }
 
-module.exports = { transaction, lockOrder, reserveStock, approvePayment, cancelOrder, refundPayment, reservationMinutes, fail };
+module.exports = { transaction, lockOrder, reserveStock, releaseOrder, approvePayment, cancelOrder, refundPayment, reservationMinutes, fail };

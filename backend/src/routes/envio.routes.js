@@ -7,6 +7,15 @@ const isAdmin = require('../middlewares/admin');
 const gestor = require('../middlewares/isAdminOrVendedor');
 const castores = require('../controllers/castores.controller');
 
+router.post('/domicilio/estimado', auth, asyncRoute(castores.estimarDomicilio));
+router.put('/domicilio/pedidos/:id/flete', auth, gestor, asyncRoute(castores.precioDomicilio));
+router.post('/domicilio/pedidos/:id/aceptar', auth, asyncRoute(castores.aceptarFlete));
+router.post('/domicilio/pedidos/:id/cancelar', auth, asyncRoute(castores.cancelarDomicilio));
+router.post('/domicilio/pedidos/:id/despacho', auth, gestor, asyncRoute(castores.despachar));
+router.post('/domicilio/pedidos/:id/recepcion', auth, asyncRoute(castores.recibir));
+router.post('/domicilio/pedidos/:id/incidencia', auth, asyncRoute(castores.incidencia));
+router.get('/domicilio/pedidos/:id/rastreo', auth, asyncRoute(castores.rastreo));
+
 router.post('/castores/cotizaciones', auth, asyncRoute(castores.solicitar));
 router.get('/castores/cotizaciones', auth, gestor, asyncRoute(castores.gestion));
 router.get('/castores/cotizaciones/:id', auth, asyncRoute(castores.consultar));
