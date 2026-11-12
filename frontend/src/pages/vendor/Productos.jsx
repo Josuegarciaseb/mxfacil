@@ -39,7 +39,7 @@ const ProductImg = ({ url, size = 36 }) => {
   );
 };
 
-const VendedorProductos = ({ token }) => {
+const VendedorProductos = ({ token, onCount }) => {
   const [productos,  setProductos]  = useState([]);
   const [categorias, setCategorias] = useState([]);
   const [loading,    setLoading]    = useState(true);
@@ -53,9 +53,9 @@ const VendedorProductos = ({ token }) => {
   const { isMobile } = useBreakpoint();
 
   const load = useCallback(() => http("/productos/gestion", {}, token)
-    .then(setProductos)
+    .then(items=>{setProductos(items);onCount?.(items.length);})
     .catch(e => toast(e.message, "error"))
-    .finally(() => setLoading(false)), [token]);
+    .finally(() => setLoading(false)), [token, onCount]);
 
   // Categorías se cargan independientemente para que un fallo de productos no las afecte
   useEffect(() => {

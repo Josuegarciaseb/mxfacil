@@ -9,8 +9,9 @@ exports.getMiProveedor = async (req, res) => {
   }
   try {
     const [rows] = await pool.query(
-      `SELECT id, nombre, rfc, verificado, verificado_en, motivo_rechazo
-       FROM proveedor WHERE usuario_id = ?`,
+      `SELECT pr.id, pr.nombre, pr.rfc, pr.verificado, pr.verificado_en, pr.motivo_rechazo,
+        (SELECT COUNT(*) FROM producto p WHERE p.proveedor_id=pr.id) AS productos_total
+       FROM proveedor pr WHERE pr.usuario_id = ?`,
       [req.user.id]
     );
     if (!rows.length) return res.status(404).json({ message: 'Proveedor no encontrado' });

@@ -43,7 +43,7 @@ function ListaPedidos({ pedidos }) {
 function VistaPedidos({ seleccionado, token, onResume, actualizado }) {
   const [resultado, setResultado] = useState(null);
   const [revision, actualizar] = useReducer(n => n + 1, 0);
-  const ruta = seleccionado ? '/pedidos/' + seleccionado : '/pedidos';
+  const ruta = seleccionado ? '/pedidos/mis-compras/' + seleccionado : '/pedidos';
 
   useEffect(() => {
     let vigente = true;

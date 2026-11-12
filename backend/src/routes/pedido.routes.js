@@ -13,6 +13,7 @@ router.patch('/:id/estado', auth, isAdminOrVendedor, pedCtrl.updateEstadoPedido)
 
 // Cliente/admin
 router.get('/', auth, pedCtrl.listPedidosCliente);
+router.get('/mis-compras/:id', auth, wrap(pedCtrl.getMiCompra));
 router.get('/:id', auth, pedCtrl.getPedidoDetalle);
 router.post('/', auth, pedCtrl.createPedido);
 router.post('/:id/cancelar', auth, pedCtrl.cancelPedidoCliente);

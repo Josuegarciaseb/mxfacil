@@ -1,0 +1,5 @@
+@import "../src/components/vendedor/portal.css";
+*{box-sizing:border-box}body{margin:0}button,select,input,textarea{font:inherit}button,select{cursor:pointer}button:disabled{cursor:default}
+h1,h2,h3,p,dl,dd{margin:0}a{color:inherit}svg{flex-shrink:0;vertical-align:middle}
+button,a,input,select{touch-action:manipulation}button{color:inherit}
+:focus-visible{outline:3px solid #748e28;outline-offset:3px}main:focus{outline:0}

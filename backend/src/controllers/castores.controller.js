@@ -11,7 +11,7 @@ exports.estimarDomicilio = async (req,res) => {
 };
 
 exports.solicitar = async (req, res) => {
-  if (req.user.rol !== 'cliente') fail(403, 'La cotización debe solicitarla el comprador');
+  if (!['cliente','vendedor'].includes(req.user.rol)) fail(403, 'La cotización debe solicitarla el comprador');
   const direccionId = Number(req.body.direccion_id);
   if (!Number.isSafeInteger(direccionId) || direccionId < 1) fail(400, 'Selecciona una dirección');
   const metodo = req.body.metodo_pago;

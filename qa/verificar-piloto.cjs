@@ -71,7 +71,7 @@ async function run() {
     await buyer.waitForURL(origin + '/mis-pedidos?pedido_id=' + pedido.id);
     assert.equal(await stock(), '3');
     async function checkBalance(group, expected) {
-      await seller.goto(origin + '/vendedor/dashboard');
+      await seller.goto(origin + '/vendedor/cobros');
       const row = seller.getByRole('row').filter({has: seller.getByRole('rowheader', { name: group, exact:true })});
       await row.waitFor();
       assert.deepEqual(await row.getByRole('cell').allTextContents(), expected);
@@ -89,10 +89,10 @@ async function run() {
       assert.equal((await changed).status(), 200);
       await seller.getByRole('row').filter({hasText:'Cliente Prueba'}).getByRole('cell', {name:label, exact:true}).waitFor();
     }
-    await advance('en_proceso', 'En proceso');
+    await advance('en_proceso', 'En preparación');
     await buyer.reload();
     await buyer.getByRole('heading', {name:'Estamos preparando tu compra'}).waitFor();
-    await advance('enviado', 'Enviado');
+    await advance('enviado', 'En tránsito');
     await advance('entregado', 'Entregado');
     await checkBalance('Por cobrar', amounts);
     await admin.goto(origin + '/admin/pedidos');

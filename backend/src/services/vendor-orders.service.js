@@ -9,7 +9,8 @@ async function vendorOrders(userId, { estado, pedidoId } = {}) {
   if (pedidoId) { conditions.push('p.id = ?'); params.push(pedidoId); }
   const [rows] = await pool.query(`
     WITH propias AS (
-      SELECT p.id, i.proveedor_id, SUM(i.cantidad*i.precio_unitario) AS importe_lineas,
+      SELECT p.id, i.proveedor_id, MIN(i.producto_id) AS primer_producto, COUNT(DISTINCT i.producto_id) AS productos_distintos,
+        SUM(i.cantidad*i.precio_unitario) AS importe_lineas,
         IF(COUNT(i.precio_base_unitario)=COUNT(*),SUM(i.cantidad*i.precio_base_unitario),NULL) AS base_lineas,
         IF(COUNT(i.iva_linea)=COUNT(*),SUM(i.iva_linea),NULL) AS impuesto_lineas
       FROM pedido_item i JOIN proveedor s ON s.id=i.proveedor_id
@@ -22,7 +23,7 @@ async function vendorOrders(userId, { estado, pedidoId } = {}) {
       ) AS exclusivo FROM propias
     )
     SELECT p.id,p.usuario_id,u.nombre AS usuario_nombre,p.direccion_id,p.fecha,p.estado,
-      g.estado AS pago_estado,
+      g.estado AS pago_estado, pr.nombre AS producto_nombre, pr.image_url, d.productos_distintos,
       COALESCE(f.flete,0.00) AS flete,
       IF(d.exclusivo,p.subtotal,d.importe_lineas) AS subtotal,
       IF(d.exclusivo,p.iva,d.impuesto_lineas) AS iva,
@@ -30,6 +31,7 @@ async function vendorOrders(userId, { estado, pedidoId } = {}) {
       IF(d.exclusivo,p.subtotal-p.comision,d.base_lineas) AS importe_proveedor,
       IF(d.exclusivo,p.comision,d.importe_lineas-d.base_lineas) AS comision
     FROM desglose d JOIN pedido p ON p.id=d.id JOIN usuario u ON u.id=p.usuario_id
+    LEFT JOIN producto pr ON pr.id=d.primer_producto
     LEFT JOIN pago g ON g.pedido_id=p.id
     LEFT JOIN cotizacion_castores f ON f.pedido_id=p.id AND f.proveedor_id=d.proveedor_id
     ORDER BY p.fecha DESC,p.id DESC`, params);

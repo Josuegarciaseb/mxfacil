@@ -94,3 +94,22 @@ test('dos proveedores comparten el IVA redondeado y conservan su atribución tra
   assert.equal(legacy.iva, null);
   assert.equal(legacy.total, null);
 });
+
+test('el vendedor puede comprar a otro proveedor y consultar esa compra con sus datos de comprador', async () => {
+  const [address] = await pool.query("INSERT INTO direccion (usuario_id,linea1,ciudad,estado,cp) VALUES (5,'Local 12','Puebla','Puebla','72000')");
+  const purchase = await call(5, 'POST', '/pedidos', {
+    direccion_id:address.insertId, metodo_pago:'transferencia', entrega:'domicilio', items:[{producto_id:4,cantidad:1}],
+    total_esperado:414.12, clave_checkout:randomUUID(),
+  }, 201);
+  const id = purchase.pedido.id;
+  const detalle = await call(5,'GET','/pedidos/mis-compras/'+id);
+  assert.equal(detalle.pago.metodo, 'transferencia');
+  assert.equal(detalle.pedido.usuario_id, 5);
+  assert.equal(Object.hasOwn(detalle.pedido,'costo_flete_real'), false);
+  assert.equal((await call(5,'GET','/pedidos')).some(p=>p.id===id), true);
+  assert.equal((await call(5,'GET','/pedidos/admin')).some(p=>p.id===id), false);
+  const venta = (await call(4,'GET','/pedidos/admin')).find(p=>p.id===id);
+  assert.equal(venta.producto_nombre,'Semilla de calabaza de prueba');
+  await call(4,'GET','/pedidos/mis-compras/'+id,undefined,404);
+  await call(5,'PATCH','/pedidos/'+id+'/estado',{estado:'enviado'},403);
+});

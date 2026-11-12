@@ -54,7 +54,7 @@ exports.listPedidosCliente = async (req, res) => {
 };
 
 // Helper para detalle de pedido
-async function getPedidoDetalleCompleto(pedidoId, conn = null, gestion = false) {
+async function getPedidoDetalleCompleto(pedidoId, conn = null, gestion = false, comprador = null) {
   const executor = conn || pool;
 
   // Pedido
@@ -88,9 +88,9 @@ async function getPedidoDetalleCompleto(pedidoId, conn = null, gestion = false) 
     JOIN direccion d ON d.id = p.direccion_id
     LEFT JOIN cotizacion_castores c ON c.pedido_id=p.id
     LEFT JOIN flete_domicilio fd ON fd.cotizacion_id=c.id
-    WHERE p.id = ?
+    WHERE p.id = ? ${comprador == null ? '' : 'AND p.usuario_id = ?'}
     `,
-    [pedidoId]
+    comprador == null ? [pedidoId] : [pedidoId, comprador]
   );
   if (!pedidos.length) return null;
   const pedido = pedidos[0];
@@ -187,6 +187,14 @@ async function getPedidoDetalle(req, res) {
 }
 exports.getPedidoDetalle = getPedidoDetalle;
 
+// La vista de compras siempre se limita al titular, incluso si también vende.
+exports.getMiCompra = async (req, res) => {
+  if (!isPositiveInteger(req.params.id)) fail(400, 'ID de pedido inválido');
+  const detalle = await getPedidoDetalleCompleto(req.params.id, null, false, req.user.id);
+  if (!detalle) fail(404, 'Compra no encontrada');
+  res.json(detalle);
+};
+
 // Métodos que requieren confirmación de pago antes de procesar el pedido
 const METODOS_PAGO_ONLINE = new Set(['tarjeta', 'paypal', 'mercadopago']);
 
@@ -204,7 +212,7 @@ exports.createPedido = async (req, res) => {
   const aDomicilio = req.body.entrega === 'domicilio';
   if (req.body.entrega != null && !['castores','acordada','domicilio'].includes(req.body.entrega)) fail(400,'Modalidad de entrega inválida');
   if (aDomicilio) {
-    if (req.user.rol !== 'cliente') fail(403,'Se requiere una cuenta compradora');
+    if (!['cliente','vendedor'].includes(req.user.rol)) fail(403,'Se requiere una cuenta compradora');
     solicitud.entrega = 'domicilio';
     solicitud.flete_autorizado = req.body.flete_autorizado ?? null;
   }

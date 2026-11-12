@@ -1,3 +1,5 @@
+.pro-badge{display:inline-block;background:#eef4df;color:#36570d;border:1px solid #bbcd90;border-radius:5px;padding:4px 8px;font-size:12px;font-weight:700}
+.catalog-pro-promo{border:1px solid #d6e2c6;background:#f6f9f0;padding:18px;border-radius:12px;margin-bottom:24px}.catalog-pro-promo h2{font-size:19px;margin:0 0 6px}.catalog-pro-promo>p{font-size:13px;color:#56634e;margin-bottom:14px}
 .marketplace, .catalog-layout {
   --market-green: #396f17;
   --market-deep: #224e17;

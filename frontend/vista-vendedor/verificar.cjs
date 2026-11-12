@@ -1,0 +1,91 @@
+// QA del HTML final, también cuando se abre desde el disco sin servidor.
+const assert = require("node:assert/strict");
+const path = require("node:path");
+const { pathToFileURL } = require("node:url");
+const { chromium } = require(process.env.QA_PLAYWRIGHT || "playwright");
+const out = path.resolve(__dirname, "../../vistas-previas");
+const url = pathToFileURL(path.join(out, "panel-vendedor.html")).href;
+
+async function run() {
+  const browser = await chromium.launch({ channel:process.env.QA_BROWSER_CHANNEL || "msedge", headless:true });
+  try {
+    const context = await browser.newContext({ viewport:{width:1440,height:1000}, locale:"es-MX", reducedMotion:"reduce" });
+    const page = await context.newPage();
+    const errors = [], externas = [];
+    page.on("pageerror", e=>errors.push(e.message));
+    page.on("request", r=>{if (/^https?:/.test(r.url())) externas.push(r.url());});
+    await page.goto(url);
+    const heading = name => page.getByRole("heading",{name,exact:true}).waitFor();
+    const link = name => page.getByRole("link",{name,exact:true});
+    const button = name => page.getByRole("button",{name,exact:true});
+    const nav = page.getByRole("navigation",{name:"Navegación del vendedor"});
+    const noOverflow = async label => assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),label);
+    await heading("Panel de ventas");
+    await page.screenshot({path:path.join(out,"panel-vendedor.png")});
+    await nav.getByRole("link",{name:"Mi membresía"}).click();
+    await button("Comprar Pro por 30 días").click();
+    await button("Volver sin pagar").click();
+    await button("Comprar Pro por 30 días").click();
+    await button("Confirmar compra de ejemplo").click();
+    await page.getByText("Membresía activa",{exact:true}).waitFor();
+    await nav.getByRole("link",{name:"Resumen"}).click();
+    await button("En tránsito 3").click();
+    assert.equal(await page.locator(".tabla-ventas tbody tr").count(),3);
+    await page.getByRole("searchbox",{name:"Buscar ventas"}).fill("1047");
+    await button("Ver pedido #1047").click();
+    await page.getByRole("dialog",{name:"Venta #1047"}).waitFor();
+    assert.equal(await page.locator(".importes dd").last().textContent(),"$2,427.24");
+    await page.keyboard.press("Escape");
+    await page.getByRole("searchbox",{name:"Buscar ventas"}).fill("nada");
+    await heading("No hay ventas con estos filtros");
+    await button("Limpiar filtros").click();
+    await page.getByRole("combobox",{name:"Filtrar por fecha"}).selectOption("1");
+    assert.equal(await page.locator(".tabla-ventas tbody tr").count(),3);
+    await nav.getByRole("link",{name:"Cobros",exact:true}).click();
+    await heading("Desglose por estado de cobro");
+    assert.equal(await page.getByRole("row",{name:/^Por cobrar/}).getByRole("cell").first().textContent(),"4");
+    await nav.getByRole("link",{name:"Resumen",exact:true}).click();
+    await link("Ver mi perfil público").click();
+    await heading("Huerta del Valle");
+    await link("Ver productos").click();
+    assert.equal(await page.locator("#seller-products .catalog-product").count(),4);
+    await page.getByRole("link",{name:/Volver al catálogo/}).click();
+    await heading("Catálogo");
+    assert.equal(await page.locator(".catalog-product").count(),8);
+    await page.getByRole("searchbox",{name:"Buscar productos"}).fill("arroz");
+    await button("Agregar Arroz blanco").click();
+    await button("Carrito 1").click();
+    await heading("Mi carrito");
+    await button("Revisar compra").click();
+    await button("Confirmar pedido de ejemplo").click();
+    await heading("Mis compras");
+    await button("Ver compra #502").click();
+    assert.equal(await page.locator(".importes dd").last().textContent(),"$567.94");
+    await page.keyboard.press("Escape");
+    await link("Volver a mi panel").click();
+    await heading("Panel de ventas");
+    assert.equal(await page.locator(".indicador").first().locator("strong").textContent(),"12");
+    await page.reload();
+    for(const width of [1024,768,600,390,320]){
+      await page.setViewportSize({width,height:880});
+      await noOverflow("Panel " + width);
+      assert(await page.evaluate(()=>document.querySelector(".marca").getBoundingClientRect().right <= document.querySelector(".cambia-modo").getBoundingClientRect().left - 3),"Botón del catálogo visible junto a la marca: " + width);
+      if(width===390) await page.screenshot({path:path.join(out,"panel-vendedor-movil.png"),fullPage:true});
+    }
+    await button("Abrir navegación del vendedor").click();
+    await page.getByRole("dialog").getByRole("link",{name:"Mis compras",exact:true}).click();
+    await heading("Mis compras");
+    await button("Ver compra #502").waitFor();
+    await noOverflow("Compras en móvil");
+    await link("Catálogo").click();
+    await page.getByRole("article",{name:"Arroz blanco",exact:true}).waitFor();
+    await noOverflow("Catálogo en móvil");
+    await page.getByRole("article",{name:"Arroz blanco",exact:true}).getByRole("link",{name:"Granos de la Sierra"}).click();
+    await heading("Granos de la Sierra");
+    await noOverflow("Perfil público en móvil");
+    assert.deepEqual(errors,[]);
+    assert.deepEqual(externas,[]);
+    console.log("OK · filtros y folios, cobros, perfil público, catálogo, carrito, compra simulada, regreso al panel y móvil. Sin solicitudes externas.");
+  } finally { await browser.close(); }
+}
+run().catch(e=>{console.error(e);process.exitCode=1;});

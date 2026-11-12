@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardNumberElement, CardExpiryElement, CardCvcElement, useElements, useStripe } from '@stripe/react-stripe-js';
 import { http } from '../../utils/api';
-import './Membresia.css';
+import PlanPro from './PlanPro';
 
 const key = import.meta.env.VITE_STRIPE_PUBLIC_KEY || '';
 const stripePromise = key.startsWith('pk_test_') ? loadStripe(key) : null;
@@ -87,28 +87,13 @@ export default function Membresia({ token }) {
     } catch (err) { setError(err.message); }
     finally { setBusy(false); }
   }
-  return <main className="pro-page">
+  return <section className="pro-page">
     <p className="pro-eyebrow">TU NEGOCIO EN MX FÁCIL</p>
     <h1>Mi membresía</h1>
     <p>Haz que más comercios descubran tus productos.</p>
     {error && <div role="alert" className="pro-error">{error} <button className="btn-secondary" onClick={refresh}>Actualizar</button></div>}
     {!data ? !error && <p role="status">Cargando membresía…</p> : <>
-      <section className="pro-plan">
-        <div><span className="pro-badge">Proveedor Pro</span><h2>{data.vigente ? 'Tus 30 días Pro' : 'Dale más visibilidad a tu negocio'}</h2>
-          <p className="pro-price">{money(data.precio_centavos)} <small>MXN / 30 días</small></p>
-          <p>Pago único. Sin cargos automáticos.</p>
-          <ul><li>Insignia Pro junto a tu negocio en el catálogo.</li><li>Productos en espacios promocionados con rotación entre proveedores.</li><li>Estadísticas de exposición, carritos y pedidos.</li></ul>
-        </div>
-        <div className="pro-status">
-          <strong>{data.activo ? 'Membresía activa' : data.vigente ? 'Beneficios suspendidos' : data.vence_en ? 'Membresía vencida' : 'Plan gratuito'}</strong>
-          {data.vence_en && <p>{data.vigente ? 'Vigente hasta' : 'Venció el'} {date(data.vence_en)}</p>}
-          {!data.verificado && <p>Tu negocio necesita la aprobación del administrador para acceder a los beneficios Pro.</p>}
-          {!data.vigente && <button className="btn-primary" disabled={busy || !data.verificado || !data.pago_disponible || !stripePromise} onClick={() => action('buy')}>
-            {busy ? 'Preparando…' : data.vence_en ? 'Renovar por 30 días' : 'Comprar Pro por 30 días'}</button>}
-          <button className="btn-secondary" disabled={busy || !data.pago_disponible} onClick={() => action('verify')}>Verificar mi pago</button>
-          <p className="pro-note">Para dejar de usar Pro, solo deja vencer tu membresía. Conservas tu cuenta y tus productos. Puedes renovarla cuando venza.</p>
-        </div>
-      </section>
+      <PlanPro data={data} busy={busy} pagoHabilitado={Boolean(stripePromise)} onComprar={()=>action('buy')} onVerificar={()=>action('verify')}/>
       {(!data.pago_disponible || !stripePromise) && <p role="alert">El pago todavía no está disponible. Contacta al administrador.</p>}
       {intent && stripePromise && <Elements stripe={stripePromise}><PaymentForm intent={intent} token={token} onUpdate={update} onClose={() => setIntent(null)} /></Elements>}
       {data.metricas && <section className="pro-analytics"><h2>Tu actividad de los últimos 30 días</h2>
@@ -120,5 +105,5 @@ export default function Membresia({ token }) {
         <span>{date(purchase.creado_en)}</span><strong>{money(purchase.monto_centavos)}</strong><span>{purchase.estado === 'aprobado' ? 'Pago confirmado' : 'Pendiente de pago o confirmación'}</span>
       </li>)}</ul></section>}
     </>}
-  </main>;
+  </section>;
 }

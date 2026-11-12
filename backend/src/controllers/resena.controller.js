@@ -6,7 +6,7 @@ function validId(value) {
   return Number(value);
 }
 function owner(req, order) {
-  if (req.user.rol !== 'cliente' || order.usuario_id !== req.user.id) fail(403, 'Solo el cliente que compró puede realizar esta acción');
+  if (!['cliente','vendedor'].includes(req.user.rol) || order.usuario_id !== req.user.id) fail(403, 'Solo el cliente que compró puede realizar esta acción');
 }
 exports.deliver = async (req, res) => {
   const id = validId(req.params.id);
