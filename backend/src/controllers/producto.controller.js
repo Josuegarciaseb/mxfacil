@@ -265,6 +265,7 @@ exports.updateProducto = async (req, res) => {
     presentacion,
     activo,
     image_url,
+    stock_agregar,
   } = req.body;
 
   if (!isPositiveInteger(id)) {
@@ -295,11 +296,15 @@ exports.updateProducto = async (req, res) => {
     return res.status(400).json({ message: 'La presentación no puede superar 100 caracteres' });
   }
 
+  if (stock_agregar !== undefined && (!isPositiveInteger(stock_agregar) || Number(stock_agregar) <= 0)) {
+    return res.status(400).json({ message: 'El stock a agregar debe ser un entero mayor a 0' });
+  }
+
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
 
-    const [existentes] = await conn.query('SELECT * FROM producto WHERE id = ?', [id]);
+    const [existentes] = await conn.query('SELECT * FROM producto WHERE id = ? FOR UPDATE', [id]);
     if (!existentes.length) {
       await conn.rollback();
       return res.status(404).json({ message: 'Producto no encontrado' });
@@ -366,6 +371,19 @@ exports.updateProducto = async (req, res) => {
         id
       ]
     );
+
+    if (stock_agregar !== undefined) {
+      const cantidad = Number(stock_agregar);
+      const [inventario] = await conn.query('SELECT stock FROM inventario WHERE producto_id = ? FOR UPDATE', [id]);
+      if (Number(inventario[0]?.stock ?? 0) + cantidad > 2147483647) {
+        await conn.rollback();
+        return res.status(409).json({ message: 'El stock resultante supera el máximo permitido' });
+      }
+      await conn.query(
+        'INSERT INTO inventario (producto_id, stock) VALUES (?, ?) ON DUPLICATE KEY UPDATE stock = stock + ?',
+        [id, cantidad, cantidad]
+      );
+    }
 
     const productoCompleto = await getProductoCompletoById(id, conn);
 

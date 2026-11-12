@@ -19,7 +19,7 @@ const guides = {
     content: (
       <>
         <p>El carrito muestra los métodos habilitados para tu pedido. Pueden incluir tarjeta, PayPal, Mercado Pago, transferencia bancaria o pago contra entrega.</p>
-        <p>Para enviar productos secos con Castores, elige esa forma de entrega en el carrito y solicita el flete. Podrás revisar el total antes de pagar. Después del despacho encontrarás la guía y el botón de recepción en <strong>Mis pedidos</strong>.</p>
+        <p>Con <strong>Envío a domicilio</strong> pagas la mercancía al comprar. En <strong>Mis pedidos</strong> puedes revisar la paquetería y el flete, autorizarlo cuando corresponda y consultar la guía después del despacho.</p>
         <p>Si un pago en línea queda pendiente, abre el pedido en <strong>Mis pedidos</strong> y selecciona <strong>Continuar pago</strong>.</p>
       </>
     ),
@@ -31,6 +31,7 @@ const guides = {
         <li>Al registrarte, selecciona <strong>Soy Vendedor</strong> y completa los datos de tu cuenta.</li>
         <li>En tu panel, abre <strong>Mis Productos</strong> y pulsa el botón <strong>+</strong> para agregar un producto.</li>
         <li>Indica el nombre, la categoría, la presentación, el precio y las existencias. Puedes añadir una foto para que los compradores identifiquen tu producto.</li>
+        <li>Para enviar un pedido a domicilio, abre <strong>Pedidos → Registrar flete final</strong>, selecciona la paquetería y registra la tarifa. Cuando entregues el paquete a la paquetería, guarda la guía en el pedido.</li>
       </ol>
     ),
   },

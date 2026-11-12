@@ -84,7 +84,7 @@ exports.updateEnvio = async (req, res) => {
     const [[castores]] = await conn.execute('SELECT id FROM cotizacion_castores WHERE pedido_id=?',[actual.pedido_id]);
     if (castores) {
       await conn.rollback();
-      return res.status(409).json({message:'Usa el seguimiento Castores del pedido para registrar guía, incidencia o acuse'});
+      return res.status(409).json({message:'Usa el seguimiento del pedido para registrar guía, incidencia o acuse'});
     }
     const payment = payments[0];
     const deliveryAfterRefund = payment?.estado === 'reembolsado' && orders[0]?.estado === 'enviado' && estado === 'entregado';

@@ -10,7 +10,7 @@ import Btn from "../../components/ui/Btn";
 import EmptyState from "../../components/ui/EmptyState";
 import { SelectField, InputField } from "../../components/ui/FormFields";
 import Icon from "../../components/ui/Icon";
-import CotizacionCarrito from "../../components/shipping/CotizacionCarrito";
+import EstimadoDomicilio from "../../components/shipping/EstimadoDomicilio";
 import "../../components/shipping/flete.css";
 const StripeCheckout = lazy(()=>import('../../components/payments/StripeCheckout'));
 const PayPalCheckout = lazy(()=>import('../../components/payments/PayPalCheckout'));
@@ -56,7 +56,9 @@ const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth, initialPay
         && (m.value!=='tarjeta' || !!import.meta.env.VITE_STRIPE_PUBLIC_KEY)
         && (m.value!=='paypal' || !!import.meta.env.VITE_PAYPAL_CLIENT_ID));
       setMethods(options); setDirecciones(addresses); setLoadError('');
-      setOrderForm(f=>({...f,direccion_id:addresses[0]?.id || '',metodo_pago:options[0]?.value || ''}));
+      setOrderForm(f=>({...f,
+        direccion_id:addresses.some(d=>String(d.id) === String(f.direccion_id)) ? f.direccion_id : (addresses[0]?.id || ''),
+        metodo_pago:options.some(m=>m.value === f.metodo_pago) ? f.metodo_pago : (options[0]?.value || '')}));
     }).catch(()=>{if(active)setLoadError('No pudimos cargar tus direcciones y métodos de pago.');});
     return ()=>{ active=false; };
   }, [open,token,initialPayment,retry]);
@@ -90,26 +92,35 @@ const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth, initialPay
 
   const {subtotal:cartSubtotal,iva:cartIva,total:cartTotal,lines} = cartTotals(cart);
   const cartCount    = cart.reduce((s, i) => s + i.qty, 0);
-  const conCastores = Boolean(token && modalidad === 'castores');
-  const direccion = direcciones.find(d => String(d.id) === String(orderForm.direccion_id));
-  const opcionesPago = conCastores ? methods.filter(m => m.value !== 'contra_entrega') : methods;
+  const aDomicilio = Boolean(token && modalidad === 'domicilio');
+  const opcionesPago = aDomicilio ? methods.filter(m => m.value !== 'contra_entrega') : methods;
   const metodo = opcionesPago.some(m => m.value === orderForm.metodo_pago) ? orderForm.metodo_pago : (opcionesPago[0]?.value || '');
-  const claveCarga = JSON.stringify([userId,direccion,metodo,cart.map(i => [i.id,i.qty,i.precio,i.proveedor_id])]);
-  const q = conCastores && respuesta?.clave === claveCarga ? respuesta.q : null;
-  const listo = Boolean(q?.vigente && q.flete != null && !q.pedido_id && !q.motivo_rechazo);
-  const totalPagar = (Math.round(cartTotal*100) + (listo ? Math.round(Number(q.flete)*100) : 0)) / 100;
+  const solicitudFlete = JSON.stringify({ direccion_id:orderForm.direccion_id,items:cart.map(i=>({producto_id:i.id,cantidad:i.qty})) });
+  const estimacion = aDomicilio && respuesta?.clave === solicitudFlete ? respuesta : null;
+  const totalPagar = cartTotal;
+  useEffect(() => {
+    if (!open || !aDomicilio || !orderForm.direccion_id || !tieneArticulos || paymentStep) return;
+    let activa = true;
+    http('/envios/domicilio/estimado',{method:'POST',body:solicitudFlete},token)
+      .then(data => { if (activa) setRespuesta({clave:solicitudFlete,...data}); })
+      .catch(error => {
+        if (activa) setRespuesta({clave:solicitudFlete,estimado:null,
+          impedimento:error.status >= 400 && error.status < 500 ? error.message : null});
+      });
+    return () => { activa = false; };
+  },[open,aDomicilio,orderForm.direccion_id,tieneArticulos,paymentStep,solicitudFlete,token,retry]);
 
   const handleConfirm = async () => {
     if (submitting.current) return;
     if (!orderForm.direccion_id) return toast("Selecciona una dirección", "warn");
-    if (conCastores && !listo) return toast("Solicita y revisa el flete antes de confirmar", "warn");
+    if (aDomicilio && estimacion?.impedimento) return toast(estimacion.impedimento, "warn");
     submitting.current = true;
     setPlacing(true);
     try {
       const storageKey = `checkout_attempt_${userId}`;
       const items = cart.map(i=>({producto_id:i.id,cantidad:i.qty}));
       const componentes = [orderForm.direccion_id,metodo,items,totalPagar];
-      if (conCastores) componentes.push(q.id,q.revision);
+      if (aDomicilio) componentes.push('domicilio',estimacion?.estimado ?? null);
       const fingerprint = JSON.stringify(componentes);
       let attempt;
       try { attempt = JSON.parse(sessionStorage.getItem(storageKey)); } catch { /* discard invalid saved state */ }
@@ -123,7 +134,7 @@ const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth, initialPay
           direccion_id: parseInt(orderForm.direccion_id),
           metodo_pago: metodo,
           items, clave_checkout:attempt.key, total_esperado:totalPagar,
-          ...(conCastores && {entrega:'castores',cotizacion_id:q.id,revision:q.revision}),
+          ...(aDomicilio && {entrega:'domicilio',flete_autorizado:estimacion?.estimado ?? null}),
           inicio_checkout: inicioCheckout.current,
         }),
       }, token);
@@ -151,6 +162,7 @@ const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth, initialPay
       toast(e.message, "error");
       if (e.status===409) {
         setRespuesta(null);
+        setRetry(n => n + 1);
         try { const products=await http('/productos',{},token); setCart(c=>refreshCart(c,products)); } catch { /* keep cart on network failure */ }
       }
     } finally {
@@ -382,10 +394,9 @@ const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth, initialPay
                   +${cartIva.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
-              {conCastores && <div className="flete-total"><span>Flete Castores</span><strong>{listo ? '$' + money(q.flete) : 'Por cotizar'}</strong></div>}
               <div style={{ borderTop: "1px solid rgba(255,255,255,.15)", paddingTop: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,.5)", letterSpacing: ".06em", textTransform: "uppercase" }}>
-                  {conCastores && !listo ? 'Mercancía con IVA' : 'Total del pedido'}
+                  {aDomicilio ? 'Total a pagar en la tienda' : 'Total del pedido'}
                 </div>
                 <span style={{ fontWeight: 900, color: "#FDE68A", fontSize: isMobile ? 19 : 22, letterSpacing: "-.025em" }}>
                   ${money(totalPagar)}
@@ -422,20 +433,21 @@ const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth, initialPay
                 value={metodo}
                 onChange={(e) => setOrderForm((f) => ({ ...f, metodo_pago: e.target.value }))}
               >
-                {opcionesPago.map((m) => (
-                  <option key={m.value} value={m.value}>{m.label}</option>
-                ))}
+                {PAYMENT_METHODS.map(m => {
+                  const habilitado = opcionesPago.some(opcion => opcion.value === m.value);
+                  const aviso = aDomicilio && m.value === 'contra_entrega' ? 'Solo con entrega acordada' : 'No disponible';
+                  return <option key={m.value} value={m.value} disabled={!habilitado}>{m.label}{!habilitado && ' · ' + aviso}</option>;
+                })}
               </SelectField>
             </div>
             )}
 
             {/* ── Sin direcciones: aviso + botón (solo autenticados) ── */}
             {token && <SelectField label="Forma de entrega" value={modalidad} onChange={e => setModalidad(e.target.value)}>
-              <option value="acordada">Entrega acordada con el proveedor</option>
-              <option value="castores">Castores · flete cotizado y pago previo</option>
+              <option value="acordada">Acordar con el vendedor</option>
+              <option value="domicilio">Envío a domicilio</option>
             </SelectField>}
-            {conCastores && <CotizacionCarrito key={claveCarga} clave={claveCarga} token={token} direccionId={orderForm.direccion_id}
-              metodo={metodo} cart={cart} cotizacion={q} setRespuesta={setRespuesta} onClose={onClose} />}
+            {aDomicilio && <EstimadoDomicilio datos={estimacion} tieneDireccion={Boolean(orderForm.direccion_id)} />}
             {loadError && <div role="alert">{loadError} <button className="btn-secondary" onClick={()=>setRetry(n=>n+1)}>Reintentar</button></div>}
             {token && methods.length > 0 && !direcciones.length && !showAddrForm && (
               <div style={{ border: "1.5px dashed #fbbf24", borderRadius: 10, padding: "14px 16px", background: "#fffbeb", display: "flex", flexDirection: "column", gap: 10 }}>
@@ -565,7 +577,7 @@ const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth, initialPay
               </Btn>
               <Btn
                 onClick={handleConfirm}
-                disabled={placing || !direcciones.length || !metodo || !!loadError || showAddrForm || (conCastores && !listo)}
+                disabled={placing || !direcciones.length || !metodo || !!loadError || showAddrForm || (aDomicilio && (!estimacion || !!estimacion.impedimento))}
                 style={{ flex: isMobile ? "unset" : 2, justifyContent: "center" }}
               >
                 {placing

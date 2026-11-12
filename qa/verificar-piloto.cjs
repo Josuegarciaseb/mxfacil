@@ -47,8 +47,9 @@ async function run() {
       const product = seller.getByRole('row').filter({ hasText: 'Semilla de calabaza de prueba' });
       return product.locator('[data-label="Stock"] .badge').innerText();
     };
-    if (process.argv.includes('--castores')) {
-      await require('./flujo-castores.cjs')({ buyer,seller,admin,origin,stock,pool });
+    const paqueteria = ['Castores','FedEx','DHL'].find(nombre => process.argv.includes('--'+nombre.toLowerCase()));
+    if (paqueteria) {
+      await require('./flujo-castores.cjs')({ buyer,seller,admin,origin,stock,pool,paqueteria });
       return;
     }
     assert.equal(await stock(), '4');

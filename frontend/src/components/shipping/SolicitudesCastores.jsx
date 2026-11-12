@@ -86,12 +86,12 @@ export default function SolicitudesCastores({token}) {
     setAbierto(e.currentTarget.open);
     if (e.currentTarget.open) cargar();
   }}>
-    <summary>Cotizaciones de flete · Castores</summary>
+    <summary>Solicitudes de cotización anteriores</summary>
     {abierto && <div className="flete-form">
       <button type="button" className="btn-secondary" onClick={cargar}>Actualizar solicitudes</button>
       {error && <p role="alert">{error}</p>}
       {rows === null && !error && <p role="status">Cargando solicitudes…</p>}
-      {rows?.length === 0 && <p>Las solicitudes de tus compradores aparecerán aquí.</p>}
+      {rows?.length === 0 && <p>Sin solicitudes anteriores. Abre el pedido para registrar el flete de un envío a domicilio.</p>}
       {rows?.map(q => <Responder key={q.id + '-' + q.revision} q={q} token={token} actualizar={cargar} />)}
     </div>}
   </details>;

@@ -180,8 +180,11 @@ CREATE TABLE IF NOT EXISTS cotizacion_castores (
   otros_costos_estimados DECIMAL(12,2) DEFAULT NULL,
   motivo_rechazo VARCHAR(200) DEFAULT NULL,
   pedido_id INT DEFAULT NULL UNIQUE,
-  guia VARCHAR(40) DEFAULT NULL UNIQUE,
-  canal_guia ENUM('castores','envia','sandbox') DEFAULT NULL,
+  transportista ENUM('Castores','FedEx','DHL') DEFAULT 'Castores',
+  perecedero BOOLEAN NOT NULL DEFAULT FALSE,
+  guia VARCHAR(40) DEFAULT NULL,
+  UNIQUE KEY uq_transportista_guia (transportista,guia),
+  canal_guia ENUM('castores','envia','sandbox','directo') DEFAULT NULL,
   costo_flete_real DECIMAL(12,2) DEFAULT NULL,
   recibido_por VARCHAR(100) DEFAULT NULL,
   acuse VARCHAR(150) DEFAULT NULL,
@@ -193,6 +196,15 @@ CREATE TABLE IF NOT EXISTS cotizacion_castores (
   FOREIGN KEY (confirmado_por) REFERENCES usuario(id) ON DELETE SET NULL,
   FOREIGN KEY (proveedor_id) REFERENCES proveedor(id),
   FOREIGN KEY (pedido_id) REFERENCES pedido(id)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS flete_domicilio (
+  cotizacion_id INT PRIMARY KEY,
+  estimado DECIMAL(12,2) DEFAULT NULL,
+  fuente_estimado ENUM('historial','referencia') DEFAULT NULL,
+  autorizado_hasta DECIMAL(12,2) DEFAULT NULL,
+  importe_destino DECIMAL(12,2) DEFAULT NULL,
+  FOREIGN KEY (cotizacion_id) REFERENCES cotizacion_castores(id)
 ) ENGINE=InnoDB;
 
 CREATE TABLE envio (

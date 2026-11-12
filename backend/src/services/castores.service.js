@@ -35,13 +35,14 @@ function firmaSolicitud(comprador, direccionId, direccion, proveedor, carga, met
     proveedor, lineas, metodo])).digest('hex');
 }
 
-function contexto(comprador, direccionId, direccion, items, productos, metodo) {
+function contexto(comprador, direccionId, direccion, items, productos, metodo, { domicilio = false } = {}) {
   const pais = direccion.pais.trim().toLowerCase();
-  if (!['mx','méxico','mexico'].includes(pais)) fail(409, 'Castores está disponible en rutas nacionales de México');
+  if (!['mx','méxico','mexico'].includes(pais)) fail(409, 'El envío a domicilio está disponible en rutas nacionales de México');
   if (items.length !== productos.length || productos.some(p => !p.activo)) fail(409, 'Actualiza los productos del carrito');
   const proveedor = productos[0].proveedor_id;
-  if (productos.some(p => p.proveedor_id !== proveedor)) fail(409, 'Cotiza los productos de cada proveedor en un pedido separado');
-  if (productos.some(p => p.tipo !== 'no_perecedero')) fail(409, 'Esta modalidad admite productos secos que se transportan sin refrigeración');
+  if (productos.some(p => p.proveedor_id !== proveedor)) fail(409, 'El envío a domicilio sale de un solo proveedor. Separa los productos por vendedor');
+  const perecedero = productos.some(p => p.tipo !== 'no_perecedero');
+  if (!domicilio && perecedero) fail(409, 'Esta modalidad admite productos secos que se transportan sin refrigeración');
   let base = 0, comision = 0;
   const carga = productos.map((p, n) => {
     if (p.id !== items[n].producto_id) fail(409, 'Los productos cambiaron');
@@ -53,7 +54,7 @@ function contexto(comprador, direccionId, direccion, items, productos, metodo) {
   });
   if (!Number.isSafeInteger(base) || base + comision > 999999999999) fail(400, 'Importe del pedido fuera de rango');
   const firma = firmaSolicitud(comprador,direccionId,direccion,proveedor,carga,metodo);
-  return { firma, proveedor, carga, comision, base };
+  return { firma, proveedor, carga, comision, base, perecedero };
 }
 
 const columnas = `c.*, DATE_FORMAT(c.vigencia,'%Y-%m-%d') AS valida_hasta,
