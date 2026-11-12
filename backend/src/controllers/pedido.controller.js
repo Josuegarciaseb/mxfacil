@@ -25,14 +25,23 @@ exports.listPedidosCliente = async (req, res) => {
         p.direccion_id,
         p.fecha,
         p.estado,
-      p.recibido_cliente_en,
+        p.recibido_cliente_en,
         p.subtotal,
         p.iva,
         p.comision,
-        p.total
+        p.total,
+        e.estado AS envio_estado,
+        pr.nombre AS producto_nombre,
+        pr.image_url,
+        (SELECT COUNT(*) FROM pedido_item i WHERE i.pedido_id = p.id) AS productos_distintos
       FROM pedido p
+      LEFT JOIN envio e ON e.pedido_id = p.id
+      LEFT JOIN producto pr ON pr.id = (
+        SELECT i.producto_id FROM pedido_item i WHERE i.pedido_id = p.id
+        ORDER BY i.producto_id, i.id LIMIT 1
+      )
       WHERE p.usuario_id = ?
-      ORDER BY p.fecha DESC
+      ORDER BY p.fecha DESC, p.id DESC
       `,
       [userId]
     );
@@ -99,6 +108,7 @@ async function getPedidoDetalleCompleto(pedidoId, conn = null, gestion = false) 
       pi.producto_id,
       pi.proveedor_id,
       pr.nombre AS producto_nombre,
+      pr.image_url,
       prov.nombre AS proveedor_nombre,
       pi.cantidad,
       pi.precio_unitario,

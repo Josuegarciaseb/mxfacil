@@ -1,193 +1,81 @@
-import OrderReviews from '../../components/reviews/OrderReviews';
-import { useState, useEffect } from "react";
-import { useLocation, useSearchParams } from 'react-router-dom';
-import { http } from "../../utils/api";
-import { toast } from "../../utils/toast";
-import { useBreakpoint } from "../../hooks/useBreakpoint";
-import { PAYMENT_METHOD_LABELS } from "../../constants";
-import { STATUS_ICONS } from "../../constants";
-import Spinner from "../../components/ui/Spinner";
-import EmptyState from "../../components/ui/EmptyState";
-import PageHeader from "../../components/ui/PageHeader";
-import Modal from "../../components/ui/Modal";
-import StatusBadge from "../../components/ui/StatusBadge";
-import Icon from "../../components/ui/Icon";
-import SeguimientoCastores from "../../components/shipping/SeguimientoCastores";
-import { money } from "../../utils/cart";
+import { useEffect, useReducer, useState } from 'react';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
+import { http } from '../../utils/api';
+import { money } from '../../utils/cart';
+import EmptyState from '../../components/ui/EmptyState';
+import Icon from '../../components/ui/Icon';
+import ProductPhoto from '../../components/ui/ProductPhoto';
+import Spinner from '../../components/ui/Spinner';
+import PedidoDetalle from './PedidoDetalle';
+import { estadoPedido, fechaPedido } from './pedidoUtils';
+import './pedidos.css';
 
-const DetalleContent = ({ detalle, onResume, onCancel, token, actualizar }) => (
-  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-    <OrderReviews key={detalle.pedido.id} detalle={detalle} token={token} onDelivered={actualizar} />
-    {detalle.pedido.estado === 'cancelado' && detalle.pago?.estado === 'aprobado' && (
-      <p role="status">Recibimos el pago de este pedido cancelado. El importe completo está pendiente de devolución.</p>
-    )}
-    {detalle.pedido.reserva_vence_epoch != null && detalle.pago?.estado === 'pendiente' && (
-      <p>Plazo para pagar: {new Date(Number(detalle.pedido.reserva_vence_epoch) * 1000).toLocaleString('es-MX')}.
-        {' '}Si iniciaste un pago en línea, verificaremos su estado antes de liberar las existencias.</p>
-    )}
-    {detalle.pedido.estado === 'esperando_pago' && <button className="btn-primary" onClick={()=>onResume({pedidoId:detalle.pedido.id,metodo:detalle.pago.metodo,monto:detalle.pago.monto})}>Continuar pago</button>}
-    {['esperando_pago','pendiente'].includes(detalle.pedido.estado) && detalle.pago?.estado === 'pendiente' && <button className="btn-secondary" onClick={()=>onCancel(detalle.pedido.id)}>Cancelar pedido</button>}
-    <div style={{ background: "var(--gray-50)", borderRadius: 9, padding: 12, border: "1px solid var(--gray-100)" }}>
-      <div style={{ fontSize: 11, color: "var(--gray-400)", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 8 }}>Productos</div>
-      {detalle.items?.map((i) => (
-        <div key={i.id} style={{ display: "flex", justifyContent: "space-between", marginBottom: 7, fontSize: 13 }}>
-          <div>
-            <span style={{ color: "var(--gray-700)" }}>{i.producto_nombre} <span style={{ color: "var(--gray-400)" }}>x{i.cantidad}</span></span>
-            {i.proveedor_nombre && (
-              <div style={{ fontSize: 11, color: "var(--gray-400)", marginTop: 1 }}>{i.proveedor_nombre}</div>
-            )}
-          </div>
-          <span style={{ fontWeight: 700, flexShrink: 0, marginLeft: 8 }}>${(i.precio_unitario * i.cantidad).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
-        </div>
-      ))}
-      <div style={{ borderTop: "1px solid var(--gray-200)", paddingTop: 8, marginTop: 4, display: "flex", flexDirection: "column", gap: 4 }}>
-        {detalle.pedido?.subtotal != null && (
-          <>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--gray-500)" }}>
-              <span>Subtotal</span>
-              <span>${parseFloat(detalle.pedido.subtotal).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
+function ListaPedidos({ pedidos }) {
+  return <>
+    <header className="orders-list-heading">
+      <p className="orders-eyebrow">Mi cuenta</p>
+      <h1>Mis pedidos</h1>
+      <p>Consulta tus compras y sigue su entrega.</p>
+    </header>
+    {pedidos.length === 0 ? <EmptyState icon="shoppingBag" title="Aún no tienes pedidos"
+      sub="Aquí encontrarás tus compras cuando hagas tu primer pedido."
+      action={<Link className="btn-primary" to="/catalogo">Explorar el catálogo</Link>} /> :
+      <ul className="orders-list">
+        {pedidos.map(p => {
+          const estado = estadoPedido(p);
+          return <li key={p.id} className="orders-list-row">
+            <span className="order-thumb" aria-hidden="true"><ProductPhoto name={p.producto_nombre} url={p.image_url} /></span>
+            <div className="orders-list-copy">
+              <p className="order-meta">Pedido #{p.id} <span>·</span> {fechaPedido(p.fecha)}</p>
+              <h2>{p.producto_nombre || 'Compra al mayoreo'}{p.productos_distintos > 1 && <small> y {p.productos_distintos - 1} más</small>}</h2>
+              <span className={'order-status ' + (estado.tono || '')}>{estado.etiqueta}</span>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--gray-500)" }}>
-              <span>IVA (16%)</span>
-              <span>+${parseFloat(detalle.pedido.iva).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
+            <div className="orders-list-end">
+              <strong>${money(p.total)} <small>MXN</small></strong>
+              <Link to={'?pedido_id=' + p.id} aria-label={'Ver pedido #' + p.id}>Ver pedido <Icon name="chevronRight" size={14} /></Link>
             </div>
-          </>
-        )}
-        {!!detalle.pedido.cotizacion_castores_id && !detalle.pedido.domicilio_id && <div className="flete-heading"><span>Flete incluido</span><span>${money(detalle.pedido.flete)}</span></div>}
-        <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 800, fontSize: 14, borderTop: detalle.pedido?.subtotal != null ? "1px solid var(--gray-100)" : "none", paddingTop: detalle.pedido?.subtotal != null ? 4 : 0 }}>
-          <span>{detalle.pedido.domicilio_id ? 'Total de mercancía con IVA' : 'Total'}</span>
-          <span style={{ color: "var(--red)" }}>${parseFloat(detalle.pedido?.total).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
-        </div>
-      </div>
-    </div>
-    {detalle.pago && (
-      <div style={{ background: "var(--gray-50)", borderRadius: 9, padding: 10, border: "1px solid var(--gray-100)", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13 }}>
-        <span style={{ color: "var(--gray-700)", display: "flex", alignItems: "center", gap: 6 }}>
-          <Icon name="creditCard" size={13} style={{ color: "var(--gray-400)" }} />{PAYMENT_METHOD_LABELS[detalle.pago.metodo] || detalle.pago.metodo}
-        </span>
-        <StatusBadge estado={detalle.pago.estado} />
-      </div>
-    )}
-    {detalle.pedido.cotizacion_castores_id ? <SeguimientoCastores key={detalle.pedido.id} detalle={detalle} token={token} actualizar={actualizar} /> : detalle.envio && (
-      <div style={{ background: "var(--gray-50)", borderRadius: 9, padding: 10, border: "1px solid var(--gray-100)", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13 }}>
-        <span style={{ color: "var(--gray-700)", display: "flex", alignItems: "center", gap: 6 }}>
-          <Icon name="truck" size={13} style={{ color: "var(--gray-400)" }} />{detalle.envio.transportista || "Envío"}
-        </span>
-        <StatusBadge estado={detalle.envio.estado} />
-      </div>
-    )}
-    <div style={{ background: "var(--gray-50)", borderRadius: 9, padding: 10, border: "1px solid var(--gray-100)", fontSize: 13, display: "flex", alignItems: "flex-start", gap: 8 }}>
-      <Icon name="mapPin" size={14} style={{ color: "var(--red)", flexShrink: 0, marginTop: 1 }} />
-      <span style={{ color: "var(--gray-700)" }}>{detalle.pedido?.direccion_linea1}, {detalle.pedido?.direccion_ciudad}, {detalle.pedido?.direccion_estado} {detalle.pedido?.direccion_cp}</span>
-    </div>
-  </div>
-);
+          </li>;
+        })}
+      </ul>}
+  </>;
+}
 
-const ClientPedidos = ({ token, onResume }) => {
-  const [pedidos,  setPedidos]  = useState([]);
-  const [loading,  setLoading]  = useState(true);
-  const [params, setParams] = useSearchParams();
-  const location = useLocation();
-  const selected = Number(params.get('pedido_id')) || null;
-  const setSelected = id => setParams(id ? {pedido_id:String(id)} : {}, {replace:true});
-  const [loaded, setDetalle] = useState(null);
-  const detalle = loaded?.pedido.id === selected ? loaded : null;
-  const [revision,setRevision] = useState(0);
-  const { isMobile } = useBreakpoint();
+function VistaPedidos({ seleccionado, token, onResume, actualizado }) {
+  const [resultado, setResultado] = useState(null);
+  const [revision, actualizar] = useReducer(n => n + 1, 0);
+  const ruta = seleccionado ? '/pedidos/' + seleccionado : '/pedidos';
 
   useEffect(() => {
-    (async () => {
-      try { setPedidos(await http("/pedidos", {}, token)); }
-      catch (e) { toast(e.message, "error"); }
-      finally { setLoading(false); }
-    })();
-  }, [token,location.state?.updated,revision]);
+    let vigente = true;
+    http(ruta, {}, token).then(datos => {
+      if (vigente) setResultado({ datos });
+    }).catch(error => {
+      if (vigente) setResultado({ error: error.message });
+    });
+    return () => { vigente = false; };
+  }, [ruta, token, actualizado, revision]);
 
-  useEffect(()=>{
-    if (!selected) return;
-    let active = true;
-    http(`/pedidos/${selected}`,{},token).then(data=>{if(active)setDetalle(data);}).catch(e=>{if(active)toast(e.message,'error');});
-    return ()=>{active=false;};
-  },[selected,token,revision,location.state?.updated]);
+  useEffect(() => {
+    if (window.scrollY > 0) window.scrollTo({ top: 0, behavior: 'instant' });
+  }, []);
 
-  const cancel = async id => {
-    if (!window.confirm(`¿Cancelar el pedido #${id}?`)) return;
-    try { await http(`/pedidos/${id}/cancelar`,{method:'POST'},token); setRevision(n=>n+1); }
-    catch(e) { toast(e.message,'error'); }
-  };
-  const resume = step => { setSelected(null); onResume(step); };
+  return <div className="orders-page">
+    {seleccionado && <Link className="order-back" to="/mis-pedidos"><Icon name="arrowLeft" size={16} /> Mis pedidos</Link>}
+    {!resultado ? <div role="status" aria-label="Cargando pedidos"><Spinner /></div> :
+      resultado.error ? <div className="order-load-error">
+        <h1>{seleccionado ? 'No se pudo abrir el pedido' : 'No se pudieron cargar tus pedidos'}</h1>
+        <p role="alert">{resultado.error}</p>
+        <button className="btn-secondary" onClick={() => { setResultado(null); actualizar(); }}>Reintentar</button>
+      </div> :
+      seleccionado ? <PedidoDetalle detalle={resultado.datos} token={token} onResume={onResume} actualizar={actualizar} /> :
+        <ListaPedidos pedidos={resultado.datos} />}
+  </div>;
+}
 
-  if (loading) return <Spinner />;
-
-  return (
-    <div className="fade-up">
-      <PageHeader title="Mis Pedidos" subtitle="Seguimiento de tus compras" />
-
-      {pedidos.length === 0 ? (
-        <EmptyState icon="shoppingBag" title="Sin pedidos" sub="Realiza tu primera compra desde el catalogo" />
-      ) : (
-        <div style={{ display: "grid", gridTemplateColumns: selected && !isMobile ? "1fr 340px" : "1fr", gap: 20, alignItems: "start" }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {pedidos.map((p, i) => (
-              <div
-                key={p.id}
-                className="card fade-up"
-                style={{ animationDelay: i * 0.04 + "s", padding: isMobile ? 14 : 18, cursor: "pointer", transition: "all .2s", border: selected === p.id ? "1.5px solid var(--red)" : "1px solid var(--gray-200)", boxShadow: selected === p.id ? "var(--shadow-red)" : "var(--shadow-sm)" }}
-                role="button" tabIndex={0} aria-label={`Ver pedido #${p.id}`}
-                onClick={() => setSelected(p.id)} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();setSelected(p.id);}}}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 12 : 14 }}>
-                  <div style={{ width: isMobile ? 40 : 44, height: isMobile ? 40 : 44, background: "var(--red-pale)", borderRadius: 11, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--red)", flexShrink: 0 }}>
-                    <Icon name={STATUS_ICONS[p.estado] || "info"} size={isMobile ? 19 : 21} />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                      <span style={{ fontWeight: 800, fontSize: isMobile ? 14 : 15, color: "var(--gray-900)" }}>Pedido #{p.id}</span>
-                      <StatusBadge estado={p.estado} />
-                    </div>
-                    <div style={{ fontSize: 12, color: "var(--gray-500)", marginTop: 3 }}>{new Date(p.fecha).toLocaleDateString("es-MX", { year: "numeric", month: "long", day: "numeric" })}</div>
-                  </div>
-                  <div style={{ textAlign: "right", flexShrink: 0 }}>
-                    <div style={{ fontWeight: 900, fontSize: isMobile ? 16 : 18, color: "var(--red)" }}>${parseFloat(p.total).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</div>
-                    <div style={{ fontSize: 11, color: "var(--gray-400)" }}>MXN</div>
-                  </div>
-                  {!isMobile && <Icon name="chevronRight" size={16} style={{ color: "var(--gray-300)", flexShrink: 0 }} />}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Sidebar detalle — desktop */}
-          {selected && detalle && !isMobile && (
-            <div className="card fade-in" style={{ padding: 0, overflow: "hidden", position: "sticky", top: 20 }}>
-              <div style={{ background: "var(--red)", padding: "18px 20px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                  <div>
-                    <div style={{ fontSize: 11, color: "rgba(255,255,255,.7)", fontWeight: 600 }}>PEDIDO</div>
-                    <div style={{ fontSize: 20, fontWeight: 900, color: "#fff" }}>#{selected}</div>
-                  </div>
-                  <button aria-label="Cerrar detalle del pedido" onClick={() => { setSelected(null); setDetalle(null); }} style={{ background: "rgba(255,255,255,.15)", border: "none", color: "#fff", cursor: "pointer", padding: 7, borderRadius: 8, display: "flex" }}>
-                    <Icon name="x" size={15} />
-                  </button>
-                </div>
-                <div style={{ marginTop: 10 }}><StatusBadge estado={detalle.pedido?.estado} /></div>
-              </div>
-              <div style={{ padding: 16 }}>
-                <DetalleContent detalle={detalle} onResume={resume} onCancel={cancel} token={token} actualizar={()=>setRevision(n=>n+1)} />
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Modal detalle — mobile */}
-      {isMobile && selected && detalle && (
-        <Modal open={true} onClose={() => { setSelected(null); setDetalle(null); }} title={"Pedido #" + selected}>
-            <DetalleContent detalle={detalle} onResume={resume} onCancel={cancel} token={token} actualizar={()=>setRevision(n=>n+1)} />
-        </Modal>
-      )}
-    </div>
-  );
-};
-
-export default ClientPedidos;
+export default function ClientPedidos(props) {
+  const [params] = useSearchParams();
+  const { state } = useLocation();
+  const id = Number(params.get('pedido_id'));
+  const seleccionado = Number.isSafeInteger(id) && id > 0 ? id : null;
+  return <VistaPedidos key={seleccionado || 'lista'} seleccionado={seleccionado} actualizado={state?.updated} {...props} />;
+}

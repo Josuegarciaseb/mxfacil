@@ -2,37 +2,8 @@ import ProductReviews from '../../components/reviews/ProductReviews';
 import { recordProEvent } from '../../utils/membresia';
 import { useEffect, useRef, useState } from "react";
 import Icon from "../../components/ui/Icon";
-import { imageUrl } from "../../utils/config";
+import ProductPhoto from "../../components/ui/ProductPhoto";
 import { money } from "../../utils/cart";
-
-// Each position selects one photograph in the shared two-row product sheet.
-const referencePhotos = [
-  [/^(?:jitomates?|tomates? (?:saladet|rojos?))\b/, "0% 0%", "jitomate"],
-  [/^manzanas?(?:$| de | rojas?\b| gala\b| red delicious\b)/, "33.3333% 0%", "manzana roja"],
-  [/^aguacates?(?:$| de | hass\b)/, "66.6667% 0%", "aguacate Hass"],
-  [/^arroz(?:$| de | (?:extra |blanco\b))/, "100% 0%", "arroz blanco"],
-  [/^frijol(?:es)? pintos?\b/, "0% 100%", "frijol pinto"],
-  [/^mangos?\b/, "33.3333% 100%", "mango"],
-  [/^maíz (?:amarillo|en grano)\b/, "66.6667% 100%", "maíz en grano"],
-  [/^(?:semillas? de calabaza|pepitas?)\b/, "100% 100%", "semilla de calabaza"],
-];
-
-function ProductPhoto({ product, eager }) {
-  const [failedUrl, setFailedUrl] = useState(null);
-  const src = imageUrl(product.image_url);
-  if (src && src !== failedUrl) {
-    return <img className="catalog-product-photo" src={src} alt={product.nombre} decoding="async"
-      loading={eager ? "eager" : "lazy"} onError={() => setFailedUrl(src)} />;
-  }
-  const name = product.nombre.trim().toLocaleLowerCase("es-MX").replace(/^(?:caja|bolsa|costal|saco) de /, "");
-  const photo = referencePhotos.find(([pattern]) => pattern.test(name));
-  if (photo) {
-    const label = `Imagen ilustrativa de ${photo[2]}`;
-    return <span className="catalog-reference-photo" role="img" aria-label={label} title={label}
-      style={{ backgroundPosition: photo[1] }} />;
-  }
-  return <span className="catalog-no-photo" role="img" aria-label="Fotografía no disponible"><Icon name="package" size={44} /></span>;
-}
 
 export default function CatalogProduct({ product, price, status, inCart, eager, onAdd, promoted = false }) {
   const [reviewsOpen, setReviewsOpen] = useState(false);
@@ -56,7 +27,7 @@ export default function CatalogProduct({ product, price, status, inCart, eager, 
   return (
     <article ref={article} className="catalog-product" aria-labelledby={titleId}>
       <div className="catalog-image-area">
-        <ProductPhoto product={product} eager={eager} />
+        <ProductPhoto name={product.nombre} url={product.image_url} eager={eager} />
         <span className={`catalog-stock catalog-stock--${status.id}`}>
           <i aria-hidden="true" />{status.label}
         </span>

@@ -2,9 +2,9 @@ import Logo from "../ui/Logo";
 import Icon from "../ui/Icon";
 import FooterDirectory from "./FooterDirectory";
 import FooterPageLink from "./FooterPageLink";
+import { CONTACT_EMAIL } from "../../constants";
 import "./Footer.css";
 
-const CONTACT_EMAIL = "contacto@mxfacil.mx";
 const BG          = "#173404";
 const BORDER      = "rgba(255,255,255,.07)";
 const TEXT_MUTED  = "#89a880";

@@ -91,8 +91,7 @@ async function run() {
     }
     await advance('en_proceso', 'En proceso');
     await buyer.reload();
-    await buyer.locator('.card').filter({has:buyer.getByRole('button', {name:'Cerrar detalle del pedido'})})
-      .getByText('En proceso', {exact:true}).waitFor();
+    await buyer.getByRole('heading', {name:'Estamos preparando tu compra'}).waitFor();
     await advance('enviado', 'Enviado');
     await advance('entregado', 'Entregado');
     await checkBalance('Por cobrar', amounts);

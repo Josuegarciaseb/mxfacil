@@ -54,6 +54,22 @@ module.exports = async function verificarEnvio({ buyer, seller, admin, origin, s
   await seller.getByText(guia,{exact:true}).waitFor();
 
   await buyer.reload();
+  const principal = buyer.getByRole('main');
+  await principal.getByRole('link',{name:'Mis pedidos',exact:true}).click();
+  await principal.getByRole('heading',{name:fruta ? 'Manzanas de prueba' : 'Semilla de calabaza de prueba'}).waitFor();
+  await principal.getByRole('link',verPedido).click();
+  await principal.getByRole('heading',{name:'Tu compra ya está en camino'}).waitFor();
+  if (process.argv.includes('--captura-pedidos')) {
+    await buyer.setViewportSize({width:1378,height:910});
+    await buyer.screenshot({path:path.join(__dirname,'../.audit/pedido-escritorio.png'),animations:'disabled'});
+    await buyer.setViewportSize({width:390,height:844});
+    await buyer.evaluate(() => window.scrollTo({top:0,behavior:'instant'}));
+    const hastaPedido = await principal.evaluate(el => Math.ceil(el.getBoundingClientRect().bottom + scrollY));
+    await buyer.screenshot({path:path.join(__dirname,'../.audit/pedido-movil.png'),animations:'disabled',fullPage:true,
+      clip:{x:0,y:0,width:390,height:hastaPedido}});
+    assert.ok(await principal.evaluate(el => el.scrollWidth <= innerWidth));
+  }
+  await buyer.getByRole('button',{name:'Detalle del envío'}).click();
   const seguimiento = buyer.getByRole('region',{name:'Seguimiento con '+paqueteria});
   await seguimiento.getByText(guia,{exact:true}).waitFor();
   const host = {FedEx:'www.fedex.com',DHL:'www.dhl.com',Castores:'www.castores.com.mx'}[paqueteria];

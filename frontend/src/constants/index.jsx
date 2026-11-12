@@ -1,3 +1,5 @@
+export const CONTACT_EMAIL = "contacto@mxfacil.mx";
+
 export const STATUS_BADGE_MAP = {
   esperando_pago: "badge-amber",
   pendiente: "badge-amber",
@@ -52,6 +54,8 @@ export const PAYMENT_METHOD_LABELS = Object.fromEntries(
 export const ORDER_STATES    = ["pendiente", "en_proceso", "enviado", "entregado", "cancelado"];
 
 export const ICON_PATHS = {
+  copy:         <><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M16 8V5a2 2 0 00-2-2H5a2 2 0 00-2 2v9a2 2 0 002 2h3"/></>,
+  headset:      <><path d="M4 13v-2a8 8 0 0116 0v6a4 4 0 01-4 4h-3"/><rect x="3" y="10" width="4" height="7" rx="2"/><rect x="17" y="10" width="4" height="7" rx="2"/></>,
   sliders:      <><path d="M3 6h7m4 0h7M3 12h12m4 0h2M3 18h3m4 0h11"/><circle cx="12" cy="6" r="2"/><circle cx="17" cy="12" r="2"/><circle cx="8" cy="18" r="2"/></>,
   store:        <><path d="M2 7l10-5 10 5v2H2V7z"/><path d="M4 9v10h16V9"/><path d="M9 9v10"/><path d="M15 9v10"/><path d="M9 14h6"/></>,
   user:         <><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></>,
