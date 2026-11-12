@@ -21,7 +21,6 @@ const NAV_VENDEDOR = [
 const NAV_CLIENTE = [
   { id: "catalogo",        icon: "store",       label: "Catálogo" },
   { id: "mis-pedidos",     icon: "shoppingBag", label: "Mis Pedidos" },
-  { id: "mis-direcciones", icon: "mapPin",      label: "Mis Direcciones" },
   { id: "mi-perfil",       icon: "user",        label: "Mi Perfil" },
 ];
 

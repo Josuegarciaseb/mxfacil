@@ -36,6 +36,8 @@ export const STATUS_ICONS = {
   cancelado: "x",
 };
 
+export const EMPTY_ADDRESS = { linea1: "", ciudad: "", estado: "", cp: "", pais: "México" };
+
 export const PAYMENT_METHODS = [
   { value: "tarjeta",       label: "Tarjeta de crédito o débito (Stripe)" },
   { value: "paypal",        label: "PayPal"                    },

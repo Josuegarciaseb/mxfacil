@@ -43,7 +43,7 @@ const guides = {
   },
 };
 
-export default function FooterDirectory({ isSmall, isGuest, onCartOpen, contactEmail }) {
+export default function FooterDirectory({ isSmall, isGuest, onCartOpen, onChooseAddress, contactEmail }) {
   const panelId = useId();
   const [userExpanded, setUserExpanded] = useState(null);
   const expanded = userExpanded ?? !isSmall;
@@ -71,7 +71,7 @@ export default function FooterDirectory({ isSmall, isGuest, onCartOpen, contactE
             <h2>Pagos y envíos</h2>
             {guideButton(guides.payments)}
             <FooterPageLink to="/mis-pedidos">Consultar un envío</FooterPageLink>
-            <FooterPageLink to="/mis-direcciones">Direcciones de entrega</FooterPageLink>
+            <button type="button" onClick={onChooseAddress} aria-haspopup={isGuest ? undefined : "dialog"}>Direcciones de entrega</button>
           </div>
           <div>
             <h2>Para proveedores</h2>

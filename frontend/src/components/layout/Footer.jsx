@@ -13,7 +13,6 @@ const ACCENT      = "#a8c87e";
 const LINKS_NAV = [
   { label: "Catálogo",        to: "/catalogo"        },
   { label: "Mis pedidos",     to: "/mis-pedidos"     },
-  { label: "Mis direcciones", to: "/mis-direcciones" },
   { label: "Mi perfil",       to: "/mi-perfil"       },
 ];
 
@@ -27,7 +26,7 @@ const SectionTitle = ({ children }) => (
   </div>
 );
 
-const Footer = ({ isSmall, isGuest, onCartOpen }) => {
+const Footer = ({ isSmall, isGuest, onCartOpen, onChooseAddress }) => {
   const innerPad = isSmall ? "32px 20px 28px" : "48px 56px 36px";
 
   return (
@@ -35,7 +34,7 @@ const Footer = ({ isSmall, isGuest, onCartOpen }) => {
       marginTop: isSmall ? 48 : 72,
       background: BG,
     }}>
-      <FooterDirectory isSmall={isSmall} isGuest={isGuest} onCartOpen={onCartOpen} contactEmail={CONTACT_EMAIL} />
+      <FooterDirectory isSmall={isSmall} isGuest={isGuest} onCartOpen={onCartOpen} onChooseAddress={onChooseAddress} contactEmail={CONTACT_EMAIL} />
 
       {/* ── Contenido principal ── */}
       <div style={{

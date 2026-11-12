@@ -6,6 +6,7 @@ import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-
 
 import { injectStyles }      from "./styles/globalStyles";
 import { useBreakpoint }     from "./hooks/useBreakpoint";
+import { useDeliveryAddresses } from "./hooks/useDeliveryAddresses";
 import { http } from './utils/api';
 import { exchangeGoogle } from './utils/google-auth';
 import { cartKey, readCart, mergeCart, refreshCart } from './utils/cart';
@@ -32,7 +33,7 @@ import VendedorProductos     from "./pages/vendor/Productos";
 
 import ClientCatalogo        from "./pages/client/Catalogo";
 import ClientPedidos         from "./pages/client/Pedidos";
-import ClientDirecciones     from "./pages/client/Direcciones";
+import AddressPicker         from "./components/shipping/AddressPicker";
 import ClientPerfil          from "./pages/client/Perfil";
 import CartModal             from "./pages/client/CartModal";
 
@@ -109,7 +110,7 @@ export default function App() {
     return () => window.removeEventListener('tienda:sesion-expirada',expired);
   }, [location,navigate]);
   useEffect(() => {
-    const titles = {'/catalogo':'Productos del campo al mayoreo','/auth':'Acceso','/mis-pedidos':'Mis pedidos','/mis-direcciones':'Mis direcciones','/mi-perfil':'Mi perfil','/pago-retorno':'Estado del pago'};
+    const titles = {'/catalogo':'Productos del campo al mayoreo','/auth':'Acceso','/mis-pedidos':'Mis pedidos','/mis-direcciones':'Elige una dirección','/mi-perfil':'Mi perfil','/pago-retorno':'Estado del pago'};
     document.title = `${titles[location.pathname] || 'Tienda'} · Comercio Fácil México`;
   }, [location.pathname]);
 
@@ -156,10 +157,6 @@ export default function App() {
     localStorage.removeItem("guest_cart");
     setUser(u);
     setToken(t);
-    const from = location.state?.from;
-    const destination = from && PATH_TO_PAGE[from.pathname] && from.pathname !== '/auth'
-      ? from.pathname + (from.search || '') : getDefaultPath(u);
-    navigate(destination,{replace:true});
   };
 
   const handleLogout = async () => {
@@ -192,6 +189,14 @@ export default function App() {
   const cartCount  = cart.reduce((s, i) => s + i.qty, 0);
 
   const showMarketplaceHeader = (isGuest || isCliente) && location.pathname !== "/auth";
+  const addressBook = useDeliveryAddresses(isCliente ? token : null);
+  const choosingAddress = isCliente && !isGuest && page === "mis-direcciones";
+  const backgroundLocation = choosingAddress ? location.state?.backgroundLocation : null;
+  const openAddressPicker = () => navigate("/mis-direcciones", { state: { backgroundLocation: location } });
+  const closeAddressPicker = () => backgroundLocation ? navigate(-1) : navigate("/catalogo", { replace: true });
+  const from = location.state?.from;
+  const afterLogin = from && PATH_TO_PAGE[from.pathname] && from.pathname !== "/auth"
+    ? from.pathname + (from.search || "") : getDefaultPath(user);
 
   const mainPadding = location.pathname === "/auth"
     ? 0
@@ -218,6 +223,11 @@ export default function App() {
     <ProtectedRoute user={user} token={token} roles={["cliente"]}>
       {children}
     </ProtectedRoute>
+  );
+  const catalogo = (
+    <ClientCatalogo token={token} setCart={setCart} cart={cart} onProductsFetched={syncProducts}
+      externalSearch={catalogSearch} onSearchChange={setCatalogSearch}
+      selectedCategories={catalogCategories} onCategoriesChange={setCatalogCategories} />
   );
 
   return (
@@ -270,6 +280,8 @@ export default function App() {
           onNav={goTo}
           onLogout={handleLogout}
           onLoginClick={() => navigate("/auth")}
+          deliveryAddress={addressBook.primary}
+          onChooseAddress={openAddressPicker}
           cartCount={cartCount}
           onCartOpen={() => setCartOpen(true)}
           search={catalogSearch}
@@ -285,32 +297,21 @@ export default function App() {
         minHeight: "100vh",
         background: location.pathname === "/auth" ? "transparent" : "var(--gray-50)",
       }}>
-        <Routes>
+        <Routes location={backgroundLocation || location}>
           {/* Raíz → redirige al home según rol */}
           <Route path="/"
             element={<Navigate to={user ? getDefaultPath(user) : "/catalogo"} replace />}
           />
 
           {/* Catálogo — público */}
-          <Route path="/catalogo" element={
-            <ClientCatalogo
-              token={token}
-              setCart={setCart}
-              cart={cart}
-              onProductsFetched={syncProducts}
-              externalSearch={catalogSearch}
-              onSearchChange={setCatalogSearch}
-              selectedCategories={catalogCategories}
-              onCategoriesChange={setCatalogCategories}
-            />
-          } />
+          <Route path="/catalogo" element={catalogo} />
           <Route path="/terminos" element={<Terminos />} />
           <Route path="/privacidad" element={<Privacidad />} /> 
           <Route path="/proveedores/:id" element={<ProveedorPublico token={token} cart={cart} setCart={setCart} onProductsFetched={syncProducts} />} />
           {/* Auth — redirige si ya tiene sesión */}
           <Route path="/auth" element={
             token && user
-              ? <Navigate to={getDefaultPath(user)} replace />
+              ? <Navigate to={afterLogin} state={from?.state} replace />
               : <AuthPage key={location.search} onLogin={handleLogin} onBack={() => navigate("/catalogo")} />
           } />
 
@@ -322,7 +323,7 @@ export default function App() {
 
           {/* ── Rutas cliente ── */}
           <Route path="/mis-pedidos" element={clienteOnly(<ClientPedidos token={token} onResume={step=>{setResumePayment(step);setCartOpen(true);}} />)} />
-          <Route path="/mis-direcciones" element={clienteOnly(<ClientDirecciones token={token} />)} />
+          <Route path="/mis-direcciones" element={clienteOnly(catalogo)} />
           <Route path="/mi-perfil"      element={clienteOnly(<ClientPerfil     token={token} user={user} onUpdate={handleUserUpdate} />)} />
 
           {/* ── Rutas admin ── */}
@@ -349,7 +350,9 @@ export default function App() {
 
       </main>
 
-      {showMarketplaceHeader && <Footer isSmall={isSmall} isGuest={isGuest} onCartOpen={() => setCartOpen(true)} />}
+      {showMarketplaceHeader && <Footer isSmall={isSmall} isGuest={isGuest} onCartOpen={() => setCartOpen(true)} onChooseAddress={openAddressPicker} />}
+
+      {choosingAddress && <AddressPicker token={token} book={addressBook} onClose={closeAddressPicker} />}
 
       {/* ── Modal carrito ── */}
       {cartOpen && (isCliente || isGuest) && (
@@ -357,6 +360,7 @@ export default function App() {
           open={cartOpen}
           onClose={() => {setCartOpen(false);setResumePayment(null);}}
           initialPayment={resumePayment}
+          onAddressSaved={addressBook.refresh}
           userId={user?.id}
           onOrdered={id=>{setCartOpen(false);setResumePayment(null);navigate(`/mis-pedidos?pedido_id=${id}`,{state:{updated:Date.now()}});}}
           cart={cart}

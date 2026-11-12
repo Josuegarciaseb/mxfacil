@@ -4,16 +4,17 @@ import Logo from "../ui/Logo";
 
 const accountLinks = [
   { id: "mis-pedidos", icon: "shoppingBag", label: "Mis pedidos" },
-  { id: "mis-direcciones", icon: "mapPin", label: "Mis direcciones" },
   { id: "mi-perfil", icon: "user", label: "Mi perfil" },
 ];
 
 export default function MarketplaceHeader({
   user, page, onNav, onLogout, onLoginClick, cartCount, onCartOpen, search, onSearch, isSmall,
+  deliveryAddress, onChooseAddress,
 }) {
   const [accountOpen, setAccountOpen] = useState(false);
   const account = useRef(null);
   const accountButton = useRef(null);
+  const firstName = user?.nombre?.trim().split(/\s+/)[0];
 
   useEffect(() => {
     if (!accountOpen) return;
@@ -41,6 +42,15 @@ export default function MarketplaceHeader({
           <Logo size={46} textColor="#fff" subtitleColor="#e4efd9" subtitle="Mayoreo · México" />
         </button>
 
+        <button type="button" className="market-destination" onClick={onChooseAddress} aria-haspopup={user ? "dialog" : undefined}>
+          <Icon name="mapPin" size={19} />
+          <span className="market-destination-copy">
+            <small>{firstName ? `Enviar a ${firstName}` : "Enviar a"}</small>{" "}
+            <strong>{deliveryAddress ? `CP ${deliveryAddress.cp}` : "Elegir dirección"}</strong>
+          </span>
+          <Icon name="chevronRight" size={13} />
+        </button>
+
         <form className="market-search" role="search" onSubmit={(event) => { event.preventDefault(); onNav("catalogo"); }}>
           <button aria-label="Buscar en el catálogo" type="submit"><Icon name="search" size={19} /></button>
           <input type="search" aria-label="Buscar productos"
@@ -54,7 +64,7 @@ export default function MarketplaceHeader({
               onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setAccountOpen(false); }}>
               <button ref={accountButton} className="market-action" aria-label="Menú de cuenta"
                 aria-expanded={accountOpen} aria-controls="market-account-panel" onClick={() => setAccountOpen(!accountOpen)}>
-                <Icon name="user" size={19} /><span>{user.nombre?.split(" ")[0] || "Mi cuenta"}</span>
+                <Icon name="user" size={19} /><span>{firstName || "Mi cuenta"}</span>
                 <Icon name="chevronDown" size={14} />
               </button>
               {accountOpen && (

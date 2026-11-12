@@ -4,7 +4,7 @@ import Logo from "../ui/Logo";
 const PAGE_LABELS = {
   catalogo:             "Catálogo",
   "mis-pedidos":        "Mis Pedidos",
-  "mis-direcciones":    "Mis Direcciones",
+  "mis-direcciones":    "Dirección de entrega",
   "mi-perfil":          "Mi Perfil",
   dashboard:            "Dashboard",
   productos:            "Productos",

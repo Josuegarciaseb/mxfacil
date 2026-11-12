@@ -1,0 +1,69 @@
+.modal-overlay.address-picker {
+  display: grid;
+  place-items: center;
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+  padding: 16px;
+  background: rgb(12 24 17 / 56%);
+  backdrop-filter: none;
+}
+
+.address-picker .modal {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 460px;
+  max-height: 100%;
+  padding: clamp(18px, 3vw, 28px);
+  border: 0;
+  border-radius: 16px;
+  box-shadow: 0 18px 60px #10241438;
+}
+
+.address-picker .modal-heading { margin-bottom: 18px; }
+.address-picker .modal-heading h3 { font: 650 21px/1.25 'Sora', sans-serif; letter-spacing: -.035em; color: #18221d; }
+.address-picker .modal-heading button { width: 32px; height: 32px; flex-shrink: 0; }
+.address-picker-body { display: flex; flex-direction: column; min-height: 0; overflow-y: auto; }
+.address-picker-options { min-height: 0; overflow-y: auto; border: 1px solid #dce2da; border-radius: 10px; }
+.address-picker-option + .address-picker-option { border-top: 1px solid #dce2da; }
+.address-picker-option:hover { background: #f8faf6; }
+.address-picker-option.is-selected { background: #f2f7ee; box-shadow: inset 3px 0 #497b2c; }
+.address-picker-option label {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  padding: 18px 16px;
+  cursor: pointer;
+}
+.address-picker-option.is-selected label { padding-bottom: 3px; }
+.address-picker-option input { width: 18px; height: 18px; margin: 2px 0 0; padding: 0; accent-color: #396f17; cursor: pointer; }
+.address-picker-option strong, .address-picker-option small { display: block; overflow-wrap: anywhere; }
+.address-picker-option strong { font-size: 15px; line-height: 1.45; font-weight: 600; color: #202b22; }
+.address-picker-option small { margin-top: 2px; color: #58645a; font-size: 13px; line-height: 1.5; }
+.address-picker-edit, .address-picker-delete {
+  display: inline-flex; align-items: center; gap: 5px; min-height: 28px; padding: 0;
+  border: 0; background: transparent; color: #315f20; font-size: 13px; font-weight: 600;
+  text-decoration: underline; text-underline-offset: 3px;
+}
+.address-picker-edit { margin: 0 16px 12px 46px; }
+.address-picker-delete { align-self: flex-start; color: #983b35; }
+.address-picker-edit:disabled, .address-picker-delete:disabled { opacity: .55; }
+.address-picker-actions { display: flex; flex: 0 0 auto; justify-content: flex-end; gap: 9px; padding-top: 20px; }
+.address-picker-actions .btn-primary { background: #396f17; box-shadow: none; }
+.address-picker-actions .btn-primary:hover:enabled { background: #294f13; }
+.address-picker-actions .btn-secondary { background: #edf4e8; border: 1px solid transparent; color: #315e21; }
+.address-picker-actions .btn-secondary:hover:enabled { background: #e1edd8; }
+.address-picker-form, .address-picker-form fieldset { display: grid; min-width: 0; gap: 12px; }
+.address-picker-form fieldset { border: 0; }
+.address-picker-form .address-picker-actions { padding-top: 6px; }
+.address-picker-form .address-picker-delete { justify-self: start; }
+.address-picker-status, .address-picker-empty { display: grid; justify-items: center; gap: 12px; padding: 26px 12px; color: #566454; text-align: center; font-size: 14px; }
+.address-picker-empty { background: #f5f8f2; border-radius: 10px; }
+.address-picker-empty svg { color: #497b2c; }
+.address-picker-error { margin-bottom: 12px; color: #93362e; font-size: 13px; }
+
+@media (max-width: 440px) {
+  .address-picker-actions { flex-direction: column; }
+  .address-picker-form .address-picker-actions { flex-direction: column-reverse; }
+  .address-picker-actions button { width: 100%; min-height: 43px; }
+}

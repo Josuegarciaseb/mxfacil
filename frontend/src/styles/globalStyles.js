@@ -100,6 +100,8 @@ export const injectStyles = () => {
     tbody tr:last-child td { border-bottom:none; }
 
     /* Modales */
+    .modal-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px; }
+    .modal-heading h3 { font-size:17px; color:var(--gray-900); }
     .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.52); backdrop-filter:blur(6px); z-index:9999; overflow-y:auto; padding:48px 16px 40px; animation:fadeIn .2s ease; }
     .modal { background:var(--white); border:1px solid var(--gray-200); border-radius:var(--radius-xl); padding:24px; width:100%; max-width:520px; margin:0 auto; box-shadow:var(--shadow-lg); animation:fadeUp .3s cubic-bezier(.22,1,.36,1); position:relative; }
 

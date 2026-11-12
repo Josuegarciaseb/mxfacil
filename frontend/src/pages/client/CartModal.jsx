@@ -5,10 +5,11 @@ import { createPortal } from "react-dom";
 import { http } from "../../utils/api";
 import { toast } from "../../utils/toast";
 import { useBreakpoint } from "../../hooks/useBreakpoint";
-import { PAYMENT_METHODS } from "../../constants";
+import { EMPTY_ADDRESS, PAYMENT_METHODS } from "../../constants";
 import Btn from "../../components/ui/Btn";
 import EmptyState from "../../components/ui/EmptyState";
-import { SelectField, InputField } from "../../components/ui/FormFields";
+import { SelectField } from "../../components/ui/FormFields";
+import AddressFields from "../../components/shipping/AddressFields";
 import Icon from "../../components/ui/Icon";
 import EstimadoDomicilio from "../../components/shipping/EstimadoDomicilio";
 import "../../components/shipping/flete.css";
@@ -18,9 +19,7 @@ const MercadoPagoCheckout = lazy(()=>import('../../components/payments/MercadoPa
 
 const DIGITAL_METHODS = ["tarjeta", "paypal", "mercadopago"];
 
-const EMPTY_ADDR = { linea1: "", ciudad: "", estado: "", cp: "", pais: "Mexico", es_principal: true };
-
-const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth, initialPayment, userId, onOrdered }) => {
+const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth, initialPayment, userId, onOrdered, onAddressSaved }) => {
   const [direcciones, setDirecciones]   = useState([]);
   const [orderForm,   setOrderForm]     = useState({ direccion_id: "", metodo_pago: "" });
   const [methods, setMethods] = useState([]);
@@ -34,7 +33,7 @@ const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth, initialPay
   const [placing,     setPlacing]       = useState(false);
   const [paymentStep, setPaymentStep]   = useState(initialPayment || null);
   const [showAddrForm, setShowAddrForm] = useState(false);
-  const [addrForm,  setAddrForm]        = useState(EMPTY_ADDR);
+  const [addrForm,  setAddrForm]        = useState(EMPTY_ADDRESS);
   const [savingAddr, setSavingAddr]     = useState(false);
   const { isMobile } = useBreakpoint();
 
@@ -75,9 +74,10 @@ const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth, initialPay
       }, token);
       toast("Dirección agregada");
       setShowAddrForm(false);
-      setAddrForm(EMPTY_ADDR);
+      setAddrForm(EMPTY_ADDRESS);
       setDirecciones(d=>[address,...d]);
       setOrderForm(f=>({...f,direccion_id:address.id}));
+      onAddressSaved?.();
     } catch (e) {
       toast(e.message, "error");
     } finally {
@@ -478,41 +478,7 @@ const CartModal = ({ open, onClose, cart, setCart, token, onNeedAuth, initialPay
                     <Icon name="x" size={14} />
                   </button>
                 </div>
-                <InputField
-                  label="Calle y número"
-                  value={addrForm.linea1}
-                  onChange={(e) => setAddrForm((f) => ({ ...f, linea1: e.target.value }))}
-                  placeholder="Av. Reforma 123, Col. Centro"
-                />
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                  <InputField
-                    label="Ciudad"
-                    value={addrForm.ciudad}
-                    onChange={(e) => setAddrForm((f) => ({ ...f, ciudad: e.target.value }))}
-                    placeholder="Ciudad de México"
-                  />
-                  <InputField
-                    label="Estado"
-                    value={addrForm.estado}
-                    onChange={(e) => setAddrForm((f) => ({ ...f, estado: e.target.value }))}
-                    placeholder="CDMX"
-                  />
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                  <InputField
-                    label="Código Postal"
-                    value={addrForm.cp}
-                    onChange={(e) => setAddrForm((f) => ({ ...f, cp: e.target.value }))}
-                    placeholder="06600"
-                    maxLength={5}
-                  />
-                  <InputField
-                    label="País"
-                    value={addrForm.pais}
-                    onChange={(e) => setAddrForm((f) => ({ ...f, pais: e.target.value }))}
-                    placeholder="Mexico"
-                  />
-                </div>
+                <AddressFields value={addrForm} onChange={setAddrForm} />
                 <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", paddingTop: 4 }}>
                   <button onClick={() => setShowAddrForm(false)} style={{ background: "transparent", border: "1px solid var(--gray-200)", borderRadius: 7, padding: "7px 14px", fontSize: 12, fontWeight: 600, color: "var(--gray-600)", cursor: "pointer" }}>
                     Cancelar
